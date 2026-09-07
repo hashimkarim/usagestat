@@ -13,7 +13,7 @@ ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT / 'tools/publish/scripts'))
 from native_artifacts import digest
 
-SHELL = os.environ.get('USAGESTAT_TEST_POWERSHELL') or shutil.which('pwsh') or shutil.which('powershell')
+SHELL = os.environ.get('USAGESTAT_TEST_POWERSHELL') or (str(Path(os.environ['SystemRoot']) / 'System32/WindowsPowerShell/v1.0/powershell.exe') if os.name == 'nt' else shutil.which('pwsh'))
 
 
 @unittest.skipUnless(SHELL, 'PowerShell payload validation runs on Windows CI or with USAGESTAT_TEST_POWERSHELL')

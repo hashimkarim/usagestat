@@ -53,16 +53,38 @@ jobs:
             ~/.cargo/git
             target/${{ matrix.target }}/debug
           key: native-${{ matrix.runner }}-${{ matrix.target }}-rust-1.89.0-${{ hashFiles('Cargo.lock') }}
+      - name: Verify Windows PowerShell 5.1 payload guards
+        if: runner.os == 'Windows'
+        run: python -m unittest discover -s tools/publish/tests -p test_windows_installer.py
       - name: Build, test, and exercise installed binaries
         run: python tools/portability/native_checks.py --target ${{ matrix.target }}
-      - name: Verify PowerShell payload guards and transactional native installation
+      - name: Verify transactional native Windows installation
         if: ${{ !cancelled() && runner.os == 'Windows' }}
-        run: |
-          python -m unittest discover -s tools/publish/tests -p test_windows_installer.py
-          python tools/portability/windows_installer.py --binary-dir target/${{ matrix.target }}/debug --report target/native-results/windows-installer.json
+        run: python tools/portability/windows_installer.py --binary-dir target/${{ matrix.target }}/debug --report target/native-results/windows-installer.json
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: native-results-${{ matrix.target }}
           path: target/native-results
           if-no-files-found: warn
+
+  verify-evidence:
+    name: Verify complete native evidence
+    needs: native
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m unittest discover -s tools/tests -p test_native_reports.py
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: native-results-*
+          path: target/native-evidence
+      - name: Require every target, fixture and service result at this commit
+        env:
+          EXPECTED_SOURCE_COMMIT: ${{ github.sha }}
+        run: python tools/portability/verify_native_reports.py --reports target/native-evidence --source-commit "$EXPECTED_SOURCE_COMMIT"

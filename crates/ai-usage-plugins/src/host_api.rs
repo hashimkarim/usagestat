@@ -2326,6 +2326,13 @@ mod tests {
     #[cfg(windows)]
     #[test]
     fn javascript_keychain_contract_roundtrips_disposable_native_credentials() {
+        // Repeated contexts expose the intermittent immediate read-after-create
+        // failure without retrying or accepting a failed operation.
+        for _ in 0..16 { javascript_keychain_roundtrip(); }
+    }
+
+    #[cfg(windows)]
+    fn javascript_keychain_roundtrip() {
         use usagestat_core::credentials::{self, CredentialError, Encoding};
         let target = format!(
             "usagestat-native-js-test-{}-{}",
@@ -2352,7 +2359,7 @@ mod tests {
             let host = Object::new(ctx.clone()).unwrap();
             inject_keychain(&ctx, &host, "credential-fixture").unwrap();
             ctx.globals().set("host", host).unwrap();
-            ctx.globals().set("target", target).unwrap();
+            ctx.globals().set("target", target.clone()).unwrap();
             let passed: rquickjs::Result<bool> = ctx.eval(r#"
                 (() => {
                   const k = host.keychain;
@@ -2391,7 +2398,13 @@ mod tests {
                     let error = thrown.unwrap();
                     ctx.globals().set("credentialFixtureError", error).unwrap();
                     let detail: String = ctx.eval("String(credentialFixtureError)").unwrap();
-                    panic!("native credential fixture failed at {step}: {detail}");
+                    let direct = match credentials::read(&target, None, Encoding::Utf8) {
+                        Ok(_) => "entry-present".to_owned(),
+                        Err(error) => error.to_string(),
+                    };
+                    // Diagnostics never turn the original failure into a pass.
+                    // The target is unique and contains synthetic data only.
+                    panic!("native credential fixture failed at {step}: {detail}; direct exact-target recheck: {direct}");
                 }
             }
         });

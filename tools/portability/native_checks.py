@@ -47,7 +47,10 @@ def main() -> int:
         raise RuntimeError(f"Native execution required: Rust host={host}, Python architecture={machine}, target={args.target}")
     lock = tomllib.loads((ROOT / "Cargo.lock").read_text(encoding="utf-8"))
     native_deps = {"rquickjs", "rquickjs-sys", "rusqlite", "libsqlite3-sys", "ring", "rustls", "reqwest", "signal-hook", "getrandom", "process-wrap", "nix", "windows"}
-    report = {"target": args.target, "system": platform.platform(), "rustc": rustc,
+    report = {"suiteSchemaVersion": 1,
+              "sourceCommit": subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip(),
+              "sourceDirty": bool(subprocess.check_output(["git", "status", "--porcelain", "--untracked-files=no"], cwd=ROOT, text=True).strip()),
+              "target": args.target, "system": platform.platform(), "rustc": rustc,
               "python": sys.version, "node": subprocess.check_output(["node", "--version"], text=True).strip(),
               "runner_image": os.environ.get("ImageVersion", "local"),
               "dependencies": [{"name": p["name"], "version": p["version"]}

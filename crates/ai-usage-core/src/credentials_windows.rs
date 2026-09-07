@@ -236,6 +236,37 @@ mod tests {
         }
     }
     #[test]
+    fn concurrent_native_current_user_roundtrips_remain_visible() {
+        // Distinct targets must not disappear when another provider writes its
+        // own credential concurrently. No retries and no real provider targets.
+        let account = current_user().unwrap();
+        std::thread::scope(|scope| {
+            for worker in 0..4 {
+                let account = &account;
+                scope.spawn(move || {
+                    for iteration in 0..16 {
+                        let target = format!("usagestat-concurrent-test-{}-{worker}-{iteration}-{}",
+                            std::process::id(), std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos());
+                        assert!(matches!(read(&target, None, Encoding::Utf8), Err(CredentialError::Missing)));
+                        let _cleanup = Disposable(target.clone());
+                        write(&target, Some(account), "synthetic concurrent credential", Encoding::Utf8).unwrap();
+                        match read(&target, Some(account), Encoding::Utf8) {
+                            Ok(item) => assert_eq!(item.password, "synthetic concurrent credential"),
+                            Err(error) => {
+                                let direct = match read(&target, None, Encoding::Utf8) {
+                                    Ok(_) => "entry-present".to_owned(),
+                                    Err(error) => error.to_string(),
+                                };
+                                panic!("current-user read after write failed for worker {worker}, iteration {iteration}: {error}; diagnostic recheck: {direct}");
+                            }
+                        }
+                    }
+                });
+            }
+        });
+    }
+
+    #[test]
     fn native_failure_categories_are_distinct_and_do_not_include_secrets() {
         assert_eq!(classify(ERROR_NOT_FOUND.0), CredentialError::Missing);
         assert_eq!(classify(ERROR_ACCESS_DENIED.0), CredentialError::Denied);

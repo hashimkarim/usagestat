@@ -74,3 +74,24 @@ Windows verifies Ctrl+C, Ctrl+Break, and actual ConPTY closure; Unix verifies
 SIGINT/SIGTERM. See [private state](private-state.md) and
 [helper execution](helper-processes.md) for guarantees and remaining service/
 provider/session qualification boundaries.
+
+## Complete evidence gate
+
+The native workflow now verifies the downloaded reports after all five jobs.
+`tools/portability/verify_native_reports.py` requires the exact clean source commit,
+every native target, all fixture sections and successful test commands. It also
+requires the actual named LaunchAgent/scheduled-task test result in its log and
+the Windows install/rollback/recovery/uninstall report. A successful command that
+ran zero selected native tests does not qualify the service adapter.
+
+Any recorded exception is a failure, including an empty assertion message. This
+corrects a reporting defect discovered while developing the Windows installer:
+runs 34089031317 and 34090014295 stopped in dev installation on macOS/Windows, but
+reported green because `str(AssertionError())` is empty. Their uploaded reports
+retain that failure. Completed earlier sections can be assessed individually;
+the omitted dev/service phases cannot be counted as passed. Path comparisons now
+handle Windows extended/short names and macOS `/var` aliases by file identity.
+
+This aggregate gate establishes fixture completeness. Real desktop login/reboot,
+minimum OS, consenting provider accounts, signing/Gatekeeper and actual native bar
+acceptance remain separate requirements in #20.
