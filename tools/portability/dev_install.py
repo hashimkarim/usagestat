@@ -11,7 +11,7 @@ from stage_dev import stage
 
 def check(binary_dir, target):
     with tempfile.TemporaryDirectory(prefix='usagestat development 使用 ') as temporary:
-        root=Path(temporary)
+        root=Path(temporary).resolve()
         destination=root/'dev installation'
         manifest=stage(binary_dir,destination,target)
         assert manifest['profile']=='usagestat-dev'
@@ -29,7 +29,10 @@ def check(binary_dir, target):
         assert len(providers)==61
         for p in providers:
             icon=(p.get('icon') or {}).get('path')
-            if icon: assert Path(icon).resolve().is_relative_to(destination.resolve()) and Path(icon).is_file(), (icon, str(destination))
+            if icon:
+                # Compare file identities: Windows extended/short path spellings
+                # and macOS /var aliases can name the very same directory.
+                assert Path(icon).is_file() and any(parent.samefile(destination) for parent in Path(icon).parents), (icon, str(destination))
         if os.name=='nt':
             assert (destination/'usagestat-service-dev.exe').is_file()
             assert run(destination/'usagestat-service-dev.exe',['--version'],root,env).strip().endswith(manifest['version'])

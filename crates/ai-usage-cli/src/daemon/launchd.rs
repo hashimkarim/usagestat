@@ -263,15 +263,10 @@ impl ServiceManager for LaunchAgent {
         // Reload the plist as well as the saved settings, so upgraded absolute
         // binary paths take effect. Preserve disabled/autostart intent.
         self.stop_loaded()?;
-        launchctl(&[
-            "bootstrap",
-            &self.domain,
-            self.file
-                .to_str()
-                .context("LaunchAgent path must be UTF-8")?,
-        ])?;
-        launchctl(&["kickstart", &self.target()])?;
-        Ok(())
+        // Starting a disabled job requires temporary enablement. Reuse the
+        // same restoration path as an explicit start so toggling T3 while
+        // running with login startup disabled keeps that state intact.
+        self.start()
     }
 }
 
@@ -659,6 +654,7 @@ mod live_tests {
         manager.enable().unwrap();
         wait_for_installation(settings.installation.as_ref().unwrap()).unwrap();
         assert!(quota_endpoint_available(&local_url(bind), &key));
+        manager.set_autostart(false).unwrap();
         assert!(
             apply_t3(
                 &mut settings,
@@ -671,6 +667,8 @@ mod live_tests {
         );
         wait_for_installation(settings.installation.as_ref().unwrap()).unwrap();
         assert!(!quota_endpoint_available(&local_url(bind), &key));
+        assert!(!manager.query().unwrap().enabled);
+        manager.set_autostart(true).unwrap();
         assert!(read_key(&key).unwrap() == retained);
         manager.disable().unwrap();
         let moved = root.join("moved installation 使用 space");

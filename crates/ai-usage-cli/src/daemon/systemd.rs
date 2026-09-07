@@ -624,9 +624,12 @@ mod live_tests {
         manager.enable().unwrap();
         wait_for_installation(settings.installation.as_ref().unwrap()).unwrap();
         assert!(quota_endpoint_available(&local_url(bind), &key));
+        manager.set_autostart(false).unwrap();
         assert!(apply_t3(&mut settings, SavedT3Mode::Off, &saved, &key, &manager).unwrap());
         wait_for_installation(settings.installation.as_ref().unwrap()).unwrap();
         assert!(!quota_endpoint_available(&local_url(bind), &key));
+        assert!(!manager.query().unwrap().enabled);
+        manager.set_autostart(true).unwrap();
         assert!(read_key(&key).unwrap() == retained);
         manager.disable().unwrap();
         let state = manager.query().unwrap();

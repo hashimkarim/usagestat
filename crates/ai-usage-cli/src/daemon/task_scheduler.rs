@@ -590,6 +590,7 @@ mod tests {
         manager.enable().unwrap();
         ready(&manager, settings.installation.as_ref().unwrap());
         assert!(quota_endpoint_available(&url, &key));
+        manager.set_autostart(false).unwrap();
         assert!(
             apply_t3(
                 &mut settings,
@@ -602,6 +603,8 @@ mod tests {
         );
         ready(&manager, settings.installation.as_ref().unwrap());
         assert!(!quota_endpoint_available(&url, &key));
+        assert!(!manager.query().unwrap().enabled);
+        manager.set_autostart(true).unwrap();
         assert_eq!(read_key(&key).unwrap(), retained);
         manager.disable().unwrap();
         let moved = root.join("moved installation 使用 & space");

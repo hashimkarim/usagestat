@@ -124,8 +124,17 @@ function Invoke-Backend([string]$Directory, [string[]]$Arguments, [string]$Binar
     } finally { $process.Dispose() }
 }
 function Get-State([string]$Directory) { return ((Invoke-Backend $Directory @('--json', 'daemon', 'status')) | ConvertFrom-Json) }
+function Comparable-Path([string]$Path) {
+    # Rust canonical paths can carry the extended drive prefix. Strip only that
+    # spelling; UNC installation roots remain outside this installer's contract.
+    if ($Path.StartsWith('\\?\')) { $Path = $Path.Substring(4) }
+    $Path = [IO.Path]::GetFullPath($Path).TrimEnd('\')
+    if (Test-Path -LiteralPath $Path) { $Path = (Get-Item -LiteralPath $Path -Force).FullName.TrimEnd('\') }
+    if ($Path.StartsWith('\\?\')) { $Path = $Path.Substring(4) }
+    return $Path
+}
 function Same-Path([string]$First, [string]$Second) {
-    return $First -and $Second -and [string]::Equals([IO.Path]::GetFullPath($First).TrimEnd('\'), [IO.Path]::GetFullPath($Second).TrimEnd('\'), [StringComparison]::OrdinalIgnoreCase)
+    return $First -and $Second -and [string]::Equals((Comparable-Path $First), (Comparable-Path $Second), [StringComparison]::OrdinalIgnoreCase)
 }
 function Assert-Owned([string]$Directory) {
     Assert-NoReparse $Directory

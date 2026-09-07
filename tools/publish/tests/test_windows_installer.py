@@ -66,6 +66,9 @@ Add-Type -AssemblyName System.IO.Compression.FileSystem
 $utf8=New-Object Text.UTF8Encoding($false)
 $app='usagestat-dev'; $BackendProfile='dev'; $markerName='usagestat-installation.json'
 function Check-Payload($Directory,$Record) { $script:checked=$true }
+if ([Environment]::OSVersion.Platform -eq [PlatformID]::Win32NT) {
+    if (-not (Same-Path $Root ('\\?\'+$Root))) { throw 'Extended Windows owner path was not recognized.' }
+}
 $result=@()
 foreach ($case in @('valid','traversal','case-alias','reserved','symlink','missing','hash','dirty-source','size')) {
     $prefix=Join-Path $Root ($case+'/destination'); $stage=Join-Path $Root ($case+'/stage')
