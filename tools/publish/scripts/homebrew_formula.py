@@ -11,8 +11,11 @@ REPOSITORY = 'https://github.com/hashimkarim/usagestat'
 
 
 def render(version, manifests, *, local_directory=None, formula_name='usagestat'):
-    if not re.fullmatch(r'(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)', version):
-        raise ValueError('Homebrew formula requires a stable semantic version')
+    stable = r'(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)'
+    identifier = r'(?:0|[1-9][0-9]*|[0-9A-Za-z-]*[A-Za-z-][0-9A-Za-z-]*)'
+    allowed = stable + (rf'(?:-{identifier}(?:\.{identifier})*)?' if local_directory else '')
+    if not re.fullmatch(allowed, version):
+        raise ValueError('Homebrew requires a stable semantic version, or a valid prerelease in a local rehearsal')
     if not re.fullmatch(r'usagestat(?:-fixture-[a-z0-9]+)?', formula_name):
         raise ValueError('Unexpected Homebrew formula name')
     selected = {}

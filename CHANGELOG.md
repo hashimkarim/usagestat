@@ -1,6 +1,11 @@
 # Changelog
 
-## Unreleased
+## 2.0.0-alpha.1 - 2026-09-07
+
+- Introduce the Windows/macOS backend alpha with native archives, per-user services, portable paths, credential/helper adapters, provider discovery and capability diagnostics.
+- Add transactional Windows installation and retained-version daemon relocation, including native rollback, interrupted recovery and external-lock fixtures.
+- Stage and test native npm packages on Linux, macOS and Windows; public npm publication remains pending.
+- Keep this unsigned alpha on GitHub Releases while desktop/account/minimum-OS/bar/signing qualification remains open. See [alpha installation](docs/alpha.md) and [release notes](docs/releases/v2.0.0-alpha.1.md).
 
 - Add provider plugin entries for Abacus AI, Alibaba, Alibaba Token Plan, AWS Bedrock, Azure OpenAI, Command Code, Deepgram, Droid, ElevenLabs, Grok, GroqCloud, LLM Proxy, Manus, Moonshot, OpenCode, StepFun, T3 Chat, Vertex AI, and Xiaomi MiMo.
 - Back `usagestat cost` and Codex/Claude cost rows with pinned ccusage runners, including total-token columns and 30-day cost summaries.

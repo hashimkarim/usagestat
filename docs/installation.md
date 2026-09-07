@@ -5,8 +5,12 @@ Use the [published support table](../README.md#install) to choose a channel for
 your system. The package channels below currently serve **v1.0.3**. For work
 from a source checkout, see [development](../README.md#development).
 
+For the Windows/macOS/Linux **v2.0.0-alpha.1** backend downloads, use the separate
+[alpha installation guide](alpha.md). Alpha archives are unsigned and public npm
+publication remains pending; the package-manager commands below install stable.
+
 The native macOS Homebrew adapter and installation rehearsal are tracked in
-[macOS distribution](macos-distribution.md). macOS public availability and signing
+[macOS distribution](macos-distribution.md). Stable macOS packages and signing
 remain pending; the commands for published Linux packages below retain their scope.
 Windows candidate ZIP and native development instructions are in
 [Windows distribution](windows-distribution.md).

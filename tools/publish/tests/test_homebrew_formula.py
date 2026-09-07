@@ -82,6 +82,22 @@ class HomebrewTests(unittest.TestCase):
                 with self.assertRaises(ValueError): brew.render(version, manifests)
             with self.assertRaises(ValueError): brew.render('1.0.3', manifests, formula_name='#{exit}')
 
+    def test_prereleases_are_local_rehearsals_only(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            self.inputs(root)
+            complete = json.loads((root / 'usagestat-artifacts.json').read_text())
+            for version in ['2.0.0-alpha.1', '2.0.0-beta.2']:
+                manifests = [dict(m, version=version) for m in complete['targets']]
+                with self.assertRaises(ValueError): brew.render(version, manifests)
+                formula = brew.render(version, manifests, local_directory=root)
+                self.assertIn(f'version "{version}"', formula)
+                self.assertIn('Local unsigned rehearsal only', formula)
+            for version in ['2.0.0-alpha.01', '2.0.0-alpha..1', '2.0.0-#{exit}', '2.0.0-alpha.1\n']:
+                manifests = [dict(m, version=version) for m in complete['targets']]
+                with self.subTest(version=version), self.assertRaises(ValueError):
+                    brew.render(version, manifests, local_directory=root)
+
     def test_changed_manifest_or_archive_is_rejected_before_rendered_output(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory); manifests = self.inputs(root)

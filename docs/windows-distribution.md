@@ -1,6 +1,7 @@
 # Windows backend installation and development
 
 Tracker: [#16](https://github.com/hashimkarim/usagestat/issues/16).
+For **v2.0.0-alpha.1**, see the [alpha downloads and quick start](alpha.md).
 Windows x64 artifacts are currently unsigned release candidates from the native
 workflow. Windows minimum-version, standard-user desktop, distinct-version upgrades
 and public distribution qualification remain pending. Windows ARM64 and 32-bit

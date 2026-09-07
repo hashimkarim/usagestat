@@ -21,7 +21,9 @@ def get(endpoint):
 def compare_existing(release, expected, prerelease):
     if release['draft'] or release['prerelease'] != prerelease:
         raise ValueError('Existing release has a different draft/prerelease state')
-    assets = {asset['name']: asset for asset in release['assets'] if asset['name'].startswith('usagestat-')}
+    installer_names = {'Install-Usagestat.ps1', 'Install-Usagestat.ps1.sha256'}
+    assets = {asset['name']: asset for asset in release['assets']
+              if asset['name'].startswith('usagestat-') or asset['name'] in installer_names}
     if set(assets) != set(expected):
         raise ValueError('Existing release is incomplete or has different native assets; inspect it before retrying')
     for name, (size, digest) in expected.items():

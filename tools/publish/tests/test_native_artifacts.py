@@ -175,6 +175,19 @@ class NativeArtifactTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 guard.compare_existing(invalid, expected, False)
 
+    def test_release_verification_requires_the_windows_installer_and_checksum(self):
+        names = ['usagestat-windows-x86_64.zip', 'Install-Usagestat.ps1', 'Install-Usagestat.ps1.sha256']
+        digest = artifacts.digest(b'original')
+        expected = {name: (8, digest) for name in names}
+        assets = [{'name': name, 'size': 8, 'digest': 'sha256:' + digest} for name in names]
+        release = {'draft': False, 'prerelease': True, 'assets': assets}
+        guard.compare_existing(release, expected, True)
+        for missing in names:
+            with self.subTest(missing=missing), self.assertRaises(ValueError):
+                guard.compare_existing(dict(release, assets=[a for a in assets if a['name'] != missing]), expected, True)
+        changed = [dict(a, digest='sha256:' + '0' * 64) if a['name'] == 'Install-Usagestat.ps1' else a for a in assets]
+        with self.assertRaises(ValueError): guard.compare_existing(dict(release, assets=changed), expected, True)
+
 
 if __name__ == '__main__':
     unittest.main()

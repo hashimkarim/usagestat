@@ -240,13 +240,24 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: python tools/publish/scripts/release_guard.py target/publish-assets
 
+      - name: Select reviewed release notes
+        id: release-notes
+        run: |
+          if test -f "docs/releases/$GITHUB_REF_NAME.md"; then
+            echo "path=docs/releases/$GITHUB_REF_NAME.md" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Create release
         if: steps.release-state.outputs.create == 'true'
         uses: softprops/action-gh-release@v2
         with:
-          files: target/publish-assets/usagestat-*
-          generate_release_notes: true
+          files: target/publish-assets/*
+          fail_on_unmatched_files: true
+          overwrite_files: false
+          body_path: ${{ steps.release-notes.outputs.path }}
+          generate_release_notes: ${{ steps.release-notes.outputs.path == '' }}
           prerelease: ${{ contains(github.ref_name, '-') }}
+          make_latest: ${{ contains(github.ref_name, '-') && 'false' || 'true' }}
 
       - name: Verify live release assets
         env:

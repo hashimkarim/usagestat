@@ -4,6 +4,10 @@ Track AI provider quotas, token usage, and costs through a scriptable CLI,
 a local dashboard, and an HTTP API.
 
 <p>
+  <a href="https://github.com/hashimkarim/usagestat/releases/tag/v2.0.0-alpha.1"><picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://shieldcn.dev/badge/Preview-v2.0.0--alpha.1-B45309.svg?variant=outline&amp;size=sm&amp;logo=github&amp;mode=dark">
+    <img alt="v2.0.0-alpha.1 backend preview" src="https://shieldcn.dev/badge/Preview-v2.0.0--alpha.1-B45309.svg?variant=outline&amp;size=sm&amp;logo=github&amp;mode=light">
+  </picture></a>
   <a href="https://github.com/Hashim-K/usagestat/releases/latest"><picture>
     <source media="(prefers-color-scheme: dark)" srcset="https://shieldcn.dev/github/Hashim-K/usagestat/release.svg?variant=outline&amp;size=sm&amp;logo=github&amp;mode=dark">
     <img alt="Latest release" src="https://shieldcn.dev/github/Hashim-K/usagestat/release.svg?variant=outline&amp;size=sm&amp;logo=github&amp;mode=light">
@@ -38,9 +42,14 @@ a local dashboard, and an HTTP API.
 
 ## Install
 
+**[Try v2.0.0-alpha.1 on Windows, macOS or Linux](docs/alpha.md).** The unsigned
+backend alpha includes native archives and a Windows per-user installer. Native
+bar frontends, desktop acceptance, signing and public npm publication remain
+pending. Stable package-manager instructions follow below.
+
 Choose a package manager already available on your system. Published packages
-and release downloads currently target **Linux**; the Homebrew formula is also
-Linux-only. Availability below was checked against release **v1.0.3**.
+and stable release downloads target **Linux**; the stable Homebrew formula is also
+Linux-only. Stable availability below was checked against release **v1.0.3**.
 
 | Channel | Published OS / CPU support | Package |
 | --- | --- | --- |

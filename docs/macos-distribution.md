@@ -1,7 +1,8 @@
 # macOS backend distribution
 
 Implementation and acceptance tracker: [#15](https://github.com/hashimkarim/usagestat/issues/15).
-macOS packages remain pending public qualification. The currently published
+Unsigned **v2.0.0-alpha.1** archives are covered in the [alpha installation guide](alpha.md).
+Stable macOS packages remain pending public qualification. The currently published
 Homebrew formula supports Linux. The existing owned tap is
 [`hashimkarim/homebrew-tap`](https://github.com/hashimkarim/homebrew-tap).
 
