@@ -36,6 +36,13 @@ class NativeEvidenceTests(unittest.TestCase):
                 path.write_text(json.dumps({**original, **modification}))
                 with self.subTest(modification=modification), self.assertRaises(ValueError): evidence.verify(root, 'a' * 40)
             path.write_text(json.dumps(original))
+            installer = path.parent / 'windows-installer.json'
+            installer_bytes = installer.read_bytes()
+            for modification in [{'error': ''}, {'input': 'verified-release', 'checks': sorted(evidence.INSTALLER_CHECKS)},
+                                 {'input': 'native-debug-fixture', 'checks': sorted(evidence.INSTALLER_CHECKS - {'locked-recovery-retains-journal-until-release'})}]:
+                installer.write_text(json.dumps(modification))
+                with self.subTest(installer=modification), self.assertRaises(ValueError): evidence.verify(root, 'a' * 40)
+            installer.write_bytes(installer_bytes)
             log = path.parent / 'scheduled-task-tests.log'
             log.write_text('test result: ok. 0 passed; 0 failed\n')
             with self.assertRaisesRegex(ValueError, 'did not actually complete'): evidence.verify(root, 'a' * 40)

@@ -128,6 +128,14 @@ and external file-lock qualification remain tracked by #16/#20. The release
 workflow includes the script/checksum in Windows candidate assets and blocks
 publication if that rehearsal fails.
 
+The current harness additionally holds native directory handles in another process
+without delete sharing. It checks that a blocked upgrade restores service intent,
+blocked recovery retains its journal/backup, and blocked uninstall leaves the
+payload for retry after handle release. These three checks bring the current
+installer gate to ten scenarios; they require a new run after the seven-check
+release evidence above. Antivirus, desktop policy and distinct-version behavior
+still require the normal-user acceptance matrix.
+
 The archive checks follow the [Microsoft ZIP extraction guidance](https://learn.microsoft.com/en-us/dotnet/standard/io/zip-tar-best-practices).
 Checksums provide integrity relative to the selected inputs; they do not establish
 an Authenticode identity. The current script accepts explicitly unsigned candidate

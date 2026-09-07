@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import contextlib
 import hashlib
 import json
 import os
@@ -22,6 +23,31 @@ sys.path.insert(0, str(ROOT / 'tools/publish/scripts'))
 from native_artifacts import archive_bytes, digest, resource_files, version
 
 INSTALLER = ROOT / 'tools/install/Install-Usagestat.ps1'
+
+
+@contextlib.contextmanager
+def hold_directory(path: Path):
+    """Keep a non-inherited native handle without FILE_SHARE_DELETE.
+
+    The installer runs in another process. Ordinary reads/launches are allowed,
+    but this handle prevents renaming/deleting the selected directory.
+    https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-createfilew
+    """
+    import ctypes
+    from ctypes import wintypes
+    kernel = ctypes.WinDLL('kernel32', use_last_error=True)
+    kernel.CreateFileW.argtypes = [wintypes.LPCWSTR, wintypes.DWORD, wintypes.DWORD,
+                                  ctypes.c_void_p, wintypes.DWORD, wintypes.DWORD, wintypes.HANDLE]
+    kernel.CreateFileW.restype = wintypes.HANDLE
+    kernel.CloseHandle.argtypes = [wintypes.HANDLE]
+    kernel.CloseHandle.restype = wintypes.BOOL
+    handle = kernel.CreateFileW(str(path), 0x80000000, 3, None, 3, 0x02000000, None)
+    if handle == wintypes.HANDLE(-1).value:
+        raise ctypes.WinError(ctypes.get_last_error())
+    try:
+        yield
+    finally:
+        if not kernel.CloseHandle(handle): raise ctypes.WinError(ctypes.get_last_error())
 
 
 def native_fixture(binary_dir: Path, output: Path) -> Path:
@@ -166,6 +192,16 @@ def check(binary_dir: Path | None = None, manifest: Path | None = None, installe
 
             command('daemon', 'autostart', 'on')
             command('daemon', 'start')
+            with hold_directory(prefix):
+                before = (prefix / 'usagestat-installation.json').read_bytes()
+                install(expected=1)
+                assert prefix.is_dir() and not journal.exists()
+                assert (prefix / 'usagestat-installation.json').read_bytes() == before
+                assert state()['healthy'] and state()['autostart'] and retained() == baseline
+            install()
+            assert state()['healthy'] and state()['autostart'] and retained() == baseline
+            result['checks'].append('locked-prefix-upgrade-restores-prior-service-state')
+
             # Fault injection affects a disposable script copy only. There is no
             # test-only environment hook in the shipped installer.
             anchor = '        Check-Payload $prefix $record\n        Restore-State $state'
@@ -185,10 +221,25 @@ def check(binary_dir: Path | None = None, manifest: Path | None = None, installe
             process = install(script=interrupted, expected=1)
             assert process.returncode == 86 and journal.exists()
             assert not state()['running'] and not state()['autostart']
+            with hold_directory(prefix):
+                before = journal.read_bytes()
+                directories = sorted(prefix.parent.glob('.usagestat-dev.backup-*'))
+                assert len(directories) == 1
+                previous_record = (directories[0] / 'usagestat-installation.json').read_bytes()
+                install('Recover', expected=1)
+                assert journal.read_bytes() == before and prefix.is_dir()
+                assert (directories[0] / 'usagestat-installation.json').read_bytes() == previous_record
+                assert not state()['running'] and retained() == baseline
             install('Recover')
             assert not journal.exists() and state()['healthy'] and state()['autostart'] and retained() == baseline
             result['checks'].append('interrupted-replacement-journal-recovery')
+            result['checks'].append('locked-recovery-retains-journal-until-release')
 
+            with hold_directory(prefix):
+                before = (prefix / 'usagestat-installation.json').read_bytes()
+                install('Uninstall', expected=1)
+                assert prefix.is_dir() and not state()['registered']
+                assert (prefix / 'usagestat-installation.json').read_bytes() == before and retained() == baseline
             install('Uninstall')
             install('Uninstall')
             assert not prefix.exists() and retained() == baseline
@@ -196,6 +247,7 @@ def check(binary_dir: Path | None = None, manifest: Path | None = None, installe
             current_path = subprocess.check_output([powershell, '-NoProfile', '-Command', "[Environment]::GetEnvironmentVariable('Path','User')"], text=True)
             assert initial_path == current_path
             result['checks'].append('uninstall-owned-task-payload-retains-data-and-user-path')
+            result['checks'].append('locked-uninstall-preserves-payload-for-retry')
         finally:
             if journal.exists(): install('Recover')
             if cli.exists():

@@ -17,7 +17,10 @@ INSTALLER_CHECKS = {'install-twice-unicode-resources-no-implicit-startup',
     'all-four-running-autostart-states-preserved',
     'failed-health-restores-previous-files-and-running-state',
     'interrupted-replacement-journal-recovery',
-    'uninstall-owned-task-payload-retains-data-and-user-path'}
+    'uninstall-owned-task-payload-retains-data-and-user-path',
+    'locked-prefix-upgrade-restores-prior-service-state',
+    'locked-recovery-retains-journal-until-release',
+    'locked-uninstall-preserves-payload-for-retry'}
 
 
 def checked_report(path):
