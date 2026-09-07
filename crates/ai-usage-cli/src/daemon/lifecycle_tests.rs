@@ -176,3 +176,41 @@ fn unregister_retains_owner_custom_key_paths_t3_intent_and_provider_data() {
     assert_eq!(fs::read_to_string(&install.management_key_file).unwrap(), "synthetic retained key");
     assert_eq!(fs::read_to_string(&install.config).unwrap(), "synthetic retained configuration");
 }
+
+// Used by the real, uniquely named native service fixtures on every platform.
+// Exercise all running/autostart combinations; installers must restore both.
+pub(super) fn independent_controls(manager: &dyn ServiceManager, install: &Installation) {
+    let state = || {
+        let state = manager.query().unwrap();
+        assert!(state.registered);
+        (state.running, state.enabled)
+    };
+    let assert_ready = || wait_for_installation(install).unwrap();
+    assert_ready();
+    assert_eq!(state(), (true, true));
+    manager.set_autostart(false).unwrap();
+    manager.set_autostart(false).unwrap();
+    assert_eq!(state(), (true, false));
+    assert_ready();
+    manager.stop().unwrap();
+    manager.stop().unwrap();
+    assert_eq!(state(), (false, false));
+    manager.start().unwrap();
+    assert_ready();
+    manager.start().unwrap();
+    assert_eq!(state(), (true, false));
+    manager.stop().unwrap();
+    manager.set_autostart(true).unwrap();
+    manager.set_autostart(true).unwrap();
+    assert_eq!(state(), (false, true));
+    manager.start().unwrap();
+    assert_ready();
+    assert_eq!(state(), (true, true));
+    manager.stop().unwrap();
+    assert_eq!(state(), (false, true));
+    manager.set_autostart(false).unwrap();
+    assert_eq!(state(), (false, false));
+    manager.enable().unwrap();
+    assert_ready();
+    assert_eq!(state(), (true, true));
+}

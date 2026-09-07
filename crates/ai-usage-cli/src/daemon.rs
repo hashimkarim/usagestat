@@ -97,6 +97,15 @@ pub enum DaemonCommand {
     },
     /// Stop and remove this profile's managed login registration; retain settings and credentials
     Unregister,
+    /// Start the registered daemon without changing login startup
+    Start,
+    /// Stop the registered daemon without changing login startup
+    Stop,
+    /// Change login startup without starting or stopping the registered daemon
+    Autostart {
+        #[arg(value_enum)]
+        mode: AutostartMode,
+    },
     /// Toggle T3 while preserving whether the daemon is running
     Toggle {
         #[arg(long, required = true)]
@@ -111,6 +120,12 @@ pub enum DaemonCommand {
     Status,
     /// Print the existing management key to paste into T3 Code
     Key,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+pub enum AutostartMode {
+    On,
+    Off,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize, ValueEnum)]
@@ -383,6 +398,24 @@ fn execute(
             manager.disable()?;
         }
         DaemonCommand::Unregister => unregister(&settings, &stored_path, manager)?,
+        DaemonCommand::Start | DaemonCommand::Stop | DaemonCommand::Autostart { .. } => {
+            manager.validate()?;
+            let install = settings.installation.as_ref().context("no saved daemon installation; use daemon enable first")?;
+            let registration = manager.query()?;
+            anyhow::ensure!(registration.registered, "no managed login registration; use daemon enable first");
+            match command {
+                DaemonCommand::Start => {
+                    if !registration.running && endpoint(&install.base_url()).occupied {
+                        bail!("the saved daemon address is occupied; preserve that process before starting this installation");
+                    }
+                    manager.start()?;
+                    wait_for_installation(install)?;
+                }
+                DaemonCommand::Stop => manager.stop()?,
+                DaemonCommand::Autostart { mode } => manager.set_autostart(*mode == AutostartMode::On)?,
+                _ => unreachable!(),
+            }
+        }
         DaemonCommand::Status => {}
         DaemonCommand::Key => unreachable!(),
     }
@@ -854,6 +887,11 @@ mod tests {
             vec!["usagestat", "daemon", "disable", "--t3"],
             vec!["usagestat", "daemon", "disable"],
             vec!["usagestat", "daemon", "enable"],
+            vec!["usagestat", "daemon", "start"],
+            vec!["usagestat", "daemon", "stop"],
+            vec!["usagestat", "daemon", "autostart", "on"],
+            vec!["usagestat", "daemon", "autostart", "off"],
+            vec!["usagestat", "daemon", "unregister"],
         ] {
             assert!(crate::Cli::try_parse_from(args).is_ok());
         }

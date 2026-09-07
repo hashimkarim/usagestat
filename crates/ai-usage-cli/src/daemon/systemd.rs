@@ -311,6 +311,21 @@ impl ServiceManager for Systemd {
         }
         Ok(())
     }
+    fn start(&self) -> Result<()> {
+        self.validate()?;
+        systemctl(&["start", self.name.as_str()])?;
+        Ok(())
+    }
+    fn stop(&self) -> Result<()> {
+        self.validate()?;
+        systemctl(&["stop", self.name.as_str()])?;
+        Ok(())
+    }
+    fn set_autostart(&self, enabled: bool) -> Result<()> {
+        self.validate()?;
+        systemctl(&[if enabled { "enable" } else { "disable" }, self.name.as_str()])?;
+        Ok(())
+    }
 }
 
 fn managed_unit(unit: &str, binary: &Path, settings: &Path) -> Result<String> {
@@ -600,6 +615,7 @@ mod live_tests {
         wait_for_installation(settings.installation.as_ref().unwrap()).unwrap();
         let state = manager.query().unwrap();
         assert!(state.registered && state.running && state.enabled);
+        super::lifecycle_tests::independent_controls(&manager, settings.installation.as_ref().unwrap());
         manager.disable().unwrap();
         assert!(!manager.query().unwrap().running);
         assert!(!apply_t3(&mut settings, SavedT3Mode::Auto, &saved, &key, &manager).unwrap());
@@ -615,6 +631,11 @@ mod live_tests {
         manager.disable().unwrap();
         let state = manager.query().unwrap();
         assert!(!state.running && !state.enabled);
+        assert!(saved.exists() && key.exists());
+        manager.unregister().unwrap();
+        manager.unregister().unwrap();
+        let removed = manager.query().unwrap();
+        assert!(!removed.registered && !removed.running && !removed.enabled);
         assert!(saved.exists() && key.exists());
     }
 }

@@ -22,6 +22,7 @@ Each feature separates three questions:
 
 The feature keys cover daemon foreground/autostart/authenticated shutdown and
 `daemon.unregister` for managed login-registration removal,
+`daemon.independentControls` for separate running/login-startup controls,
 credential operations, automatic browser import/manual credentials, helper
 process cleanup, and structured provider states. Credential availability remains
 `not-checked`: constructing capabilities never opens an OS credential store.
@@ -70,9 +71,10 @@ Plugins may return a `state` with their metrics or throw an object with an error
 available to old consumers. Host credential errors and explicit legacy login
 and timeout messages map to states; arbitrary errors remain `failed`.
 
-Automatic browser import currently reports unsupported on macOS/Windows, with
-manual credential guidance. Native implementations and their qualification are
-tracked by #18/#19. This contract does not claim real-account provider support.
+Automatic browser import has native fixture coverage on Linux, macOS and Windows.
+Windows App-Bound (`v20`) cookies remain explicitly unsupported with manual
+credential guidance. Real desktop/browser account qualification is tracked by
+#18/#19; fixture coverage does not claim real-account provider support.
 
 The native gate runs `tools/portability/diagnostics.py`: it checks installed
 missing files/helpers, invalid settings without value disclosure, cached

@@ -80,6 +80,14 @@ an independently started foreground daemon. Unmanaged service files/tasks are
 rejected before removal. Repeating it is safe after successful removal. Installers
 can discover this command through the `daemon.unregister` capability.
 
+`daemon stop` pauses an already registered daemon; `daemon start` starts it again.
+Both preserve login startup. `daemon autostart on|off` changes login startup while
+preserving whether the daemon is running. These commands require an existing
+managed registration and retain T3 mode, key paths, ownership and provider settings.
+Installers can discover this support through `daemon.independentControls` and
+restore `running` and `autostart` from `daemon status --json` independently after
+an upgrade or rollback. `enable` and `disable` retain their combined behavior.
+
 T3 compatibility is a separate opt-in:
 
 ```bash

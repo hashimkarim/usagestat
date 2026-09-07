@@ -22,6 +22,15 @@ pub(super) trait ServiceManager {
     fn install(&self, installation: &Installation, settings: &Path) -> Result<()>;
     fn enable(&self) -> Result<()>;
     fn disable(&self) -> Result<()>;
+    fn start(&self) -> Result<()> {
+        bail!("this service adapter cannot start independently of login startup")
+    }
+    fn stop(&self) -> Result<()> {
+        bail!("this service adapter cannot stop independently of login startup")
+    }
+    fn set_autostart(&self, _enabled: bool) -> Result<()> {
+        bail!("this service adapter cannot change login startup independently")
+    }
     fn unregister(&self) -> Result<()> {
         bail!("this service adapter cannot remove login registration")
     }

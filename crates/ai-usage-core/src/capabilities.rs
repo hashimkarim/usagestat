@@ -98,6 +98,10 @@ fn for_platform(
         ),
         (
             "daemon.unregister",
+            Feature::new(native, "native-fixtures"),
+        ),
+        (
+            "daemon.independentControls",
             Feature::new(native, "native-fixtures-pending"),
         ),
         (

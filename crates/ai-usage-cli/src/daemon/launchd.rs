@@ -216,6 +216,49 @@ impl ServiceManager for LaunchAgent {
         }
         Ok(())
     }
+    fn set_autostart(&self, enabled: bool) -> Result<()> {
+        self.validate()?;
+        anyhow::ensure!(self.read()?.is_some(), "LaunchAgent is not registered");
+        let previous = self.query()?.enabled;
+        self.set_disabled(!enabled)?;
+        if let Err(error) = launchctl(&[if enabled { "enable" } else { "disable" }, &self.target()]) {
+            // Keep the on-disk and launchd preferences coherent if the native
+            // update fails. Report a failed rollback rather than hiding it.
+            self.set_disabled(!previous).context("restore the LaunchAgent startup preference")?;
+            launchctl(&[if previous { "enable" } else { "disable" }, &self.target()])
+                .context("restore the native LaunchAgent startup preference")?;
+            return Err(error);
+        }
+        Ok(())
+    }
+    fn stop(&self) -> Result<()> {
+        self.validate()?;
+        self.stop_loaded()
+    }
+    fn start(&self) -> Result<()> {
+        self.validate()?;
+        let previous = self.query()?;
+        if previous.running { return Ok(()); }
+        anyhow::ensure!(previous.registered, "LaunchAgent is not registered");
+        self.stop_loaded()?;
+        self.set_autostart(true)?;
+        let started = (|| -> Result<()> {
+            launchctl(&["bootstrap", &self.domain, self.file.to_str().context("LaunchAgent path must be UTF-8")?])?;
+            // Ensure RunAtLoad has started before restoring a disabled login
+            // preference. Disabling a loaded running job does not stop it.
+            let deadline = Instant::now() + Duration::from_secs(8);
+            while !self.query()?.running {
+                anyhow::ensure!(Instant::now() < deadline, "LaunchAgent did not start within its bounded deadline");
+                std::thread::sleep(Duration::from_millis(100));
+            }
+            Ok(())
+        })();
+        let stopped = if started.is_err() { self.stop_loaded() } else { Ok(()) };
+        let restored = self.set_autostart(previous.enabled);
+        stopped.context("restore the stopped LaunchAgent after failed startup")?;
+        restored.context("restore the LaunchAgent login preference after startup")?;
+        started
+    }
     fn restart(&self) -> Result<()> {
         // Reload the plist as well as the saved settings, so upgraded absolute
         // binary paths take effect. Preserve disabled/autostart intent.
@@ -570,6 +613,7 @@ mod live_tests {
                 "native LaunchAgent did not report running"
             );
         }
+        super::lifecycle_tests::independent_controls(&manager, settings.installation.as_ref().unwrap());
         let pid = job_dictionary(&manager.label).unwrap().unwrap()["PID"]
             .as_unsigned_integer()
             .unwrap();

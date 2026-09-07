@@ -157,7 +157,7 @@ impl ScheduledTask {
         }
         Ok(())
     }
-    fn stop(&self, task: &IRegisteredTask) -> Result<()> {
+    fn stop_task(&self, task: &IRegisteredTask) -> Result<()> {
         if !task_running(task)? {
             return Ok(());
         }
@@ -302,7 +302,7 @@ impl ServiceManager for ScheduledTask {
             .task(&self.name)?
             .context("scheduled task is not installed")?;
         self.validate_task(&task)?;
-        self.stop(&task)?;
+        self.stop_task(&task)?;
         unsafe {
             task.SetEnabled(VARIANT_BOOL::from(true))?;
             task.Run(&VARIANT::default())?;
@@ -314,7 +314,7 @@ impl ServiceManager for ScheduledTask {
         if let Some(task) = session.task(&self.name)? {
             self.validate_task(&task)?;
             unsafe { task.SetEnabled(VARIANT_BOOL::from(false)) }?;
-            self.stop(&task)?;
+            self.stop_task(&task)?;
         }
         Ok(())
     }
@@ -323,11 +323,32 @@ impl ServiceManager for ScheduledTask {
         if let Some(task) = session.task(&self.name)? {
             self.validate_task(&task)?;
             unsafe { task.SetEnabled(VARIANT_BOOL::from(false)) }?;
-            self.stop(&task)?;
+            self.stop_task(&task)?;
             self.validate_task(&task)?;
             unsafe { session.folder.DeleteTask(&BSTR::from(&self.name), 0) }
                 .context("remove managed per-user scheduled task")?;
         }
+        Ok(())
+    }
+    fn start(&self) -> Result<()> {
+        if !self.query()?.running {
+            self.restart()?;
+        }
+        Ok(())
+    }
+    fn stop(&self) -> Result<()> {
+        let session = Session::connect()?;
+        if let Some(task) = session.task(&self.name)? {
+            self.validate_task(&task)?;
+            self.stop_task(&task)?;
+        }
+        Ok(())
+    }
+    fn set_autostart(&self, enabled: bool) -> Result<()> {
+        let session = Session::connect()?;
+        let task = session.task(&self.name)?.context("scheduled task is not registered")?;
+        self.validate_task(&task)?;
+        unsafe { task.SetEnabled(VARIANT_BOOL::from(enabled)) }?;
         Ok(())
     }
     fn restart(&self) -> Result<()> {
@@ -336,7 +357,7 @@ impl ServiceManager for ScheduledTask {
             .task(&self.name)?
             .context("scheduled task is not installed")?;
         self.validate_task(&task)?;
-        self.stop(&task)?;
+        self.stop_task(&task)?;
         let enabled = unsafe { task.Enabled()? };
         // Demand-running a disabled task is refused by Windows. Temporarily
         // enable it without changing the user's persisted autostart intent.
@@ -514,6 +535,7 @@ mod tests {
             let state = manager.query().unwrap();
             assert!(state.registered && state.enabled && state.running);
         }
+        super::lifecycle_tests::independent_controls(&manager, settings.installation.as_ref().unwrap());
         // Crash only this fixture's authenticated, owned backend. The launcher
         // supervisor must restart it without depending on scheduler heuristics.
         let url = settings.installation.as_ref().unwrap().base_url();
