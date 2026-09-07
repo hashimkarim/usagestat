@@ -55,6 +55,11 @@ jobs:
           key: native-${{ matrix.runner }}-${{ matrix.target }}-rust-1.89.0-${{ hashFiles('Cargo.lock') }}
       - name: Build, test, and exercise installed binaries
         run: python tools/portability/native_checks.py --target ${{ matrix.target }}
+      - name: Verify PowerShell payload guards and transactional native installation
+        if: runner.os == 'Windows'
+        run: |
+          python -m unittest discover -s tools/publish/tests -p test_windows_installer.py
+          python tools/portability/windows_installer.py --binary-dir target/${{ matrix.target }}/debug --report target/native-results/windows-installer.json
       - uses: actions/upload-artifact@v4
         if: always()
         with:

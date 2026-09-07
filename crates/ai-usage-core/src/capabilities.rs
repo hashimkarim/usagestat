@@ -102,7 +102,7 @@ fn for_platform(
         ),
         (
             "daemon.independentControls",
-            Feature::new(native, "native-fixtures-pending"),
+            Feature::new(native, "native-fixtures"),
         ),
         (
             "credentials.genericPassword",

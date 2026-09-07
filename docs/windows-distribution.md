@@ -52,11 +52,74 @@ independently started foreground process is not removed by unregister. Stop a
 foreground daemon in its own terminal before deleting its binaries. The portable
 instructions do not modify PATH; there is no PATH entry to remove.
 
-Do not overwrite running `.exe` files. A complete Windows installer still needs
-staging, owned-process stop, verified replacement, task-path update, health checks
-and failure rollback. The current native lifecycle primitives and portable ZIP
-are inputs to that work; manual extraction is not evidence for active upgrade
-recovery. Native installer/upgrade qualification remains open in #16.
+## Transactional per-user candidate installer
+
+`tools/install/Install-Usagestat.ps1` uses Windows PowerShell 5.1 and built-in .NET
+ZIP/file APIs. Download the script from the intended source commit, together with
+`usagestat-windows-x86_64.manifest.json`, its `.sha256`, the ZIP and its `.sha256`.
+The script is currently under native CI qualification; it is not a signed public
+installer. A normal installation needs none of the development tools below.
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Install-Usagestat.ps1 -Manifest .\usagestat-windows-x86_64.manifest.json
+& (Join-Path ([Environment]::GetFolderPath('LocalApplicationData')) 'Programs\usagestat\bin\usagestat.exe') --json list
+```
+
+The execution-policy option applies to this invocation only. Verify the intended
+script/source and artifact checksums before invoking downloaded code. The default
+prefix uses the native LocalApplicationData folder; `-Destination` selects another
+absolute local directory. The installed layout is `bin/` plus
+`share/usagestat/plugins` and license notices. Use the exact CLI path for bar
+configuration. PATH is unchanged. First installation does not enable a login task.
+`-BackendProfile dev` installs dev executable names and resources with the separate
+dev identity; choose a separate prefix and daemon port for coexistence.
+
+Run the same command with the next candidate to upgrade. Before any daemon change,
+the script verifies both sidecars, package/source/target identity, archive and file
+hashes, bounded sizes and regular ZIP members; it rejects traversal, Windows case
+aliases, reserved device names and reparse points. It stages on the destination
+volume and checks all three native versions, capabilities and provider discovery.
+An existing destination must carry this installer's matching ownership record and
+unchanged file inventory; extra or modified user files cause refusal. Choose a
+fresh prefix when adopting an existing manually extracted or bundled installation.
+
+For an owned scheduled task, the installer saves running/login-startup intent,
+disables startup and stops only that task and its helper job, swaps directories,
+checks the replacement and restores both states independently. The stable prefix
+keeps task, binary and bundled-resource paths valid. It does not rewrite provider
+settings, history, credentials or T3 mode. Another installation's owner is
+preserved; a foreground/conflicting daemon must be stopped in its own context.
+
+A replacement/health failure restores the previous directory and service state.
+An interrupted installer leaves a sibling transaction journal and backup. Keep
+these files, resolve any file lock or unavailable session, then run:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Install-Usagestat.ps1 -Action Recover
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Install-Usagestat.ps1 -Action Uninstall
+```
+
+Use the same `-Destination` and `-BackendProfile` on every action if customized.
+Recovery never silently commits an interrupted replacement. Uninstall validates
+its inventory and owner, unregisters the owned login task and removes its payload.
+It retains configuration, history, credentials and saved T3/owner preferences.
+The small sibling installer lock file may remain. A locked old/removed payload is
+reported by exact path for later removal; no unrelated process is killed. Reparse
+points/UNC installation roots require a regular local directory instead; native
+Known Folder resolution still supports redirected folders on another local drive.
+
+`tools/portability/windows_installer.py` runs the actual Windows PowerShell 5.1
+script against a disposable dev task, synthetic provider and isolated profile.
+It covers repeated installation, active replacement, all running/autostart states,
+checksum/unowned-file refusal, failed health rollback, abrupt process interruption,
+journal recovery and retained data/task/PATH behavior. Native execution and clean
+standard-user desktop/file-lock qualification remain tracked by #16/#20.
+
+The archive checks follow the [Microsoft ZIP extraction guidance](https://learn.microsoft.com/en-us/dotnet/standard/io/zip-tar-best-practices).
+Checksums provide integrity relative to the selected inputs; they do not establish
+an Authenticode identity. The current script accepts explicitly unsigned candidate
+metadata. A future signing integration must verify the expected publisher on the
+script and all three executables and calculate artifact hashes after signing.
 
 ## Native development build
 
