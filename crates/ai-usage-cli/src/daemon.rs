@@ -17,6 +17,7 @@ mod launchd;
 #[cfg(test)]
 mod lifecycle_tests;
 mod service;
+mod relocation;
 #[cfg(any(target_os = "linux", test))]
 mod systemd;
 #[cfg(windows)]
@@ -97,6 +98,13 @@ pub enum DaemonCommand {
     },
     /// Stop and remove this profile's managed login registration; retain settings and credentials
     Unregister,
+    /// Update the registered daemon path within its owner, preserving state with rollback
+    Relocate {
+        #[arg(long)]
+        binary: Option<PathBuf>,
+    },
+    /// Recover an interrupted installation relocation using the retained previous package
+    Recover,
     /// Start the registered daemon without changing login startup
     Start,
     /// Stop the registered daemon without changing login startup
@@ -259,13 +267,21 @@ fn execute(
             .context("another command is changing this profile's daemon settings")?,
         )
     };
+    let stored_path = settings_file()?;
+    if matches!(command, DaemonCommand::Recover) {
+        relocation::recover(&stored_path, manager)?;
+        return service_status(manager, &load_settings(manager)?);
+    }
+    if !matches!(command, DaemonCommand::Status) {
+        anyhow::ensure!(!relocation::journal_path(&stored_path).try_exists()?,
+            "an installation relocation needs recovery; retain the previous package and run daemon recover");
+    }
     let mut settings = load_settings(manager)?;
     let key_file = settings
         .installation
         .as_ref()
         .map(|i| i.management_key_file.clone())
         .unwrap_or(paths::management_key_file()?);
-    let stored_path = settings_file()?;
     match command {
         DaemonCommand::Enable {
             binary,
@@ -398,6 +414,8 @@ fn execute(
             manager.disable()?;
         }
         DaemonCommand::Unregister => unregister(&settings, &stored_path, manager)?,
+        DaemonCommand::Relocate { binary } => relocation::relocate(&mut settings, &stored_path, binary.as_deref(), manager)?,
+        DaemonCommand::Recover => unreachable!(),
         DaemonCommand::Start | DaemonCommand::Stop | DaemonCommand::Autostart { .. } => {
             manager.validate()?;
             let install = settings.installation.as_ref().context("no saved daemon installation; use daemon enable first")?;
@@ -626,11 +644,15 @@ pub(super) fn diagnostic_status() -> Result<serde_json::Value> {
 }
 
 fn wait_for_installation(installation: &Installation) -> Result<()> {
+    wait_for_installation_version(installation, env!("CARGO_PKG_VERSION"))
+}
+
+fn wait_for_installation_version(installation: &Installation, version: &str) -> Result<()> {
     let deadline = Instant::now() + Duration::from_secs(5);
     loop {
         let health = endpoint(&installation.base_url());
         if health.healthy
-            && health.version.as_deref() == Some(env!("CARGO_PKG_VERSION"))
+            && health.version.as_deref() == Some(version)
             && health.owner.as_ref() == Some(&installation.owner)
         {
             return Ok(());
@@ -892,6 +914,8 @@ mod tests {
             vec!["usagestat", "daemon", "autostart", "on"],
             vec!["usagestat", "daemon", "autostart", "off"],
             vec!["usagestat", "daemon", "unregister"],
+            vec!["usagestat", "daemon", "relocate"],
+            vec!["usagestat", "daemon", "recover"],
         ] {
             assert!(crate::Cli::try_parse_from(args).is_ok());
         }

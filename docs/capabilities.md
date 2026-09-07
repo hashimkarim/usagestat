@@ -23,6 +23,7 @@ Each feature separates three questions:
 The feature keys cover daemon foreground/autostart/authenticated shutdown and
 `daemon.unregister` for managed login-registration removal,
 `daemon.independentControls` for separate running/login-startup controls,
+`daemon.relocationRecovery` for recoverable saved-path updates within an owner,
 credential operations, automatic browser import/manual credentials, helper
 process cleanup, and structured provider states. Credential availability remains
 `not-checked`: constructing capabilities never opens an OS credential store.

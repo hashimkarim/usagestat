@@ -88,6 +88,19 @@ Installers can discover this support through `daemon.independentControls` and
 restore `running` and `autostart` from `daemon status --json` independently after
 an upgrade or rollback. `enable` and `disable` retain their combined behavior.
 
+`daemon relocate [--binary PATH]` updates a registered installation when a package
+manager moves it to another retained version under the same owner. It replaces
+recognized bundled resource paths and preserves custom paths, provider environment,
+config/key locations, T3 mode and both running/login preferences. The new CLI and
+daemon versions must match. Keep the previous package until this command succeeds.
+The operation records a private recovery journal before changing service state;
+a failed launch restores the previous registration/settings and verifies its old
+backend version. `daemon recover` resumes recovery after interruption. Other daemon
+mutations refuse a pending relocation; status remains available. A changed external
+owner/settings record is preserved for manual recovery. Repeating a completed
+relocation is safe. This command relocates saved paths; the owning installer must
+handle executable replacement in place. See the [Homebrew upgrade procedure](macos-distribution.md).
+
 T3 compatibility is a separate opt-in:
 
 ```bash

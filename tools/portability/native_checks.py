@@ -77,8 +77,7 @@ def main() -> int:
             if node_tests:
                 # Expand here: Windows subprocess does not expand shell globs.
                 command("node-tests", ["node", "--test", *[str(path) for path in node_tests]])
-            if (ROOT / "tools/tests/test_build_dev.py").exists():
-                command("python-tests", [sys.executable, "-m", "unittest", "discover", "-s", "tools/tests", "-p", "test_build_dev.py"])
+            command("python-tests", [sys.executable, "-m", "unittest", "discover", "-s", "tools/tests", "-p", "test_*.py"])
             command("provider-inventory", [sys.executable, "tools/portability/provider_inventory.py", "--check"])
             if built:
                 target_dir = Path(os.environ.get("CARGO_TARGET_DIR", ROOT / "target")).resolve()

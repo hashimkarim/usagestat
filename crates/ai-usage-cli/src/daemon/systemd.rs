@@ -554,6 +554,16 @@ mod live_tests {
         assert!(binary.is_file());
         let directory = usagestat_core::storage::temporary_directory().unwrap();
         let root = directory.path();
+        let package = root.join("Cellar/usagestat-native-fixture");
+        fs::create_dir_all(&package).unwrap();
+        let package = package.canonicalize().unwrap();
+        let original = package.join("1.0.0/bin/usagestatd");
+        let replacement = package.join("1.0.1/bin/usagestatd");
+        for target in [&original, &replacement] {
+            fs::create_dir_all(target.parent().unwrap()).unwrap();
+            fs::copy(&binary, target).unwrap();
+        }
+        let binary = original;
         let name = format!("usagestat-native-test-{}.service", std::process::id());
         let manager = Systemd {
             file: service_unit_file().unwrap().with_file_name(&name),
@@ -576,7 +586,7 @@ mod live_tests {
         let mut settings = DaemonSettings {
             t3_mode: SavedT3Mode::Off,
             installation: Some(Installation {
-                owner: root.to_owned(),
+                owner: package.clone(),
                 binary,
                 bind,
                 config,
@@ -630,6 +640,21 @@ mod live_tests {
         assert!(!quota_endpoint_available(&local_url(bind), &key));
         assert!(!manager.query().unwrap().enabled);
         manager.set_autostart(true).unwrap();
+        assert!(read_key(&key).unwrap() == retained);
+        super::relocation::relocate(&mut settings, &saved, Some(&replacement), &manager).unwrap();
+        assert_eq!(settings.installation.as_ref().unwrap().binary, replacement);
+        assert!(manager.query().unwrap().running && manager.query().unwrap().enabled);
+        assert!(!super::relocation::journal_path(&saved).exists());
+        let failed = package.join("0.0.0-fixture/bin/usagestatd");
+        fs::create_dir_all(failed.parent().unwrap()).unwrap();
+        fs::write(&failed, format!("#!/bin/sh\nif [ \"$1\" = \"--version\" ]; then printf 'usagestatd {}\\n'; exit 0; fi\nexit 79\n", env!("CARGO_PKG_VERSION"))).unwrap();
+        use std::os::unix::fs::PermissionsExt;
+        fs::set_permissions(&failed, fs::Permissions::from_mode(0o700)).unwrap();
+        let previous = settings.clone();
+        assert!(super::relocation::relocate(&mut settings, &saved, Some(&failed), &manager).unwrap_err().to_string().contains("recovered"));
+        assert_eq!(settings, previous);
+        wait_for_installation(settings.installation.as_ref().unwrap()).unwrap();
+        assert!(manager.query().unwrap().running && manager.query().unwrap().enabled);
         assert!(read_key(&key).unwrap() == retained);
         manager.disable().unwrap();
         let state = manager.query().unwrap();

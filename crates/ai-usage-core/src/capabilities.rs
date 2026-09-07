@@ -105,6 +105,10 @@ fn for_platform(
             Feature::new(native, "native-fixtures"),
         ),
         (
+            "daemon.relocationRecovery",
+            Feature::new(native, "native-fixtures-pending"),
+        ),
+        (
             "credentials.genericPassword",
             Feature::new(
                 native,

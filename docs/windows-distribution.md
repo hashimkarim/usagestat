@@ -57,7 +57,7 @@ instructions do not modify PATH; there is no PATH entry to remove.
 `tools/install/Install-Usagestat.ps1` uses Windows PowerShell 5.1 and built-in .NET
 ZIP/file APIs. Download the script from the intended source commit, together with
 `usagestat-windows-x86_64.manifest.json`, its `.sha256`, the ZIP and its `.sha256`.
-The script is currently under native CI qualification; it is not a signed public
+The script passed native Windows installation/recovery fixtures; it is not a signed public
 installer. A normal installation needs none of the development tools below.
 
 ```powershell
@@ -112,8 +112,17 @@ Known Folder resolution still supports redirected folders on another local drive
 script against a disposable dev task, synthetic provider and isolated profile.
 It covers repeated installation, active replacement, all running/autostart states,
 checksum/unowned-file refusal, failed health rollback, abrupt process interruption,
-journal recovery and retained data/task/PATH behavior. Native execution and clean
-standard-user desktop/file-lock qualification remain tracked by #16/#20.
+journal recovery and retained data/task/PATH behavior. All seven native installer checks passed at `312d650` in
+[run 34091938867](https://github.com/hashimkarim/usagestat/actions/runs/34091938867)
+and again at `59364d9` in
+[run 34093341181](https://github.com/hashimkarim/usagestat/actions/runs/34093341181).
+The first overall run failed an independent credential Rust test; its installer
+report and scheduled-task fixture completed. The second passed all five native
+jobs but exposed an omitted Python command in the new aggregate evidence gate.
+Actual release ZIP and clean standard-user desktop/file-lock qualification remain
+tracked by #16/#20. The release workflow now rehearses the downloaded script and
+ZIP together, includes the script/checksum in Windows candidate assets, and blocks
+publication if that rehearsal fails.
 
 The archive checks follow the [Microsoft ZIP extraction guidance](https://learn.microsoft.com/en-us/dotnet/standard/io/zip-tar-best-practices).
 Checksums provide integrity relative to the selected inputs; they do not establish

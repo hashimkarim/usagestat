@@ -50,9 +50,14 @@ It creates one uniquely named local tap/formula, installs and tests the real
 payload, checks linked executable/resource discovery, repeats installation,
 upgrades a Homebrew revision into a new keg, and removes its formula/tap while
 checking retained synthetic user data. It refuses to replace an existing linked
-backend and requires a disposable hosted Mac runner. It does not register a
-LaunchAgent. Results are uploaded as `homebrew-rehearsal-*`; absence or failure
-blocks the release workflow. Native CI separately exercises the LaunchAgent
+backend or login agent and requires a disposable hosted Mac runner. The current
+expanded rehearsal registers the otherwise absent agent with an isolated HOME,
+config/data profile and no enabled provider. It upgrades four retained Homebrew
+revisions and uses `daemon relocate` to preserve every running/autostart combination.
+A deliberately failing fixture executable verifies rollback; killing a relocation
+command verifies the private journal and `daemon recover`. These expanded checks
+are pending their native release run. Results are uploaded as `homebrew-rehearsal-*`;
+failures block the release workflow. Native CI separately tests the LaunchAgent
 adapter with an isolated service identity.
 
 Public installation commands will be `brew install hashimkarim/tap/usagestat`,
@@ -60,16 +65,39 @@ Public installation commands will be `brew install hashimkarim/tap/usagestat`,
 `brew uninstall hashimkarim/tap/usagestat` once the Mac formula is qualified and
 published. Before removing a managed installation, use `usagestat daemon unregister`
 to stop/remove its owned LaunchAgent while retaining saved intent and keys.
-Uninstall retains configuration/history/credentials. Active-daemon upgrades,
-failed replacement recovery, and
-bar/Homebrew coexistence still need their lifecycle implementation/acceptance;
-the revision fixture does not establish those behaviors.
+Uninstall retains configuration/history/credentials. Normal desktop and
+bar/Homebrew coexistence acceptance remains pending. The original six-check
+rehearsal linked above predates the new active relocation and recovery tests.
+
+For an already registered Homebrew daemon, retain its previous keg during the
+package upgrade, then relocate the registration from the newly selected CLI:
+
+```sh
+HOMEBREW_NO_INSTALL_CLEANUP=1 brew upgrade hashimkarim/tap/usagestat
+"$(brew --prefix usagestat)/bin/usagestat" daemon relocate
+```
+
+Use the actual selected formula name if testing a local fixture. Installation
+without a registered daemon does not need relocation; opt into startup separately
+with `daemon enable`. On success, saved binary and bundled plugin paths point to
+the new keg; paused or autostart-disabled states, custom provider/config/key paths,
+T3 intent and environment remain unchanged. Repeating relocation is safe.
+
+If relocation fails, the previous retained executable and settings are restored.
+An interrupted command leaves `daemon-relocation.json` beside the private settings;
+retain both kegs and run the selected CLI's `daemon recover`. Recovery refuses
+unrelated settings/owner changes or a missing/changed previous executable. It does
+not change Homebrew's selected formula or remove its kegs. If the daemon has rolled
+back to an older backend version, use that retained keg's matching CLI for the bar
+until the package issue is resolved. Run `brew cleanup usagestat` only after a
+successful relocation, when keeping the previous package is no longer needed.
+Raw in-place/npm replacements use their owning installer's restart/rollback flow.
 
 Re-enabling a relocated installation now replaces recognized old bundled plugin
 paths with locations derived from the selected new daemon executable. Custom
 plugin paths keep their precedence; matching still works after the old keg was
 removed. Explicit owner transfers apply the new archive/app resource layout.
-This relocation fix does not itself orchestrate an active package-manager upgrade.
+The recoverable `daemon relocate` operation uses this mapping after the package manager has installed and verified the new keg.
 
 Direct desktop signing belongs to the actual macOS bar bundle, whose frontend
 is tracked in [bar #15](https://github.com/hashimkarim/usagestat-bar/issues/15).
