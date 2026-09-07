@@ -70,6 +70,7 @@ pub fn current_user() -> Result<String> {
     String::from_utf16(text).map_err(|_| CredentialError::Malformed)
 }
 pub fn read(target: &str, account: Option<&str>, encoding: Encoding) -> Result<PasswordItem> {
+    let _lock = MUTATIONS.lock().unwrap_or_else(|e| e.into_inner());
     let value = load(target, account)?;
     let credential = unsafe { &*value.0 };
     let size = credential.CredentialBlobSize as usize;
@@ -88,8 +89,10 @@ pub fn read(target: &str, account: Option<&str>, encoding: Encoding) -> Result<P
         password: encoding.decode(bytes)?,
     })
 }
-// Serialize this process's read-check-write operations. Windows does not expose
-// an atomic compare-and-swap against another application's concurrent refresh.
+// Serialize this process's native reads, writes and deletion, including copying
+// and freeing the returned credential buffers. The native concurrent fixture
+// exercises immediate visibility and metadata preservation across providers.
+// This is not an atomic compare-and-swap against another application's refresh.
 static MUTATIONS: std::sync::Mutex<()> = std::sync::Mutex::new(());
 pub fn write(
     target: &str,
@@ -191,6 +194,7 @@ mod tests {
                 Err(CredentialError::AccountMismatch)
             ));
             {
+                let _lock = MUTATIONS.lock().unwrap_or_else(|e| e.into_inner());
                 let original = load(&target, None).unwrap();
                 let mut original_value = unsafe { *original.0 };
                 let mut comment: Vec<u16> = "synthetic retained comment"
@@ -210,17 +214,20 @@ mod tests {
                 encoding,
             )
             .unwrap();
-            let refreshed = load(&target, None).unwrap();
-            let raw = unsafe { &*refreshed.0 };
-            assert_eq!(raw.Persist, CRED_PERSIST_SESSION);
-            assert_eq!(
-                unsafe { raw.Comment.to_string() }.unwrap(),
-                "synthetic retained comment"
-            );
-            assert_eq!(
-                unsafe { raw.TargetAlias.to_string() }.unwrap(),
-                "synthetic-alias"
-            );
+            {
+                let _lock = MUTATIONS.lock().unwrap_or_else(|e| e.into_inner());
+                let refreshed = load(&target, None).unwrap();
+                let raw = unsafe { &*refreshed.0 };
+                assert_eq!(raw.Persist, CRED_PERSIST_SESSION);
+                assert_eq!(
+                    unsafe { raw.Comment.to_string() }.unwrap(),
+                    "synthetic retained comment"
+                );
+                assert_eq!(
+                    unsafe { raw.TargetAlias.to_string() }.unwrap(),
+                    "synthetic-alias"
+                );
+            }
             assert_eq!(
                 read(&target, None, encoding).unwrap().account,
                 "使用-account"
