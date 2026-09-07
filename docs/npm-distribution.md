@@ -49,6 +49,13 @@ installations at `68b5e20`. This regenerated the packages with runtime-only
 resources, excluding provider tests while retaining Droid's shared Factory entry.
 Publication jobs were skipped; no registry or GitHub release was created.
 
+The same five-target rehearsal passed again with `3ae3be1`'s release binaries in
+[run 34094784327](https://github.com/hashimkarim/usagestat/actions/runs/34094784327),
+alongside native Homebrew and Windows installer tests. The npm checks cover a
+stopped same-version reinstall; they do not establish an interrupted distinct-
+version npm upgrade or public registry publication. Follow the explicit state
+restoration and unregister-before-removal instructions in the package README.
+
 The publication helper checks every staged/existing version before uploading,
 publishes and verifies platforms before the main package, and rejects conflicting
 published bytes. Retries skip only matching integrity and metadata. It sets

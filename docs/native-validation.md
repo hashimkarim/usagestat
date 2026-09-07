@@ -95,3 +95,17 @@ handle Windows extended/short names and macOS `/var` aliases by file identity.
 This aggregate gate establishes fixture completeness. Real desktop login/reboot,
 minimum OS, consenting provider accounts, signing/Gatekeeper and actual native bar
 acceptance remain separate requirements in #20.
+
+The complete gate passed at `3ae3be1` in
+[run 34094685300](https://github.com/hashimkarim/usagestat/actions/runs/34094685300).
+All five reports were downloaded and rechecked against the exact source commit;
+the Windows credential stress and named scheduled-task test, both named Mac
+LaunchAgent tests, Python checks and seven Windows installer checks completed.
+
+The same source passed
+[release rehearsal 34094784327](https://github.com/hashimkarim/usagestat/actions/runs/34094784327):
+five release archives and npm installations, both nine-check Homebrew rehearsals
+with active relocation/recovery, and the seven-check Windows installer using the
+verified release ZIP and downloaded script. Publication jobs were skipped.
+The [desktop qualification handoff](desktop-qualification.md) records the
+remaining acceptance matrix and the evidence needed to close the open issues.

@@ -5,11 +5,11 @@ macOS packages remain pending public qualification. The currently published
 Homebrew formula supports Linux. The existing owned tap is
 [`hashimkarim/homebrew-tap`](https://github.com/hashimkarim/homebrew-tap).
 
-[Release rehearsal 34087543142](https://github.com/hashimkarim/usagestat/actions/runs/34087543142)
-at `e04efb6` passed both native Homebrew installation/revision-upgrade/removal jobs,
-all five archive builds and all five npm installation rehearsals. Publication
-jobs were skipped. This evidence predates later daemon unregister/relocation work;
-those changes still need the final candidate rerun.
+[Release rehearsal 34094784327](https://github.com/hashimkarim/usagestat/actions/runs/34094784327)
+at `3ae3be1` passed both native Homebrew installation/active-revision-upgrade/
+recovery/removal jobs, all five archive builds and all five npm installation
+rehearsals. Both Homebrew reports contain all nine checks. Publication jobs were
+skipped; signed distribution and normal desktop acceptance remain pending.
 
 The release workflow builds separate Intel and Apple Silicon archives containing
 `usagestat`, `usagestatd`, bundled plugins/icons and license notices. No Node or
@@ -56,7 +56,7 @@ config/data profile and no enabled provider. It upgrades four retained Homebrew
 revisions and uses `daemon relocate` to preserve every running/autostart combination.
 A deliberately failing fixture executable verifies rollback; killing a relocation
 command verifies the private journal and `daemon recover`. These expanded checks
-are pending their native release run. Results are uploaded as `homebrew-rehearsal-*`;
+passed in the release run linked above. Results are uploaded as `homebrew-rehearsal-*`;
 failures block the release workflow. Native CI separately tests the LaunchAgent
 adapter with an isolated service identity.
 
@@ -66,8 +66,9 @@ Public installation commands will be `brew install hashimkarim/tap/usagestat`,
 published. Before removing a managed installation, use `usagestat daemon unregister`
 to stop/remove its owned LaunchAgent while retaining saved intent and keys.
 Uninstall retains configuration/history/credentials. Normal desktop and
-bar/Homebrew coexistence acceptance remains pending. The original six-check
-rehearsal linked above predates the new active relocation and recovery tests.
+bar/Homebrew coexistence acceptance remains pending. Rehearsal upgrades use actual
+Homebrew revisions of one verified backend build; upgrades between different
+backend versions still need release-pair qualification.
 
 For an already registered Homebrew daemon, retain its previous keg during the
 package upgrade, then relocate the registration from the newly selected CLI:

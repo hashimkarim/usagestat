@@ -2,7 +2,7 @@
 
 Tracker: [#16](https://github.com/hashimkarim/usagestat/issues/16).
 Windows x64 artifacts are currently unsigned release candidates from the native
-workflow. Windows minimum-version, standard-user desktop, active upgrade/rollback
+workflow. Windows minimum-version, standard-user desktop, distinct-version upgrades
 and public distribution qualification remain pending. Windows ARM64 and 32-bit
 builds are not included. npm is also a planned distribution channel; its native
 installation rehearsal passed, but registry publication is still disabled.
@@ -119,9 +119,13 @@ and again at `59364d9` in
 The first overall run failed an independent credential Rust test; its installer
 report and scheduled-task fixture completed. The second passed all five native
 jobs but exposed an omitted Python command in the new aggregate evidence gate.
-Actual release ZIP and clean standard-user desktop/file-lock qualification remain
-tracked by #16/#20. The release workflow now rehearses the downloaded script and
-ZIP together, includes the script/checksum in Windows candidate assets, and blocks
+The same seven checks also passed with the actual release ZIP and downloaded
+script at `3ae3be1` in
+[release rehearsal 34094784327](https://github.com/hashimkarim/usagestat/actions/runs/34094784327).
+Its report records `input: verified-release` and Windows PowerShell 5.1. Replacements
+use the same verified build; distinct-version upgrades, clean standard-user desktop
+and external file-lock qualification remain tracked by #16/#20. The release
+workflow includes the script/checksum in Windows candidate assets and blocks
 publication if that rehearsal fails.
 
 The archive checks follow the [Microsoft ZIP extraction guidance](https://learn.microsoft.com/en-us/dotnet/standard/io/zip-tar-best-practices).

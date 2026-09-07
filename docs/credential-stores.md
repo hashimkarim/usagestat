@@ -25,7 +25,7 @@ retains the existing target, username, persistence, attributes, comment and alia
 An account mismatch or oversized payload leaves the entry unchanged. New records
 use current-user local-machine persistence (not a machine-wide credential).
 Windows supplies no compare-and-swap operation for a competing application's
-refresh; mutations within this process are serialized.
+refresh; reads, writes and deletes within this process are serialized.
 
 `host.keychain.capabilities` reports `genericPassword`, `genericItemAccount`,
 `internetPassword`, and `windowsExactTarget`. Internet-password lookup remains a
@@ -40,7 +40,7 @@ verification or a claim that all auth modes in the provider matrix are supported
 
 | Upstream | Windows target | Blob | Integration status |
 | --- | --- | --- | --- |
-| Codex direct keyring storage | `cli\|<first 16 SHA-256 hex digits of canonical CODEX_HOME>.Codex Auth`; username is `cli\|<hash>` | UTF-16LE JSON via keyring-rs 3.6 | Provider migration pending #11; secrets-manager-backed mode must be audited separately |
+| Codex direct keyring storage | `cli\|<first 16 SHA-256 hex digits of canonical CODEX_HOME>.Codex Auth`; username is `cli\|<hash>` | UTF-16LE JSON via keyring-rs 3.6 | Native direct/encrypted fixtures pass; see [Codex authentication](codex-authentication.md) for source selection and refresh limits |
 | keyring-rs 3.6 | `<username>.<service>` unless an explicit target is supplied | `set_password` uses UTF-16; raw secret methods differ | Exact target and explicit encoding supported by host |
 | go-keyring Windows implementation | `<service>:<username>` | UTF-8 bytes | Library format established; each consuming provider/version still needs verification |
 
@@ -58,6 +58,17 @@ need consenting test-account qualification.
 The native record and JavaScript integration tests pass on Windows Server 2025
 x64 in [run 34075747116](https://github.com/hashimkarim/usagestat/actions/runs/34075747116)
 (2026-09-07); regression tests also pass on both Linux and macOS architectures.
+
+Later concurrent tests reproduced an intermittent missing immediate read and a
+metadata mismatch on Windows. Serializing reads with mutations and keeping raw
+fixture metadata operations under the same lock fixed the observed failures.
+[Run 34094685300](https://github.com/hashimkarim/usagestat/actions/runs/34094685300)
+passed four concurrent workers with 16 create/read/delete cycles each, 16 fresh
+JavaScript host contexts, metadata retention and the complete five-target gate.
+The same source passed native release workspace tests in
+[run 34094784327](https://github.com/hashimkarim/usagestat/actions/runs/34094784327).
+No retry hides a missing immediate read. These results do not establish behavior
+under a competing application's credential refresh or a locked desktop session.
 
 Microsoft documents [credential lookup in the current logon session](https://learn.microsoft.com/en-us/windows/win32/api/wincred/nf-wincred-credreadw)
 and [application-defined target/blob semantics](https://learn.microsoft.com/en-us/windows/win32/api/wincred/ns-wincred-credentialw).

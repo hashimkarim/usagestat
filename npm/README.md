@@ -40,31 +40,48 @@ native/Homebrew/bar installations retain ownership until an explicit owner
 switch. Use `daemon enable --switch-owner` only when intentionally transferring
 this profile to the npm installation.
 
-For an explicit update, first stop and disable the daemon. This releases Windows
-executable locks. Install the desired version, then enable it again if it was
-previously enabled:
+For an explicit update, record the old package version and `daemon status --json`,
+including its independent `running` and `autostart` values. For an existing managed
+installation, stop and disable the daemon before replacing its files. This releases
+Windows executable locks. Use the same durable npm global prefix:
 
 ```sh
+usagestat daemon status --json
 usagestat daemon disable
 npm install --global @hashimkarim/usagestat@VERSION --include=optional --ignore-scripts
-usagestat daemon enable
+usagestat --version
 usagestat doctor
 ```
 
-Keep a stopped daemon stopped by omitting the final enable. T3 intent, keys and
-user data survive this sequence. After an interrupted update, reinstall the
-same exact version before enabling. When changing a Node version manager or npm
-global prefix, disable the old installation first, install into the new durable
-prefix, and explicitly transfer ownership to it.
+After a successful install, restore the saved state using the retained registration:
+
+| Previous running / autostart | Commands after installation |
+| --- | --- |
+| Yes / Yes | `usagestat daemon autostart on`, then `usagestat daemon start` |
+| No / Yes | `usagestat daemon autostart on`; leave it stopped |
+| Yes / No | `usagestat daemon start`; leave autostart off |
+| No / No | Leave both off |
+
+An installation that never registered a daemon needs only the npm install and
+verification steps. T3 intent, keys and user data survive replacement. Verify
+health with `daemon status --json` after starting. If installation is interrupted
+or the replacement fails, keep startup off and reinstall the recorded previous
+exact npm version, then restore the state above. Keep that package available until
+the update is verified. These are explicit recovery steps; npm replacement is not
+an automatic transaction. When changing a Node version manager or npm global
+prefix, unregister the old installation first, install into the new durable
+prefix, and explicitly transfer ownership with `daemon enable --switch-owner`.
+Restore the previous running/autostart preferences afterward.
 
 Before removal:
 
 ```sh
-usagestat daemon disable
+usagestat daemon unregister
 npm uninstall --global @hashimkarim/usagestat --ignore-scripts
 ```
 
-User data is retained. Lifecycle hooks are never required for cleanup. Do not
+Unregister removes the owned login entry while retaining user data and saved
+preferences. Lifecycle hooks are never required for cleanup. Do not
 remove the files of a running Windows service. A one-off
 `npm exec --package=@hashimkarim/usagestat -- usagestat --version` is suitable for
 CLI use; persistent startup from the temporary `_npx`/`_cacache` path is rejected.
