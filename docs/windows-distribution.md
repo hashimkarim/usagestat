@@ -108,6 +108,14 @@ reported by exact path for later removal; no unrelated process is killed. Repars
 points/UNC installation roots require a regular local directory instead; native
 Known Folder resolution still supports redirected folders on another local drive.
 
+To remove retained backend data separately, record `doctor --json`'s `paths.config`
+and `paths.data` before uninstalling. After saving anything needed, remove only
+those selected application directories; defaults are the `usagestat` (or dev)
+subdirectories of Roaming/Local AppData. Custom overrides may point elsewhere.
+An explicitly selected config file outside those directories remains separate.
+Provider-owned Credential Manager records and provider/browser/IDE data belong to
+their respective applications and are not removed with backend history/settings.
+
 `tools/portability/windows_installer.py` runs the actual Windows PowerShell 5.1
 script against a disposable dev task, synthetic provider and isolated profile.
 It covers repeated installation, active replacement, all running/autostart states,
@@ -132,9 +140,13 @@ The current harness additionally holds native directory handles in another proce
 without delete sharing. It checks that a blocked upgrade restores service intent,
 blocked recovery retains its journal/backup, and blocked uninstall leaves the
 payload for retry after handle release. These three checks bring the current
-installer gate to ten scenarios; they require a new run after the seven-check
-release evidence above. Antivirus, desktop policy and distinct-version behavior
-still require the normal-user acceptance matrix.
+installer gate to ten scenarios. All ten passed using native debug binaries at
+`354c390` in [run 34096607532](https://github.com/hashimkarim/usagestat/actions/runs/34096607532).
+All ten also passed with the verified release ZIP and matching downloaded installer
+in [release rehearsal 34096637011](https://github.com/hashimkarim/usagestat/actions/runs/34096637011)
+at the same commit. Its report records `input: verified-release`.
+Antivirus, desktop policy and distinct-version behavior still require the
+normal-user acceptance matrix.
 
 The archive checks follow the [Microsoft ZIP extraction guidance](https://learn.microsoft.com/en-us/dotnet/standard/io/zip-tar-best-practices).
 Checksums provide integrity relative to the selected inputs; they do not establish

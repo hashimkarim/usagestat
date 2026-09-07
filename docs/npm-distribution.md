@@ -55,6 +55,8 @@ alongside native Homebrew and Windows installer tests. The npm checks cover a
 stopped same-version reinstall; they do not establish an interrupted distinct-
 version npm upgrade or public registry publication. Follow the explicit state
 restoration and unregister-before-removal instructions in the package README.
+All five npm installation jobs also passed with the final `354c390` candidate in
+[run 34096637011](https://github.com/hashimkarim/usagestat/actions/runs/34096637011).
 
 The publication helper checks every staged/existing version before uploading,
 publishes and verifies platforms before the main package, and rejects conflicting

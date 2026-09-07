@@ -10,6 +10,9 @@ at `3ae3be1` passed both native Homebrew installation/active-revision-upgrade/
 recovery/removal jobs, all five archive builds and all five npm installation
 rehearsals. Both Homebrew reports contain all nine checks. Publication jobs were
 skipped; signed distribution and normal desktop acceptance remain pending.
+The same complete rehearsal passed again at `354c390` in
+[run 34096637011](https://github.com/hashimkarim/usagestat/actions/runs/34096637011),
+including the retained-executable fingerprint check during daemon recovery.
 
 The release workflow builds separate Intel and Apple Silicon archives containing
 `usagestat`, `usagestatd`, bundled plugins/icons and license notices. No Node or

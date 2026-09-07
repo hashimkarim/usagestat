@@ -1,5 +1,21 @@
 # Native foundation validation
 
+Latest complete native evidence: [`354c390`](https://github.com/hashimkarim/usagestat/commit/354c390)
+passed [run 34096607532](https://github.com/hashimkarim/usagestat/actions/runs/34096607532)
+on all five targets, including the aggregate evidence gate and all ten Windows
+installer scenarios. Downloaded reports were independently verified against that
+exact clean commit. This includes the retained-daemon content check for relocation
+recovery. The isolated real Linux systemd lifecycle/relocation test also passed
+locally using a uniquely named unit; the existing installed daemon was preserved.
+
+The same commit passed the full
+[release rehearsal 34096637011](https://github.com/hashimkarim/usagestat/actions/runs/34096637011):
+five native archives, five npm installations, both nine-check Homebrew suites and
+all ten Windows installer scenarios using the verified release ZIP. The downloaded
+candidate's 14 checksum sidecars and five manifest source identities were also
+checked locally. Publication jobs were skipped. These unsigned candidates remain
+subject to the [desktop qualification handoff](desktop-qualification.md).
+
 The implementation branch passed the complete native foundation gate at
 [`a01c9fc`](https://github.com/hashimkarim/usagestat/commit/a01c9fc) in
 [run 34069426577](https://github.com/hashimkarim/usagestat/actions/runs/34069426577).
