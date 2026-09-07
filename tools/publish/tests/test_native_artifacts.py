@@ -149,7 +149,11 @@ class NativeArtifactTests(unittest.TestCase):
                     data = b'synthetic artifact'
                     (assets / name).write_bytes(data)
                     (assets / (name + '.sha256')).write_text(artifacts.digest(data) + '  ' + name + '\n')
-            complete = json.dumps({'targets': manifests}).encode()
+            script = (artifacts.ROOT / 'tools/install/Install-Usagestat.ps1').read_bytes()
+            name = 'Install-Usagestat.ps1'
+            (assets / name).write_bytes(script)
+            (assets / (name + '.sha256')).write_text(artifacts.digest(script) + '  ' + name + '\n')
+            complete = json.dumps({'targets': manifests, 'installers': {'windows': {'name': name, 'sha256': artifacts.digest(script)}}}).encode()
             (assets / 'usagestat-artifacts.json').write_bytes(complete)
             (assets / 'usagestat-artifacts.json.sha256').write_text(artifacts.digest(complete) + '  usagestat-artifacts.json\n')
             for channel, count in [('stable', 1), ('prerelease', 2)]:
@@ -157,6 +161,7 @@ class NativeArtifactTests(unittest.TestCase):
                 manifest = artifacts.prepare_publication(assets, output, channel)
                 self.assertEqual(len(json.loads(manifest.read_text())['targets']), count)
                 self.assertEqual(bool(list(output.glob('usagestat-windows-*'))), channel == 'prerelease')
+                self.assertEqual((output / 'Install-Usagestat.ps1').exists(), channel == 'prerelease')
 
     def test_release_retry_preserves_identical_assets_and_rejects_changed_or_partial_release(self):
         digest = artifacts.digest(b'original')

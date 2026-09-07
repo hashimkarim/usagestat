@@ -56,7 +56,13 @@ function Write-Json([string]$Path, $Value) {
         else { [IO.File]::Move($temporary, $Path) }
     } finally { if ([IO.File]::Exists($temporary)) { [IO.File]::Delete($temporary) } }
 }
-function Hash-File([string]$Path) { return (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash.ToLowerInvariant() }
+function Hash-File([string]$Path) {
+    # Avoid inherited PowerShell 7 module paths affecting Windows PowerShell 5.1.
+    $algorithm = [Security.Cryptography.SHA256]::Create()
+    $stream = [IO.File]::OpenRead($Path)
+    try { return [BitConverter]::ToString($algorithm.ComputeHash($stream)).Replace('-', '').ToLowerInvariant() }
+    finally { $stream.Dispose(); $algorithm.Dispose() }
+}
 function Assert-Checksum([string]$Path) {
     Assert-NoReparse $Path
     $sidecar = $Path + '.sha256'
@@ -123,6 +129,9 @@ function Same-Path([string]$First, [string]$Second) {
 }
 function Assert-Owned([string]$Directory) {
     Assert-NoReparse $Directory
+    # The provider expands Windows short directory names when enumerating. Use
+    # that same spelling before slicing relative names (e.g. RUNNER~1 profiles).
+    $Directory = (Get-Item -LiteralPath $Directory -Force).FullName.TrimEnd([IO.Path]::DirectorySeparatorChar)
     $record = Read-Json (Join-Path $Directory $markerName)
     if ($record.schemaVersion -ne 1 -or $record.package -cne 'usagestat' -or
         $record.profile -cne $app -or -not (Same-Path $record.destination $prefix)) { throw 'This directory belongs to another installation.' }

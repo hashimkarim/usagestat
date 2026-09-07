@@ -185,10 +185,35 @@ jobs:
           path: target/homebrew-result.json
           if-no-files-found: warn
 
+  windows-installer-test:
+    name: Rehearse Windows per-user installer
+    needs: aggregate
+    runs-on: windows-2025
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/download-artifact@v4
+        with:
+          name: usagestat-complete-release-inputs
+          path: dist
+      - name: Validate installer payload guards and actual release installation
+        run: |
+          python -m unittest discover -s tools/publish/tests -p test_windows_installer.py
+          python tools/portability/windows_installer.py --manifest dist/usagestat-windows-x86_64.manifest.json --installer dist/Install-Usagestat.ps1 --report target/windows-installer-result.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: windows-installer-rehearsal
+          path: target/windows-installer-result.json
+          if-no-files-found: warn
+
   release:
     name: Publish GitHub Release
     runs-on: ubuntu-latest
-    needs: [aggregate, npm-test, homebrew-test]
+    needs: [aggregate, npm-test, homebrew-test, windows-installer-test]
     if: github.event_name == 'push' && github.ref_type == 'tag'
     permissions:
       contents: write

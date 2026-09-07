@@ -404,7 +404,12 @@ def merge(directory: Path) -> Path:
         if digest(read_checked(archive)) != manifest["archive"]["sha256"]:
             raise ValueError("Native archive digest mismatch during aggregation")
     result = directory / "usagestat-artifacts.json"
-    data = (json.dumps({"schemaVersion": 1, "version": manifests[0]["version"], "sourceCommit": manifests[0]["sourceCommit"], "targets": manifests}, sort_keys=True, indent=2) + "\n").encode()
+    installer_name = "Install-Usagestat.ps1"
+    installer = (ROOT / "tools/install" / installer_name).read_bytes()
+    (directory / installer_name).write_bytes(installer)
+    (directory / (installer_name + ".sha256")).write_text(f"{digest(installer)}  {installer_name}\n")
+    data = (json.dumps({"schemaVersion": 1, "version": manifests[0]["version"], "sourceCommit": manifests[0]["sourceCommit"],
+        "targets": manifests, "installers": {"windows": {"name": installer_name, "sha256": digest(installer)}}}, sort_keys=True, indent=2) + "\n").encode()
     result.write_bytes(data)
     result.with_name(result.name + ".sha256").write_text(f"{digest(data)}  {result.name}\n")
     return result
@@ -426,6 +431,17 @@ def prepare_publication(directory: Path, output: Path, channel: str) -> Path:
             read_checked(directory / name)
             for path in [directory / name, directory / (name + ".sha256")]:
                 shutil.copyfile(path, output / path.name)
+    if any(manifest["os"] == "win32" for manifest in selected):
+        installer = complete["installers"]["windows"]
+        name = installer["name"]
+        if name != "Install-Usagestat.ps1" or digest(read_checked(directory / name)) != installer["sha256"]:
+            raise ValueError("Windows installer differs from its aggregate manifest")
+        if (directory / name).read_bytes() != (ROOT / "tools/install" / name).read_bytes():
+            raise ValueError("Windows installer differs from the release source")
+        for filename in [name, name + ".sha256"]:
+            shutil.copyfile(directory / filename, output / filename)
+    else:
+        complete.pop("installers", None)
     complete["targets"] = selected
     data = (json.dumps(complete, sort_keys=True, indent=2) + "\n").encode()
     result = output / "usagestat-artifacts.json"

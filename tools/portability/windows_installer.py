@@ -54,9 +54,15 @@ def native_fixture(binary_dir: Path, output: Path) -> Path:
     return path
 
 
-def check(binary_dir: Path | None = None, manifest: Path | None = None) -> dict:
+def check(binary_dir: Path | None = None, manifest: Path | None = None, installer: Path = INSTALLER) -> dict:
     if os.name != 'nt' or os.environ.get('GITHUB_ACTIONS') != 'true':
         raise RuntimeError('Installer acceptance requires a disposable Windows CI runner; it owns the otherwise absent dev task only.')
+    installer = installer.resolve()
+    if installer.read_bytes() != INSTALLER.read_bytes():
+        raise ValueError('Installer bytes disagree with the checked-out release source')
+    if installer != INSTALLER:
+        from native_artifacts import read_checked
+        read_checked(installer)
     powershell = str(Path(os.environ['SystemRoot']) / 'System32/WindowsPowerShell/v1.0/powershell.exe')
     # Before any service changes, prove the exact per-user dev task is unused.
     task_check = "$sid=[Security.Principal.WindowsIdentity]::GetCurrent().User.Value; $s=New-Object -ComObject Schedule.Service; $s.Connect(); $tasks=@($s.GetFolder('\\').GetTasks(1) | Where-Object {$_.Name -eq ('usagestat-dev-'+$sid)}); if ($tasks.Count) {throw 'Preserve the existing dev task.'}"
@@ -80,7 +86,7 @@ def check(binary_dir: Path | None = None, manifest: Path | None = None) -> dict:
         selected = manifest.resolve() if manifest else native_fixture(binary_dir.resolve(), root / 'inputs')
         journal = prefix.parent / '.usagestat-dev.usagestat-transaction.json'
 
-        def install(action='Install', script=INSTALLER, expected=0, selected_manifest=selected):
+        def install(action='Install', script=installer, expected=0, selected_manifest=selected):
             command = [powershell, '-NoLogo', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass',
                        '-File', str(script), '-Action', action, '-Destination', str(prefix), '-BackendProfile', 'dev']
             if action == 'Install': command += ['-Manifest', str(selected_manifest)]
@@ -104,7 +110,7 @@ def check(binary_dir: Path | None = None, manifest: Path | None = None) -> dict:
             install()
             assert not state()['registered'] and not (config_root / 'daemon.json').exists()
             providers = json.loads(command('--json', 'list'))
-            assert len(providers) >= 61 and all(Path(p['icon']).is_file() for p in providers if p.get('icon'))
+            assert len(providers) >= 61 and all(Path(p['icon']['path']).is_file() for p in providers if (p.get('icon') or {}).get('path'))
             install()
             assert not state()['registered']
             result['checks'].append('install-twice-unicode-resources-no-implicit-startup')
@@ -163,7 +169,7 @@ def check(binary_dir: Path | None = None, manifest: Path | None = None) -> dict:
             # Fault injection affects a disposable script copy only. There is no
             # test-only environment hook in the shipped installer.
             anchor = '        Check-Payload $prefix $record\n        Restore-State $state'
-            original = INSTALLER.read_text(encoding='utf-8')
+            original = installer.read_text(encoding='utf-8')
             assert original.count(anchor) == 1
             failed = root / 'fail-after-replacement.ps1'
             failed.write_text(original.replace(anchor, '        throw "synthetic replacement health failure"\n        Restore-State $state'), encoding='utf-8')
@@ -205,10 +211,11 @@ if __name__ == '__main__':
     inputs.add_argument('--binary-dir', type=Path)
     inputs.add_argument('--manifest', type=Path)
     parser.add_argument('--report', type=Path, required=True)
+    parser.add_argument('--installer', type=Path, default=INSTALLER)
     args = parser.parse_args()
     args.report.parent.mkdir(parents=True, exist_ok=True)
     try:
-        report = check(args.binary_dir, args.manifest)
+        report = check(args.binary_dir, args.manifest, args.installer)
     except Exception as error:
         args.report.write_text(json.dumps({'error': str(error)}, indent=2), encoding='utf-8')
         raise

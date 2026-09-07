@@ -107,11 +107,11 @@ def main() -> int:
             else:
                 report["smoke"] = {"status": "blocked", "reason": "native build failed; see build.log"}
         except Exception as error:
-            report["error"] = str(error)
+            report["error"] = f"{type(error).__name__}: {error}"
             traceback.print_exc()
         finally:
             (report_dir / "report.json").write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
-    return int(bool(report.get("error")) or any(check["exit_code"] for check in report["checks"]))
+    return int("error" in report or any(check["exit_code"] for check in report["checks"]))
 
 
 if __name__ == "__main__":

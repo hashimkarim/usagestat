@@ -3,3 +3,6 @@
 /LICENSE -text
 /tools/publish/licenses/** -text
 /tests/fixtures/bar-client/** -text
+
+# Installer checksum identity must be identical in Windows and aggregate jobs.
+tools/install/*.ps1 text eol=lf

@@ -29,7 +29,7 @@ def check(binary_dir, target):
         assert len(providers)==61
         for p in providers:
             icon=(p.get('icon') or {}).get('path')
-            if icon: assert Path(icon).is_relative_to(destination) and Path(icon).is_file()
+            if icon: assert Path(icon).resolve().is_relative_to(destination.resolve()) and Path(icon).is_file(), (icon, str(destination))
         if os.name=='nt':
             assert (destination/'usagestat-service-dev.exe').is_file()
             assert run(destination/'usagestat-service-dev.exe',['--version'],root,env).strip().endswith(manifest['version'])
