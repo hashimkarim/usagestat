@@ -12,11 +12,26 @@ struct Journal {
     running: bool,
     autostart: bool,
     old_version: String,
+    old_binary_sha256: String,
     committed: bool,
 }
 
 pub(super) fn journal_path(settings: &Path) -> PathBuf {
     settings.with_file_name("daemon-relocation.json")
+}
+
+fn binary_sha256(binary: &Path) -> Result<String> {
+    use sha2::{Digest, Sha256};
+    use std::io::Read;
+    let mut file = fs::File::open(binary).context("open the retained previous daemon")?;
+    let mut digest = Sha256::new();
+    let mut buffer = [0_u8; 65536];
+    loop {
+        let count = file.read(&mut buffer)?;
+        if count == 0 { break; }
+        digest.update(&buffer[..count]);
+    }
+    Ok(format!("{:x}", digest.finalize()))
 }
 
 fn binary_version(binary: &Path) -> Result<String> {
@@ -53,11 +68,12 @@ pub(super) fn relocate(settings: &mut DaemonSettings, path: &Path, binary: Optio
     // Package managers must retain the previous executable until relocation
     // commits. Otherwise recovery would only restore a path to a removed file.
     let old_version = binary_version(&before.binary).context("retain or restore the previous package version before relocating")?;
+    let old_binary_sha256 = binary_sha256(&before.binary)?;
     let mut after = before.clone();
     after.plugin_dirs = paths::relocate_installed_plugin_dirs(&before.plugin_dirs, &before.binary, &binary, paths::app_dir_name());
     after.binary = binary;
     let mut journal = Journal { schema_version: 1, before, after, t3_mode: settings.t3_mode,
-        running: state.running, autostart: state.enabled, old_version, committed: false };
+        running: state.running, autostart: state.enabled, old_version, old_binary_sha256, committed: false };
     let pending = journal_path(path);
     anyhow::ensure!(usagestat_core::storage::create_once(&pending, &serde_json::to_vec_pretty(&journal)?)?,
         "a previous relocation needs daemon recover before continuing");
@@ -103,6 +119,8 @@ pub(super) fn recover(path: &Path, manager: &dyn ServiceManager) -> Result<()> {
         fs::remove_file(pending)?;
         return Ok(());
     }
+    anyhow::ensure!(binary_sha256(&journal.before.binary)? == journal.old_binary_sha256,
+        "the retained previous daemon changed; restore its recorded contents before recovery");
     anyhow::ensure!(binary_version(&journal.before.binary)? == journal.old_version,
         "restore the retained previous daemon version before recovery");
     manager.validate()?;
@@ -181,8 +199,9 @@ mod tests {
         assert!(!journal_path(&path).exists());
 
         let mut after = before.clone(); after.binary = new;
+        let old_binary_sha256 = binary_sha256(&before.binary).unwrap();
         let journal = Journal { schema_version: 1, before, after, t3_mode: SavedT3Mode::Auto,
-            running: false, autostart: true, old_version: "0.9.0".into(), committed: false };
+            running: false, autostart: true, old_version: "0.9.0".into(), old_binary_sha256, committed: false };
         usagestat_core::storage::write_atomic(&journal_path(&path), &serde_json::to_vec(&journal).unwrap()).unwrap();
         let mut changed = saved(&journal, &journal.after);
         changed.t3_mode = SavedT3Mode::Off;
@@ -192,6 +211,15 @@ mod tests {
         assert!(manager.calls.borrow().is_empty());
         assert_eq!(DaemonSettings::load(&path).unwrap().unwrap(), changed);
         saved(&journal, &journal.after).save(&path).unwrap();
+        let original_binary = fs::read(&journal.before.binary).unwrap();
+        let mut modified_binary = original_binary.clone();
+        modified_binary.extend_from_slice(b"\n# Replaced payload with the same reported version\n");
+        fs::write(&journal.before.binary, modified_binary).unwrap();
+        assert_eq!(binary_version(&journal.before.binary).unwrap(), journal.old_version);
+        assert!(recover(&path, &manager).unwrap_err().to_string().contains("recorded contents"));
+        assert!(manager.calls.borrow().is_empty());
+        assert_eq!(DaemonSettings::load(&path).unwrap().unwrap(), saved(&journal, &journal.after));
+        fs::write(&journal.before.binary, original_binary).unwrap();
         recover(&path, &manager).unwrap();
         recover(&path, &manager).unwrap();
         assert_eq!(DaemonSettings::load(&path).unwrap().unwrap(), original);
