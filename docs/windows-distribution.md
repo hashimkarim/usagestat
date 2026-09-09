@@ -8,7 +8,8 @@ community review. Chocolatey selects prereleases with `--pre` rather than an alp
 package ID, as required by its naming rules.
 See [Windows package managers](alpha.md#windows-package-managers) for installation,
 updates and removal. WinGet's [tested submission](https://github.com/microsoft/winget-pkgs/pull/431692)
-passed the owner's CLA check and awaits upstream validation/review.
+passed the owner's CLA check and all upstream automated validation; review/merge
+remain pending.
 npm first publication awaits its separate account publishing approval.
 Windows minimum-version, standard-user desktop and distinct-version upgrades
 remain pending. Windows ARM64 and 32-bit builds are not included.

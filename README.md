@@ -48,9 +48,9 @@ bar frontends, desktop acceptance, signing and public npm publication remain
 pending. Stable package-manager instructions follow below.
 
 Separate **[alpha packages and installation instructions](docs/alpha.md#alpha-package-repositories)**
-are available through Fedora COPR, AUR, Homebrew (including macOS), and Scoop.
-The Ubuntu PPA build finished, but Launchpad has not published its packages.
-Chocolatey and WinGet await upstream review; WinGet's CLA check passed.
+are available through Fedora COPR, the Ubuntu PPA, AUR, Homebrew (including macOS),
+and Scoop. Chocolatey and WinGet await upstream review; all WinGet automated
+checks passed.
 npm first publication awaits the account's separate publishing approval.
 The linked guide tracks
 each channel's actual availability.
@@ -63,6 +63,10 @@ each channel's actual availability.
   <a href="https://aur.archlinux.org/packages/usagestat-alpha-bin"><picture>
     <source media="(prefers-color-scheme: dark)" srcset="https://shieldcn.dev/badge/AUR-alpha-1793D1.svg?variant=outline&amp;size=sm&amp;logo=archlinux&amp;mode=dark">
     <img alt="AUR alpha package" src="https://shieldcn.dev/badge/AUR-alpha-1793D1.svg?variant=outline&amp;size=sm&amp;logo=archlinux&amp;mode=light">
+  </picture></a>
+  <a href="https://launchpad.net/~hashimkarim/+archive/ubuntu/usagestat-alpha"><picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://shieldcn.dev/badge/Ubuntu-alpha-E95420.svg?variant=outline&amp;size=sm&amp;logo=ubuntu&amp;mode=dark">
+    <img alt="Ubuntu alpha PPA package" src="https://shieldcn.dev/badge/Ubuntu-alpha-E95420.svg?variant=outline&amp;size=sm&amp;logo=ubuntu&amp;mode=light">
   </picture></a>
   <a href="https://github.com/hashimkarim/homebrew-tap/blob/main/Formula/usagestat-alpha.rb"><picture>
     <source media="(prefers-color-scheme: dark)" srcset="https://shieldcn.dev/badge/Homebrew-alpha-FBB040.svg?variant=outline&amp;size=sm&amp;logo=homebrew&amp;mode=dark">

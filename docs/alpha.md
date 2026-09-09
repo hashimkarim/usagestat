@@ -21,19 +21,19 @@ was checked on September 9, 2026; pending channels are explicitly marked below.
 | Channel | Alpha destination | Package / formula | Target |
 | --- | --- | --- | --- |
 | Fedora | [COPR](https://copr.fedorainfracloud.org/coprs/hashimkarim/usagestat-alpha/) | `usagestat` | Fedora 43, 44, 45, Rawhide; x86-64 |
-| Ubuntu | [Launchpad PPA](https://launchpad.net/~hashimkarim/+archive/ubuntu/usagestat-alpha) | `usagestat` | Ubuntu 24.04 Noble; amd64; build finished, repository publication pending |
+| Ubuntu | [Launchpad PPA](https://launchpad.net/~hashimkarim/+archive/ubuntu/usagestat-alpha) | `usagestat` | Ubuntu 24.04 Noble; amd64; public installation/removal tested |
 | Arch Linux | [AUR](https://aur.archlinux.org/packages/usagestat-alpha-bin) | `usagestat-alpha-bin` | x86-64; glibc 2.39+ |
 | Linux / macOS | [Homebrew](https://github.com/hashimkarim/homebrew-tap/blob/main/Formula/usagestat-alpha.rb) | `hashimkarim/tap/usagestat-alpha` | Linux x86-64/ARM64; macOS Intel/Apple Silicon |
 | Windows | [Scoop bucket](https://github.com/hashimkarim/scoop-bucket/blob/main/bucket/usagestat-alpha.json) | `usagestat-alpha` | Windows x64; published and installation tested |
 | Windows | [Chocolatey submission](https://community.chocolatey.org/packages/usagestat/2.0.0-alpha000001) | `usagestat --pre` | Windows x64; submitted, awaiting community review |
-| Windows | [WinGet submission](https://github.com/microsoft/winget-pkgs/pull/431692) | `HashimKarim.UsageStat.Alpha` | Windows x64; native tests and CLA passed, upstream validation/review pending |
+| Windows | [WinGet submission](https://github.com/microsoft/winget-pkgs/pull/431692) | `HashimKarim.UsageStat.Alpha` | Windows x64; all upstream automated checks passed, review/merge pending |
 | All five native targets | npm | `@hashimkarim/usagestat@alpha` | Installation rehearsals passed; main package publication awaits npm's publishing approval |
 
-Ubuntu's signed source upload was accepted and the
+Ubuntu's signed
 [Noble build](https://launchpad.net/~hashimkarim/+archive/ubuntu/usagestat-alpha/+build/33580662)
-finished successfully, and the source package is published. Binary repository
-publication is still pending. The Ubuntu commands below become usable after that
-completes.
+is published as `usagestat 2.0.0~alpha.1-1ppa1`. Installation from the public PPA
+passed in a clean Ubuntu 24.04 container: both executables, all 61 providers/icons,
+no automatic service registration, and removal retaining user data were checked.
 
 Alpha packages install the same `usagestat` and `usagestatd` commands as stable.
 Switching channels replaces the package; these are not separate daemon profiles.
@@ -138,8 +138,9 @@ community review approval is a separate step.
 
 WinGet's native installation, resource and removal tests passed in
 [run 34298557248](https://github.com/hashimkarim/usagestat/actions/runs/34298557248).
-The owner's CLA response was accepted. Upstream installer validation and review
-are still pending. WinGet commands will be added once accepted. These packages
+The owner's CLA response and all ten upstream automated validation checks passed.
+Review and merge are still pending. WinGet commands will be added once available
+in the public source. These packages
 contain the unsigned backend; package-manager availability does not qualify
 desktop login, provider authentication, signing, or the bar frontend.
 
