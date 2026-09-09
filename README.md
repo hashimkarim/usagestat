@@ -44,18 +44,20 @@ a local dashboard, and an HTTP API.
 
 **[Try v2.0.0-alpha.1 on Windows, macOS or Linux](docs/alpha.md).** The unsigned
 backend alpha includes native archives and a Windows per-user installer. Native
-bar frontends, desktop acceptance, signing and public npm publication remain
-pending. Stable package-manager instructions follow below.
+bar frontends, desktop acceptance and signing remain pending. Stable package-manager instructions follow below.
 
 Separate **[alpha packages and installation instructions](docs/alpha.md#alpha-package-repositories)**
 are available through Fedora COPR, the Ubuntu PPA, AUR, Homebrew (including macOS),
-and Scoop. Chocolatey and WinGet await upstream review; all WinGet automated
+Scoop and npm. Chocolatey and WinGet await upstream review; all WinGet automated
 checks passed.
-npm first publication awaits the account's separate publishing approval.
 The linked guide tracks
 each channel's actual availability.
 
 <p>
+  <a href="https://www.npmjs.com/package/@hashimkarim/usagestat"><picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://shieldcn.dev/badge/npm-alpha-CB3837.svg?variant=outline&amp;size=sm&amp;logo=npm&amp;mode=dark">
+    <img alt="npm alpha package" src="https://shieldcn.dev/badge/npm-alpha-CB3837.svg?variant=outline&amp;size=sm&amp;logo=npm&amp;mode=light">
+  </picture></a>
   <a href="https://copr.fedorainfracloud.org/coprs/hashimkarim/usagestat-alpha/"><picture>
     <source media="(prefers-color-scheme: dark)" srcset="https://shieldcn.dev/badge/Fedora-alpha-51A2DA.svg?variant=outline&amp;size=sm&amp;logo=fedora&amp;mode=dark">
     <img alt="Fedora alpha package" src="https://shieldcn.dev/badge/Fedora-alpha-51A2DA.svg?variant=outline&amp;size=sm&amp;logo=fedora&amp;mode=light">

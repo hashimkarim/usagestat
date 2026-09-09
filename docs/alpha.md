@@ -27,7 +27,7 @@ was checked on September 9, 2026; pending channels are explicitly marked below.
 | Windows | [Scoop bucket](https://github.com/hashimkarim/scoop-bucket/blob/main/bucket/usagestat-alpha.json) | `usagestat-alpha` | Windows x64; published and installation tested |
 | Windows | [Chocolatey submission](https://community.chocolatey.org/packages/usagestat/2.0.0-alpha000001) | `usagestat --pre` | Windows x64; submitted, awaiting community review |
 | Windows | [WinGet submission](https://github.com/microsoft/winget-pkgs/pull/431692) | `HashimKarim.UsageStat.Alpha` | Windows x64; all upstream automated checks passed, review/merge pending |
-| All five native targets | npm | `@hashimkarim/usagestat@alpha` | Installation rehearsals passed; main package publication awaits npm's publishing approval |
+| All five native targets | [npm](https://www.npmjs.com/package/@hashimkarim/usagestat) | `@hashimkarim/usagestat@alpha` | Published: Linux x64/ARM64, macOS Intel/Apple Silicon, Windows x64 |
 
 Ubuntu's signed
 [Noble package](https://launchpad.net/~hashimkarim/+archive/ubuntu/usagestat-alpha)
@@ -245,9 +245,37 @@ still an alpha test case. Do not overwrite a running Windows executable, assume
 an older backend understands new alpha state, or delete provider-owned credentials
 as part of removing the backend.
 
-npm remains a planned distribution channel with passing native installation
-rehearsals. `@hashimkarim/usagestat` has not yet been published; use these GitHub
-downloads while public npm publication is pending. Stable AUR/Homebrew/COPR/PPA
-destinations are preserved alongside their separate alpha channels. Windows feed
-availability is listed above; desktop stores and signed desktop bundles require
-separate product/signing work.
+Stable AUR/Homebrew/COPR/PPA destinations are preserved alongside their separate
+alpha channels. Windows feed availability is listed above; desktop stores and
+signed desktop bundles require separate product/signing work.
+
+## npm
+
+With Node 24+ and npm 11.5.1+, install into a user-writable global prefix:
+
+```sh
+npm install --global @hashimkarim/usagestat@alpha --include=optional --ignore-scripts
+usagestat --version
+usagestat doctor
+```
+
+All six packages are public at `2.0.0-alpha.1`. The main package selects the native
+payload for your platform; installation needs no compiler or install scripts and
+does not register a service. Linux requires glibc 2.39+. The npm macOS candidate
+requires 13.5+ because of Node; minimum-OS and real desktop acceptance remain open.
+Always select `@alpha`: there is no stable npm release yet, and npm also assigns
+a new package's first version to its default `latest` tag.
+
+To enable the optional background service, run `usagestat daemon enable`.
+Before an update, record `usagestat daemon status --json`, run
+`usagestat daemon disable`, and reinstall into the same global prefix. Restore
+the previous running/autostart state using the [npm lifecycle guide](../npm/README.md).
+Before removing the package, unregister its service:
+
+```sh
+usagestat daemon unregister
+npm uninstall --global @hashimkarim/usagestat --ignore-scripts
+```
+
+Unregistering and uninstalling retain user data. Follow the lifecycle guide when
+changing package managers or prefixes so the service keeps the intended owner.

@@ -1,16 +1,8 @@
 # npm distribution implementation
 
-Issue: #21. The selected name is `@hashimkarim/usagestat`, with five
-`@hashimkarim/usagestat-<platform>` payload packages. On September 9, 2026,
-the alpha installation rehearsal passed on all five native targets in
-[run 34297460188](https://github.com/hashimkarim/usagestat/actions/runs/34297460188).
-First publication created the Linux x64 payload. The main package is not yet
-published. The owner's npm login and separate two-factor approval succeeded.
-The registry rejected removal of the first package's default tag; first-publication
-handling now accepts that initial default and preserves existing defaults.
-Both Linux platform packages were accepted by npm; the remaining packages and
-trusted-publisher configuration are still pending.
-`npm/distribution.json` keeps automated `publicationEnabled` false.
+Issue: #21. `@hashimkarim/usagestat@alpha` and all five native payload packages
+are public at `2.0.0-alpha.1` as of September 9, 2026. The first release used the
+owner's authorized local bootstrap and does not have CI provenance.
 
 The [package README](../npm/README.md) covers requirements, explicit service
 ownership, updates and removal. Node 24/npm 11.5.1+ are required. Node raises the
@@ -52,29 +44,15 @@ endpoint. A new package's overview may still return 404 while installation
 metadata and its tarball are already public. Both metadata representations must
 agree on the published integrity; full version fields such as `libc` remain checked.
 
-The [five-target npm installation rehearsal](https://github.com/hashimkarim/usagestat/actions/runs/34079566610)
-passed on September 7, 2026 using the exact staged packages from
-[`385466e`'s release run](https://github.com/hashimkarim/usagestat/actions/runs/34078930473).
-It includes native Windows `.cmd` invocation and rejection of service ownership
-from the real temporary npm exec cache. The initial Windows failure was the
-Python fixture's command-line quoting; the corrected fixture passed against the
-same package bytes. Login/reboot, real-account coexistence, running/interrupted
-version upgrades and first public-registry publication remain pending in #21/#20.
-
-[Run 34080463278](https://github.com/hashimkarim/usagestat/actions/runs/34080463278)
-also passed all five archive builds, aggregate verification and all five npm
-installations at `68b5e20`. This regenerated the packages with runtime-only
-resources, excluding provider tests while retaining Droid's shared Factory entry.
-Publication jobs were skipped; no registry or GitHub release was created.
-
-The same five-target rehearsal passed again with `3ae3be1`'s release binaries in
-[run 34094784327](https://github.com/hashimkarim/usagestat/actions/runs/34094784327),
-alongside native Homebrew and Windows installer tests. The npm checks cover a
-stopped same-version reinstall; they do not establish an interrupted distinct-
-version npm upgrade or public registry publication. Follow the explicit state
-restoration and unregister-before-removal instructions in the package README.
-All five npm installation jobs also passed with the final `354c390` candidate in
-[run 34096637011](https://github.com/hashimkarim/usagestat/actions/runs/34096637011).
+The staged alpha installation rehearsal passed on all five native targets in
+[run 34297460188](https://github.com/hashimkarim/usagestat/actions/runs/34297460188).
+Public installation checks passed on all five targets in
+[run 34329248371](https://github.com/hashimkarim/usagestat/actions/runs/34329248371).
+Windows assembly explicitly retains LF source/generated text so strict public
+payload comparison checks identical bytes on every runner.
+The checks cover a stopped same-version reinstall. Login/reboot, real-account
+coexistence and interrupted distinct-version upgrades remain open in #21/#20.
+Follow the explicit state restoration and removal instructions in the package README.
 
 The publication helper checks every staged/existing version before uploading,
 publishes and verifies platforms before the main package, and rejects conflicting
@@ -96,14 +74,16 @@ instructions explicitly select `@alpha`. Public verification permits this defaul
 only while the alpha is the package's sole version. Future alphas must preserve
 the prior default, and a stable publication will intentionally set `latest`.
 
-First publication completion and trust setup remain pending. CI publication requires both
-`publicationEnabled: true` and repository variable `NPM_PUBLISH_ENABLED=true`.
-Configure each npm package's trusted publisher with owner `hashimkarim`, repo
-`usagestat`, workflow `release.yml`, environment `npm`, and direct publish
-permission. The job grants `id-token: write` and requests provenance. Initial
-package creation may require an authorized first publication before these
-settings exist. Local bootstrap uses the owner's existing npm login, preserving
-the credential configuration. No npm account token is copied into GitHub Actions.
+All six packages have verified GitHub trusted publishers bound to owner
+`hashimkarim`, repository `usagestat`, workflow `release.yml`, environment `npm`.
+The registry grants direct and staged publication within that binding. The GitHub
+`npm` environment allows deployment only from `v*` tags. The release job grants
+`id-token: write` and requests provenance; no npm account token is stored in Actions.
+CI publication requires both `publicationEnabled: true` in `npm/distribution.json`
+and repository variable `NPM_PUBLISH_ENABLED=true`. Both gates are now enabled after successful public installation checks on all five
+targets. Future release tags must contain this configuration and workflow; the
+existing alpha was bootstrapped locally, so OIDC publication will first execute
+on a subsequent release.
 
 Sources: [npm metadata](https://docs.npmjs.com/cli/v11/configuring-npm/package-json/),
 [trusted publishers](https://docs.npmjs.com/trusted-publishers/),

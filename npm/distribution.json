@@ -5,5 +5,5 @@
   "node": ">=24",
   "npm": ">=11.5.1",
   "repository": "https://github.com/hashimkarim/usagestat.git",
-  "publicationEnabled": false
+  "publicationEnabled": true
 }

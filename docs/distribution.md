@@ -1,8 +1,8 @@
 # Release distribution
 
-The native npm distribution is being prepared in #21. See
-[npm packaging and release setup](npm-distribution.md) for staged packages,
-scripts-disabled installation tests and pending first-publication setup.
+The native npm alpha is published for all five targets. See
+[npm packaging and release setup](npm-distribution.md) for package verification,
+scripts-disabled installation tests and trusted publishing.
 
 This page is for maintainers. For published package availability and user-facing
 install, upgrade, and removal commands, see the [installation guide](installation.md).
@@ -58,8 +58,8 @@ project's existing Rust/native-archive pipeline instead uses the native evidence
 above. Store submissions and Apple signing require separate product/signing
 qualification; these CLI packages do not enable those destinations.
 
-npm uses `@hashimkarim/usagestat@alpha`; first publication and trusted-publisher
-status are tracked in [npm distribution](npm-distribution.md). Native GitHub
+npm uses `@hashimkarim/usagestat@alpha`; publication evidence and trusted-publisher
+configuration are tracked in [npm distribution](npm-distribution.md). Native GitHub
 downloads remain available on every target without Node or a package manager.
 
 The native artifact workflow and schema are documented in
