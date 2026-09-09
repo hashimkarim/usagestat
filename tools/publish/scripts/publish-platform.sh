@@ -17,7 +17,7 @@ else
   [[ "$channel" == stable && "$RELEASE_TAG" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]] || exit 1
 fi
 version="${RELEASE_TAG#v}"
-package_version="${version/-/~}"
+package_version="${version/-/\~}"
 dry_run="${DRY_RUN:-true}"
 [[ "$dry_run" == true || "$dry_run" == false ]] || exit 1
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"

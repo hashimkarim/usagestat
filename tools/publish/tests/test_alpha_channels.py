@@ -1,8 +1,10 @@
 import importlib.util
 import hashlib
 import json
+import os
 from pathlib import Path
 import sys
+import subprocess
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -28,6 +30,22 @@ publication = load('alpha_publication', 'publication-state.py')
 
 
 class AlphaChannelsTests(unittest.TestCase):
+    @unittest.skipIf(os.name == 'nt', 'Native Bash package publisher')
+    def test_debian_alpha_path_keeps_the_literal_tilde(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            debian = root / 'prepared/usagestat-2.0.0~alpha.1/debian'
+            debian.mkdir(parents=True)
+            commands = root / 'bin'; commands.mkdir()
+            builder = commands / 'dpkg-buildpackage'
+            builder.write_text('#!/bin/sh\nexit 77\n'); builder.chmod(0o755)
+            result = subprocess.run(['bash', str(ROOT / 'tools/publish/scripts/publish-platform.sh'), 'ppa', str(root / 'prepared')],
+                env={**os.environ, 'PATH': str(commands) + os.pathsep + os.environ['PATH'],
+                     'RELEASE_TAG': 'v2.0.0-alpha.1', 'PACKAGE_CHANNEL': 'alpha', 'DRY_RUN': 'true'},
+                text=True, capture_output=True)
+            self.assertEqual(result.returncode, 77, result.stderr)
+            self.assertIn('usagestat (2.0.0~alpha.1-1ppa1) noble;', (debian / 'changelog').read_text())
+
     def test_branch_dispatch_verifies_the_explicit_release_tag(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
