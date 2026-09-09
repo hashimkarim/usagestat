@@ -5,13 +5,28 @@ from pathlib import Path
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT / 'tools/publish/scripts'))
-from npm_publish import validate, existing_matches, publication_state, version_order, check_default_tag
+from npm_publish import validate, existing_matches, publication_state, version_order, check_default_tag, registry_package
 from npm_packages import dist_tag
 
 class NpmPublicationTests(unittest.TestCase):
+    def test_install_metadata_and_full_version_verify_new_packages_without_overview(self):
+        name, version = '@fixture/native', '2.0.0-alpha.1'
+        full = {'name': name, 'version': version, 'libc': ['glibc'], 'dist': {'integrity': 'sha512-fixture'}}
+        brief = {'dist-tags': {'alpha': version}, 'versions': {version: {'dist': full['dist']}}}
+        with patch('npm_publish.registry_json', side_effect=[brief, full]) as read:
+            result = registry_package('https://registry.npmjs.org/', name, version)
+            self.assertEqual(result['versions'][version]['libc'], ['glibc'])
+            self.assertEqual(read.call_args_list[0].args[1], 'application/vnd.npm.install-v1+json')
+            self.assertTrue(read.call_args_list[1].args[0].endswith('/' + version))
+        for missing_or_mismatched in [None, dict(full, name='wrong'), dict(full, dist={'integrity': 'different'})]:
+            with patch('npm_publish.registry_json', side_effect=[brief, missing_or_mismatched]):
+                with self.assertRaises(ValueError):
+                    registry_package('https://registry.npmjs.org/', name, version)
+
     def test_first_alpha_default_is_allowed_but_existing_defaults_are_preserved(self):
         version = '2.0.0-alpha.1'
         first = {'dist-tags': {'alpha': version, 'latest': version}, 'versions': {version: {}}}

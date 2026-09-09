@@ -8,7 +8,8 @@ First publication created the Linux x64 payload. The main package is not yet
 published. The owner's npm login and separate two-factor approval succeeded.
 The registry rejected removal of the first package's default tag; first-publication
 handling now accepts that initial default and preserves existing defaults.
-The remaining packages and trusted-publisher configuration are still pending.
+Both Linux platform packages were accepted by npm; the remaining packages and
+trusted-publisher configuration are still pending.
 `npm/distribution.json` keeps automated `publicationEnabled` false.
 
 The [package README](../npm/README.md) covers requirements, explicit service
@@ -46,6 +47,10 @@ payload differences, links and duplicate paths fail verification. Public npm
 installation uses an isolated config, cache and prefix, without account tokens.
 This mode can run once all six packages are published; passing the isolated
 registry rehearsal alone does not establish public registry availability.
+Registry verification reads npm's installation metadata and the full exact-version
+endpoint. A new package's overview may still return 404 while installation
+metadata and its tarball are already public. Both metadata representations must
+agree on the published integrity; full version fields such as `libc` remain checked.
 
 The [five-target npm installation rehearsal](https://github.com/hashimkarim/usagestat/actions/runs/34079566610)
 passed on September 7, 2026 using the exact staged packages from

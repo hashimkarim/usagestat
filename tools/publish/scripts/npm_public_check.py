@@ -31,7 +31,7 @@ def check(manifest):
     plan = json.loads(manifest.read_text())
     packages = validate(plan, manifest.parent)
     for package in packages:
-        document = registry_package('https://registry.npmjs.org/', package['name'])
+        document = registry_package('https://registry.npmjs.org/', package['name'], plan['version'])
         if not document or document.get('dist-tags', {}).get(plan['distTag']) != plan['version']:
             raise ValueError('Public npm channel/version does not match the release')
         if (plan['distTag'] == 'alpha' and document.get('dist-tags', {}).get('latest') == plan['version']

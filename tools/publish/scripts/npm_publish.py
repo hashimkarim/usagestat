@@ -40,10 +40,9 @@ def validate(plan: dict, directory: Path) -> list[dict]:
             raise ValueError('Packed npm integrity mismatch')
     return platforms + mains
 
-def registry_package(registry: str, name: str):
-    url = registry.rstrip('/') + '/' + urllib.parse.quote(name, safe='@')
+def registry_json(url: str, accept: str = 'application/json'):
     try:
-        request = urllib.request.Request(url, headers={'Cache-Control': 'no-cache'})
+        request = urllib.request.Request(url, headers={'Cache-Control': 'no-cache', 'Accept': accept})
         with urllib.request.urlopen(request, timeout=30) as response:
             data = response.read(16 * 1024 * 1024 + 1)
             if len(data) > 16 * 1024 * 1024: raise ValueError('Registry metadata exceeds the size limit')
@@ -51,6 +50,23 @@ def registry_package(registry: str, name: str):
     except urllib.error.HTTPError as error:
         if error.code == 404: return None
         raise ValueError(f'Registry verification failed with HTTP {error.code}') from None
+
+def registry_package(registry: str, name: str, version: str):
+    url = registry.rstrip('/') + '/' + urllib.parse.quote(name, safe='@')
+    # npm install's metadata can be live before the full package overview.
+    # The exact-version endpoint retains fields such as libc which may be
+    # omitted from the abbreviated installation metadata.
+    document = registry_json(url, 'application/vnd.npm.install-v1+json')
+    if document and version in document.get('versions', {}):
+        full = registry_json(url + '/' + urllib.parse.quote(version, safe=''))
+        if full is None:
+            raise ValueError('Package is listed but full version metadata is not visible; retain inputs and retry verification')
+        brief = document['versions'][version]
+        if (full.get('name') != name or full.get('version') != version
+                or full.get('dist', {}).get('integrity') != brief.get('dist', {}).get('integrity')):
+            raise ValueError('npm installation and exact-version metadata disagree')
+        document['versions'][version] = full
+    return document
 
 def version_order(value: str):
     match = re.fullmatch(r'(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-([0-9A-Za-z.-]+))?(?:\+[0-9A-Za-z.-]+)?', value)
@@ -83,7 +99,7 @@ def existing_matches(package: dict, remote) -> bool:
 def wait_for_publication(registry, package, version, tag):
     # New npm packages can remain absent from read replicas after a successful PUT.
     for attempt in range(36):
-        document = registry_package(registry, package['name'])
+        document = registry_package(registry, package['name'], version)
         if publication_state(package, document, version, tag): return document
         if attempt == 0: print(f"Waiting for {package['name']} to become visible in the public registry", flush=True)
         time.sleep(5)
@@ -118,7 +134,7 @@ def run(manifest: Path, publish: bool, bootstrap: bool = False) -> None:
         raise ValueError('Production publication only supports the configured public npm registry')
     # Inspect every existing version before changing anything. A conflicting
     # partial publication must fail before uploading another package.
-    before = {p['name']: registry_package(registry, p['name']) for p in packages}
+    before = {p['name']: registry_package(registry, p['name'], plan['version']) for p in packages}
     states = {p['name']: publication_state(p, before[p['name']], plan['version'], plan['distTag']) for p in packages}
     if not publish:
         print(json.dumps({'version': plan['version'], 'distTag': plan['distTag'], 'publicationEnabled': settings['publicationEnabled'],
