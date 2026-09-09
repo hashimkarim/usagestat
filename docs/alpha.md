@@ -31,8 +31,9 @@ was checked on September 9, 2026; pending channels are explicitly marked below.
 
 Ubuntu's signed source upload was accepted and the
 [Noble build](https://launchpad.net/~hashimkarim/+archive/ubuntu/usagestat-alpha/+build/33580662)
-finished successfully. Launchpad remains at “Uploading build”; no binary package
-is published yet. The Ubuntu commands below become usable after that completes.
+finished successfully, and the source package is published. Binary repository
+publication is still pending. The Ubuntu commands below become usable after that
+completes.
 
 Alpha packages install the same `usagestat` and `usagestatd` commands as stable.
 Switching channels replaces the package; these are not separate daemon profiles.
