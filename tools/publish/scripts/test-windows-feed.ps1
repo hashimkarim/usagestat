@@ -87,7 +87,7 @@ try {
             winget install --manifest $manifestDirectory --scope user --accept-package-agreements --accept-source-agreements --disable-interactivity
             Check-Exit 'WinGet installation'
             Check-Backend
-            winget uninstall --id HashimKarim.UsageStat.Alpha --exact --disable-interactivity
+            winget uninstall --id HashimKarim.UsageStat.Alpha --exact --disable-interactivity --accept-source-agreements
             Check-Exit 'WinGet removal'
         }
     }
