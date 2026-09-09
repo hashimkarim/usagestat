@@ -9,6 +9,7 @@ import os
 import re
 from pathlib import Path
 import subprocess
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -42,7 +43,8 @@ def validate(plan: dict, directory: Path) -> list[dict]:
 def registry_package(registry: str, name: str):
     url = registry.rstrip('/') + '/' + urllib.parse.quote(name, safe='@')
     try:
-        with urllib.request.urlopen(url, timeout=30) as response:
+        request = urllib.request.Request(url, headers={'Cache-Control': 'no-cache'})
+        with urllib.request.urlopen(request, timeout=30) as response:
             data = response.read(16 * 1024 * 1024 + 1)
             if len(data) > 16 * 1024 * 1024: raise ValueError('Registry metadata exceeds the size limit')
             return json.loads(data)
@@ -78,6 +80,15 @@ def existing_matches(package: dict, remote) -> bool:
             raise ValueError(f"Published package metadata differs: {package['name']} ({field})")
     return True
 
+def wait_for_publication(registry, package, version, tag):
+    # New npm packages can remain absent from read replicas after a successful PUT.
+    for attempt in range(36):
+        document = registry_package(registry, package['name'])
+        if publication_state(package, document, version, tag): return document
+        if attempt == 0: print(f"Waiting for {package['name']} to become visible in the public registry", flush=True)
+        time.sleep(5)
+    raise ValueError('Published package was not visible; retain these exact inputs and inspect before retrying')
+
 def run(manifest: Path, publish: bool, bootstrap: bool = False) -> None:
     settings = json.loads((ROOT / 'npm/distribution.json').read_text())
     plan = json.loads(manifest.read_text())
@@ -109,8 +120,11 @@ def run(manifest: Path, publish: bool, bootstrap: bool = False) -> None:
             subprocess.run([*npm_command(), 'publish', str((manifest.parent / package['tarball']).resolve()),
                 '--access', 'public', '--tag', plan['distTag'], '--ignore-scripts',
                 *([] if bootstrap else ['--provenance']), '--registry', registry], check=True)
-        if not publication_state(package, registry_package(registry, package['name']), plan['version'], plan['distTag']):
-            raise ValueError('Published package was not visible; retry the same inputs after registry propagation')
+        document = wait_for_publication(registry, package, plan['version'], plan['distTag'])
+        if bootstrap and document.get('dist-tags', {}).get('latest') == plan['version']:
+            # The registry may assign latest automatically on first publication,
+            # even when publish requested alpha. Remove only that exact alpha tag.
+            subprocess.run([*npm_command(), 'dist-tag', 'rm', package['name'], 'latest', '--registry', registry], check=True)
     print('Verified all exact-version native payloads and published platform packages before the main package.')
 
 if __name__ == '__main__':

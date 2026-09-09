@@ -53,7 +53,8 @@ def render(version, manifests, *, local_directory=None, formula_name='usagestat'
              f'class {klass} < Formula', '  desc "Scriptable CLI for local agent usage data"',
              f'  homepage "{REPOSITORY}"', f'  version "{version}"', '  license "MIT"']
     if alpha:
-        lines.append('  conflicts_with "usagestat", because: "both install the usagestat commands"')
+        # The stable formula has Linux URLs only and cannot be loaded on macOS.
+        lines += ['  on_linux do', '    conflicts_with "usagestat", because: "both install the usagestat commands"', '  end']
     if not any(key[0] == 'darwin' for key in selected):
         lines.append('  depends_on :linux')
     elif not any(key[0] == 'linux' for key in selected):
