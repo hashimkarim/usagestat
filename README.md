@@ -50,7 +50,8 @@ pending. Stable package-manager instructions follow below.
 Separate **[alpha packages and installation instructions](docs/alpha.md#alpha-package-repositories)**
 are available through Fedora COPR, AUR, Homebrew (including macOS), and Scoop.
 The signed Ubuntu PPA upload is being published; Chocolatey is awaiting community
-review. WinGet and npm publication are still in progress. The linked guide tracks
+review. WinGet awaits a CLA response and upstream review; npm needs account login.
+The linked guide tracks
 each channel's actual availability.
 
 <p>

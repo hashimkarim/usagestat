@@ -26,7 +26,7 @@ was checked on September 9, 2026; pending channels are explicitly marked below.
 | Linux / macOS | [Homebrew](https://github.com/hashimkarim/homebrew-tap/blob/main/Formula/usagestat-alpha.rb) | `hashimkarim/tap/usagestat-alpha` | Linux x86-64/ARM64; macOS Intel/Apple Silicon |
 | Windows | [Scoop bucket](https://github.com/hashimkarim/scoop-bucket/blob/main/bucket/usagestat-alpha.json) | `usagestat-alpha` | Windows x64; published and installation tested |
 | Windows | [Chocolatey submission](https://community.chocolatey.org/packages/usagestat-alpha/2.0.0-alpha000001) | `usagestat-alpha` | Windows x64; submitted, awaiting community review |
-| Windows | WinGet | `HashimKarim.UsageStat.Alpha` | Windows x64; validation in progress, not yet submitted |
+| Windows | [WinGet submission](https://github.com/microsoft/winget-pkgs/pull/431692) | `HashimKarim.UsageStat.Alpha` | Windows x64; tests passed, awaiting owner's CLA and upstream review |
 | All five native targets | npm | `@hashimkarim/usagestat@alpha` | Installation tests passed; main package publication awaits account login |
 
 Ubuntu's signed source upload has been accepted; its build is still being
@@ -129,7 +129,10 @@ Run backend setup commands from the regular user's shell so startup belongs to
 the intended user. Chocolatey installation/removal was tested on Windows CI;
 review approval is a separate step.
 
-WinGet commands will be added once its submission is accepted. These packages
+WinGet's native installation, resource and removal tests passed in
+[run 34298557248](https://github.com/hashimkarim/usagestat/actions/runs/34298557248).
+The submission requires the repository owner's response to Microsoft's CLA bot
+before upstream review can finish. WinGet commands will be added once accepted. These packages
 contain the unsigned backend; package-manager availability does not qualify
 desktop login, provider authentication, signing, or the bar frontend.
 
