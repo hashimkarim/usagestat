@@ -161,7 +161,7 @@ def recipes(t, tag, records, channel):
                                          "ReleaseNotesUrl": f"{t['homepage']}/releases/tag/{tag}",
                                          "ManifestType": "defaultLocale", "ManifestVersion": "1.10.0"},
             f"{base}.installer.yaml": {**common, "Installers": installers, "ManifestType": "installer", "ManifestVersion": "1.10.0"}}
-        schema_types = {'version': 'version', 'defaultLocale': 'defaultlocale', 'installer': 'installer'}
+        schema_types = {'version': 'version', 'defaultLocale': 'defaultLocale', 'installer': 'installer'}
         return {p: '# yaml-language-server: $schema=https://aka.ms/winget-manifest.' +
                 schema_types[d['ManifestType']] + '.1.10.0.schema.json\n' + yaml(d) + "\n" for p, d in documents.items()}
     package = c["id"]
