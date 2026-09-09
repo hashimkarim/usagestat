@@ -87,7 +87,9 @@ try {
             winget install --manifest $manifestDirectory --scope user --accept-package-agreements --accept-source-agreements --disable-interactivity
             Check-Exit 'WinGet installation'
             Check-Backend
-            winget uninstall --id HashimKarim.UsageStat.Alpha --exact --disable-interactivity --accept-source-agreements
+            # Before upstream publication, WinGet cannot correlate this local
+            # manifest's identifier with a source entry. Match its unique ARP name.
+            winget uninstall --name usagestat-alpha --exact --disable-interactivity --accept-source-agreements --purge
             Check-Exit 'WinGet removal'
         }
     }
