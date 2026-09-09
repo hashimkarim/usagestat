@@ -6,3 +6,7 @@
 
 # Installer checksum identity must be identical in Windows and aggregate jobs.
 tools/install/*.ps1 text eol=lf
+
+# npm sources are copied verbatim into cross-platform release packages.
+/npm/*.cjs text eol=lf
+/npm/README.md text eol=lf

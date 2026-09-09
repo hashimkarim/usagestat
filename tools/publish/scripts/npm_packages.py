@@ -27,7 +27,7 @@ def key(manifest: dict) -> str:
     return f"{manifest['os']}-{manifest['arch']}" + ('-gnu' if manifest['os'] == 'linux' else '')
 
 def write_json(path: Path, value) -> None:
-    path.write_text(json.dumps(value, indent=2, sort_keys=True) + '\n', encoding='utf-8')
+    path.write_text(json.dumps(value, indent=2, sort_keys=True) + '\n', encoding='utf-8', newline='\n')
 
 def dist_tag(release_version: str, channel: str) -> str:
     if channel == 'stable': return 'latest'
@@ -85,7 +85,7 @@ def assemble(directory: Path, output: Path, channel: str) -> Path:
     shutil.copyfile(ROOT / 'npm/README.md', main / 'README.md')
     for command in ['usagestat', 'usagestatd']:
         script = main / 'bin' / (command + '.cjs')
-        script.write_text(f"#!/usr/bin/env node\n'use strict';\nrequire('../launcher.cjs').launch('{command}');\n", encoding='utf-8')
+        script.write_text(f"#!/usr/bin/env node\n'use strict';\nrequire('../launcher.cjs').launch('{command}');\n", encoding='utf-8', newline='\n')
         script.chmod(0o755)
     write_json(main / 'platforms.json', platforms)
     write_json(main / 'package.json', dict(common, name=settings['name'], description='Native agent usage backend CLI and daemon',
