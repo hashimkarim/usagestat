@@ -64,12 +64,13 @@ def registry(packed: Path):
         server.server_close()
         worker.join(timeout=5)
 
-def check(packed: Path, temp_dir: Path | None = None, *, expect_doctor: bool = True) -> dict:
+def check(packed: Path, temp_dir: Path | None = None, *, expect_doctor: bool = True, public_registry: bool = False) -> dict:
     result = {'checks': []}
     plan = json.loads(packed.read_text())
     main = next(p for p in plan['packages'] if p['role'] == 'main')
     node = shutil.which('node')
-    with tempfile.TemporaryDirectory(prefix='usagestat npm install 使用 ', dir=temp_dir) as directory, registry(packed) as (url, requested):
+    source = contextlib.nullcontext(('https://registry.npmjs.org/', [])) if public_registry else registry(packed)
+    with tempfile.TemporaryDirectory(prefix='usagestat npm install 使用 ', dir=temp_dir) as directory, source as (url, requested):
         root = Path(directory)
         env = {k: v for k, v in isolated_env(root).items() if not k.lower().startswith('npm_config_')}
         config_root, data_root = Path(env['USAGESTAT_CONFIG_DIR']), Path(env['USAGESTAT_DATA_DIR'])
@@ -216,7 +217,8 @@ def check(packed: Path, temp_dir: Path | None = None, *, expect_doctor: bool = T
         assert not package_root.exists()
         result['checks'].append('stopped-reinstall-and-uninstall-retain-user-data')
         assert all(p.startswith(('/@hashimkarim/', '/tarballs/')) for p in requested), requested
-        result['registryRequests'] = len(requested)
+        result['registry'] = 'public npm' if public_registry else 'isolated fixture'
+        if not public_registry: result['registryRequests'] = len(requested)
     return result
 
 if __name__ == '__main__':
@@ -224,5 +226,7 @@ if __name__ == '__main__':
     parser.add_argument('packed', type=Path)
     parser.add_argument('--temp-dir', type=Path)
     parser.add_argument('--legacy-artifacts', action='store_true', help='Only for development against artifacts predating doctor')
+    parser.add_argument('--public-registry', action='store_true', help='Install the exact version from public npm using an isolated profile/prefix')
     args = parser.parse_args()
-    print(json.dumps(check(args.packed.resolve(), args.temp_dir, expect_doctor=not args.legacy_artifacts), indent=2))
+    print(json.dumps(check(args.packed.resolve(), args.temp_dir, expect_doctor=not args.legacy_artifacts,
+                          public_registry=args.public_registry), indent=2))

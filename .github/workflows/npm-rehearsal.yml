@@ -1,9 +1,6 @@
 name: Rehearse staged npm installation
 
 on:
-  push:
-    branches: [feat/native-backend-implementation]
-    paths: [.github/workflows/npm-rehearsal.yml, tools/portability/npm_install.py]
   workflow_dispatch:
     inputs:
       run_id:
@@ -14,6 +11,10 @@ on:
         description: Alternatively assemble and test packages from an existing alpha release
         required: false
         type: string
+      public_registry:
+        description: Also verify and install the published packages from public npm
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -85,7 +86,18 @@ jobs:
           subprocess.run(['gh', 'release', 'download', tag, '--repo', os.environ['GITHUB_REPOSITORY'], '--dir', 'assets'], check=True)
           guard(Path('assets'), require_existing=True, tag=tag)
           pack(assemble(Path('assets').resolve(), Path('target/npm-packages').resolve(), 'prerelease'))
-      - run: python tools/portability/npm_install.py target/npm-packages/npm-packed.json
+      - name: Test staged or public npm installation
+        env:
+          PUBLIC_REGISTRY: ${{ inputs.public_registry && 'true' || 'false' }}
+        shell: python
+        run: |
+          import os, subprocess, sys
+          packed = 'target/npm-packages/npm-packed.json'
+          public = os.environ['PUBLIC_REGISTRY'] == 'true'
+          if public:
+              subprocess.run([sys.executable, 'tools/publish/scripts/npm_public_check.py', packed], check=True)
+          subprocess.run([sys.executable, 'tools/portability/npm_install.py', packed,
+                          *(['--public-registry'] if public else [])], check=True)
       - uses: actions/upload-artifact@v4
         if: inputs.release_tag != '' && always()
         with:
