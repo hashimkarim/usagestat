@@ -5,18 +5,19 @@ import argparse
 import base64
 import hashlib
 import json
+import os
 import re
 from pathlib import Path
 import subprocess
 import urllib.error
 import urllib.parse
 import urllib.request
-from npm_packages import ROOT, npm_command
+from npm_packages import ROOT, npm_command, dist_tag
 
 def validate(plan: dict, directory: Path) -> list[dict]:
     if plan['schemaVersion'] != 1 or plan['channel'] not in ('stable', 'prerelease'):
         raise ValueError('Only explicit stable/prerelease package inputs may be published')
-    if ('-' in plan['version']) != (plan['channel'] == 'prerelease') or plan['distTag'] != ('next' if plan['channel'] == 'prerelease' else 'latest'):
+    if ('-' in plan['version']) != (plan['channel'] == 'prerelease') or plan['distTag'] != dist_tag(plan['version'], plan['channel']):
         raise ValueError('Version and npm release channel disagree')
     packages = plan['packages']
     mains = [p for p in packages if p['role'] == 'main']
@@ -77,13 +78,18 @@ def existing_matches(package: dict, remote) -> bool:
             raise ValueError(f"Published package metadata differs: {package['name']} ({field})")
     return True
 
-def run(manifest: Path, publish: bool) -> None:
+def run(manifest: Path, publish: bool, bootstrap: bool = False) -> None:
     settings = json.loads((ROOT / 'npm/distribution.json').read_text())
     plan = json.loads(manifest.read_text())
     packages = validate(plan, manifest.parent)
     if settings['name'] != packages[-1]['name'] or any(not p['name'].startswith(settings['platformPrefix']) for p in packages[:-1]):
         raise ValueError('Package names differ from the configured namespace')
-    if publish and not settings['publicationEnabled']:
+    if bootstrap:
+        if not publish or settings['publicationEnabled'] or os.environ.get('GITHUB_ACTIONS') == 'true' or plan['distTag'] != 'alpha':
+            raise ValueError('Bootstrap is a local first-alpha publication before trusted publishing is enabled')
+        identity = subprocess.check_output([*npm_command(), 'whoami', '--registry', settings['registry']], text=True).strip()
+        if identity != 'hashimkarim': raise ValueError('First publication requires the configured namespace owner')
+    if publish and not bootstrap and not settings['publicationEnabled']:
         raise ValueError('First publication and npm trusted-publisher setup are pending; publicationEnabled is false')
     registry = settings['registry']
     if registry != 'https://registry.npmjs.org/':
@@ -101,7 +107,8 @@ def run(manifest: Path, publish: bool) -> None:
             # npm trusted publishing authenticates publish, not dist-tag edits;
             # set the final tag atomically in publish instead of a later edit.
             subprocess.run([*npm_command(), 'publish', str((manifest.parent / package['tarball']).resolve()),
-                '--access', 'public', '--tag', plan['distTag'], '--ignore-scripts', '--provenance', '--registry', registry], check=True)
+                '--access', 'public', '--tag', plan['distTag'], '--ignore-scripts',
+                *([] if bootstrap else ['--provenance']), '--registry', registry], check=True)
         if not publication_state(package, registry_package(registry, package['name']), plan['version'], plan['distTag']):
             raise ValueError('Published package was not visible; retry the same inputs after registry propagation')
     print('Verified all exact-version native payloads and published platform packages before the main package.')
@@ -110,5 +117,6 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('manifest', type=Path)
     parser.add_argument('--publish', action='store_true')
+    parser.add_argument('--bootstrap', action='store_true', help='Authenticated local first-alpha publish; no CI provenance claim')
     args = parser.parse_args()
-    run(args.manifest.resolve(), args.publish)
+    run(args.manifest.resolve(), args.publish, args.bootstrap)

@@ -29,6 +29,11 @@ def key(manifest: dict) -> str:
 def write_json(path: Path, value) -> None:
     path.write_text(json.dumps(value, indent=2, sort_keys=True) + '\n', encoding='utf-8')
 
+def dist_tag(release_version: str, channel: str) -> str:
+    if channel == 'stable': return 'latest'
+    if re.fullmatch(r'\d+\.\d+\.\d+-alpha\.(0|[1-9][0-9]*)', release_version): return 'alpha'
+    return 'next'
+
 def assemble(directory: Path, output: Path, channel: str) -> Path:
     complete = json.loads(read_checked(directory / 'usagestat-artifacts.json'))
     settings = json.loads((ROOT / 'npm/distribution.json').read_text())
@@ -90,7 +95,7 @@ def assemble(directory: Path, output: Path, channel: str) -> Path:
         'files': ['LICENSE', 'README.md', 'bin/usagestat.cjs', 'bin/usagestatd.cjs', 'launcher.cjs', 'package.json', 'platforms.json']})
     result = output / 'npm-packages.json'
     write_json(result, {'schemaVersion': 1, 'version': complete['version'], 'sourceCommit': complete['sourceCommit'],
-        'channel': channel, 'distTag': 'latest' if channel == 'stable' else 'next', 'packages': packages})
+        'channel': channel, 'distTag': dist_tag(complete['version'], channel), 'packages': packages})
     return result
 
 def pack(manifest_path: Path) -> Path:

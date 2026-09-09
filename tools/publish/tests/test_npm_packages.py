@@ -9,8 +9,14 @@ import unittest
 ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT / 'tools/publish/scripts'))
 from npm_publish import validate, existing_matches, publication_state, version_order
+from npm_packages import dist_tag
 
 class NpmPublicationTests(unittest.TestCase):
+    def test_alpha_has_an_explicit_dist_tag(self):
+        self.assertEqual(dist_tag('2.0.0-alpha.1', 'prerelease'), 'alpha')
+        self.assertEqual(dist_tag('2.0.0-beta.1', 'prerelease'), 'next')
+        self.assertEqual(dist_tag('2.0.0', 'stable'), 'latest')
+
     def test_retry_preserves_newer_tags_and_reports_unpromoted_existing_versions(self):
         package = {'name': '@fixture/native', 'integrity': 'sha512-fixture',
             'packageJson': {'name': '@fixture/native', 'version': '1.2.3'}}

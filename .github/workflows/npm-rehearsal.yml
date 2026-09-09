@@ -8,7 +8,11 @@ on:
     inputs:
       run_id:
         description: Same-repository Release run containing usagestat-npm-packages
-        required: true
+        required: false
+        type: string
+      release_tag:
+        description: Alternatively assemble and test packages from an existing alpha release
+        required: false
         type: string
 
 permissions:
@@ -36,6 +40,7 @@ jobs:
         with:
           python-version: '3.12'
       - name: Select an existing staged package set
+        if: inputs.release_tag == ''
         id: source
         env:
           GH_TOKEN: ${{ github.token }}
@@ -56,9 +61,35 @@ jobs:
           with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
               output.write('run_id=' + selected + '\n')
       - uses: actions/download-artifact@v4
+        if: inputs.release_tag == ''
         with:
           name: usagestat-npm-packages
           path: target/npm-packages
           run-id: ${{ steps.source.outputs.run_id }}
           github-token: ${{ github.token }}
+      - name: Assemble exact existing alpha release packages
+        if: inputs.release_tag != ''
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag }}
+          GH_TOKEN: ${{ github.token }}
+        shell: python
+        run: |
+          import os, subprocess, sys
+          sys.path.insert(0, 'tools/publish/scripts')
+          from release_channel import check
+          from release_guard import check as guard
+          from npm_packages import assemble, pack
+          from pathlib import Path
+          tag = os.environ['RELEASE_TAG']
+          check(tag, 'alpha')
+          subprocess.run(['gh', 'release', 'download', tag, '--repo', os.environ['GITHUB_REPOSITORY'], '--dir', 'assets'], check=True)
+          guard(Path('assets'), require_existing=True, tag=tag)
+          pack(assemble(Path('assets').resolve(), Path('target/npm-packages').resolve(), 'prerelease'))
       - run: python tools/portability/npm_install.py target/npm-packages/npm-packed.json
+      - uses: actions/upload-artifact@v4
+        if: inputs.release_tag != '' && always()
+        with:
+          name: npm-alpha-${{ matrix.runner }}
+          path: |
+            target/npm-packages/npm-packed.json
+            target/npm-packages/tarballs

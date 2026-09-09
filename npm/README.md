@@ -1,11 +1,12 @@
 # usagestat native backend through npm
 
-This distribution is under development. `@hashimkarim/usagestat` is the selected
-package name; it has not been published. These commands describe the intended
-installation after qualification and first publication:
+Install the v2 backend alpha explicitly through the `alpha` npm tag. It contains
+the CLI, daemon, local dashboard and provider plugins. Windows/macOS bar frontends
+are not included. Desktop login/reboot, browser authentication and minimum-OS
+acceptance remain pending; Windows/macOS binaries are unsigned.
 
 ```sh
-npm install --global @hashimkarim/usagestat --include=optional --ignore-scripts
+npm install --global @hashimkarim/usagestat@alpha --include=optional --ignore-scripts
 usagestat --version
 usagestat doctor
 usagestat --json list
@@ -83,7 +84,7 @@ npm uninstall --global @hashimkarim/usagestat --ignore-scripts
 Unregister removes the owned login entry while retaining user data and saved
 preferences. Lifecycle hooks are never required for cleanup. Do not
 remove the files of a running Windows service. A one-off
-`npm exec --package=@hashimkarim/usagestat -- usagestat --version` is suitable for
+`npm exec --package=@hashimkarim/usagestat@alpha -- usagestat --version` is suitable for
 CLI use; persistent startup from the temporary `_npx`/`_cacache` path is rejected.
 Project-local installations can own startup only while their directory remains
 durable. Prefer a global installation for services.
