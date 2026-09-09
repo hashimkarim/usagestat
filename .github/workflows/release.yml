@@ -319,3 +319,13 @@ jobs:
     with:
       tag: ${{ github.ref_name }}
     secrets: inherit
+
+  alpha-packages:
+    name: Publish alpha package repositories
+    needs: release
+    if: github.event_name == 'push' && contains(github.ref_name, '-alpha.')
+    uses: ./.github/workflows/publish-packages.yml
+    with:
+      tag: ${{ github.ref_name }}
+      channel: alpha
+    secrets: inherit

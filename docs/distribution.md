@@ -15,12 +15,23 @@ Stable `vMAJOR.MINOR.PATCH` tags now run the complete release pipeline:
 2. Validate extracted archives and publish eligible GitHub assets and checksums.
 3. Publish AUR, Homebrew, Fedora COPR, and the Ubuntu PPA in independent jobs.
 
-Prereleases such as `v1.0.4-beta.1` remain on GitHub. Package publishing validates
+Explicit `vMAJOR.MINOR.PATCH-alpha.NUMBER` tags additionally publish to separate
+alpha destinations listed in [alpha-targets.json](../packaging/alpha-targets.json):
+`usagestat-alpha-bin` in AUR, `usagestat-alpha` in the owned Homebrew tap, and
+`hashimkarim/usagestat-alpha` in COPR and Launchpad (RPM/Debian package `usagestat`).
+Other prerelease forms remain on GitHub. Package publishing validates
 that the requested tag is the latest published stable release, verifies both
 archive checksums and architectures, and generates recipe versions/checksums
 from those downloads. A missing credential fails the affected job explicitly;
 it does not silently skip a repository or prevent the other repositories from
 publishing.
+
+Alpha publication requires the newest numeric alpha version, an existing public
+GitHub prerelease and matching immutable source/tag/assets. RPM and Debian use
+`2.0.0~alpha.1`; AUR uses `2.0.0alpha.1`; all programs report the upstream
+`2.0.0-alpha.1`. Stable validation remains strict and cannot accept an alpha tag.
+The alpha Homebrew formula explicitly includes the unsigned macOS candidates;
+the stable formula retains its existing qualification gate.
 
 The native artifact workflow and schema are documented in
 [native release artifacts](native-artifacts.md). Manual Release workflow dispatch
@@ -89,6 +100,19 @@ Repository jobs are serialized per platform and have a 75-minute timeout.
 Remote build/publishing waits have a 45-minute timeout. A timeout reports a
 failure; rerunning the job checks the existing remote state first. Generated
 recipes and Debian source packages are retained as workflow artifacts.
+
+For the existing alpha, dispatch the implementation branch until this workflow
+has been integrated into `main`:
+
+```sh
+gh workflow run publish-packages.yml --ref feat/native-backend-implementation \
+  -f tag=v2.0.0-alpha.1 -f channel=alpha -f platform=all -F dry_run=true
+```
+
+After the validation run succeeds, use `dry_run=false` to publish the same
+existing release. Select one platform to retry it. Concurrency is separate for
+each channel/platform. Existing credentials are reused; alpha setup does not
+rotate keys or modify stable repositories.
 
 The AUR package targets x86-64. Homebrew supports Linux x86-64 and ARM64. COPR's
 v1.0.3 build covers Fedora 43, 44, 45, and Rawhide on x86-64. The PPA's published

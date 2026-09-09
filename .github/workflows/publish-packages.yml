@@ -6,6 +6,9 @@ on:
       tag:
         type: string
         required: true
+      channel:
+        type: string
+        default: stable
     secrets:
       AUR_SSH_PRIVATE_KEY:
         required: false
@@ -20,9 +23,14 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: Existing stable GitHub release (e.g. v1.0.3)
+        description: Existing GitHub release matching the selected channel
         required: true
         type: string
+      channel:
+        description: Separate stable or alpha repositories
+        type: choice
+        default: stable
+        options: [stable, alpha]
       platform:
         description: Repository to publish or retry
         type: choice
@@ -46,25 +54,20 @@ jobs:
       - uses: actions/checkout@v4
         with:
           persist-credentials: false
-      - name: Check stable release and choose repositories
+      - name: Check release channel and choose repositories
         id: platforms
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ inputs.tag }}
           PLATFORM: ${{ inputs.platform || 'all' }}
+          PACKAGE_CHANNEL: ${{ inputs.channel || 'stable' }}
         run: |
           python3 - <<'PY'
-          import importlib.util, json, os, subprocess
-          spec = importlib.util.spec_from_file_location('prepare', 'tools/publish/scripts/prepare-packages.py')
-          module = importlib.util.module_from_spec(spec)
-          spec.loader.exec_module(module)
+          import json, os, sys
+          sys.path.insert(0, 'tools/publish/scripts')
+          from release_channel import check
           tag = os.environ['RELEASE_TAG']
-          module.stable_version(tag)
-          repo = os.environ['GITHUB_REPOSITORY']
-          release = json.loads(subprocess.check_output(['gh', 'api', f'repos/{repo}/releases/tags/{tag}']))
-          latest = json.loads(subprocess.check_output(['gh', 'api', f'repos/{repo}/releases/latest']))
-          assert not release['draft'] and not release['prerelease'], 'A published stable release is required'
-          assert latest['tag_name'] == tag, 'Only the latest stable release may update package repositories'
+          check(tag, os.environ['PACKAGE_CHANNEL'])
           platforms = ['aur', 'homebrew', 'copr', 'ppa']
           selected = os.environ['PLATFORM']
           assert selected == 'all' or selected in platforms
@@ -82,11 +85,12 @@ jobs:
       matrix:
         platform: ${{ fromJSON(needs.validate.outputs.platforms) }}
     concurrency:
-      group: package-${{ matrix.platform }}
+      group: package-${{ inputs.channel || 'stable' }}-${{ matrix.platform }}
       cancel-in-progress: false
     env:
       RELEASE_TAG: ${{ inputs.tag }}
       DRY_RUN: ${{ inputs.dry_run && 'true' || 'false' }}
+      PACKAGE_CHANNEL: ${{ inputs.channel || 'stable' }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -118,7 +122,14 @@ jobs:
       - name: Download and validate release archives
         env:
           GH_TOKEN: ${{ github.token }}
+          GITHUB_REF_NAME: ${{ inputs.tag }}
         run: |
+          if [[ "$PACKAGE_CHANNEL" == alpha ]]; then
+            gh release download "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --dir assets
+            python3 tools/publish/scripts/release_guard.py assets --require-existing
+            python3 tools/publish/scripts/prepare-packages.py "$RELEASE_TAG" assets prepared --channel alpha
+            exit 0
+          fi
           gh release download "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --dir assets \
             --pattern '*.tar.gz' --pattern '*.tar.gz.sha256'
           python3 - <<'PY'

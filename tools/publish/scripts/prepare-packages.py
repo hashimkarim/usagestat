@@ -51,8 +51,15 @@ def replace_one(pattern, replacement, text):
     return text
 
 
-def prepare(tag, assets, output, root):
-    version = stable_version(tag)
+def prepare(tag, assets, output, root, channel='stable'):
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from release_channel import alpha_version
+    if channel not in ('stable', 'alpha'):
+        raise ValueError('Unknown publication channel')
+    version = alpha_version(tag) if channel == 'alpha' else stable_version(tag)
+    package_version = version.replace('-', '~') if channel == 'alpha' else version
+    if channel == 'alpha' and not (assets / 'usagestat-artifacts.json').is_file():
+        raise ValueError('Alpha packages require the verified native release manifests')
     output.mkdir(parents=True, exist_ok=False)
     hashes = {arch: unpack(assets, arch, output / arch) for arch in ('x86_64', 'aarch64')}
     # Both release builds must carry exactly the same provider data and license.
@@ -67,11 +74,15 @@ def prepare(tag, assets, output, root):
     aur = replace_one(r'^pkgver=.*$', f'pkgver={version}', aur)
     aur = replace_one(r'^pkgrel=.*$', 'pkgrel=1', aur)
     aur = replace_one(r'^sha256sums_x86_64=.*$', f'sha256sums_x86_64=("{hashes["x86_64"]}")', aur)
+    if channel == 'alpha':
+        aur = replace_one(r'^pkgname=.*$', 'pkgname=usagestat-alpha-bin', aur)
+        aur = replace_one(r'^pkgver=.*$', f'_upstream_version={version}\npkgver={version.replace("-", "")}', aur)
+        aur = aur.replace('${pkgver}', '${_upstream_version}').replace('depends=("glibc")', 'depends=("glibc>=2.39")')
     (output / 'PKGBUILD').write_text(aur)
     if (assets / 'usagestat-artifacts.json').exists():
         sys.path.insert(0, str(Path(__file__).resolve().parent))
         from homebrew_formula import generate
-        brew = generate(assets)
+        brew = generate(assets, alpha=channel == 'alpha', formula_name='usagestat-alpha' if channel == 'alpha' else 'usagestat')
         if f'  version "{version}"' not in brew:
             raise ValueError('Homebrew release version differs from requested tag')
     else:
@@ -87,9 +98,12 @@ def prepare(tag, assets, output, root):
             raise ValueError('Expected two Homebrew checksums')
     (output / 'usagestat.rb').write_text(brew)
     rpm = (root / 'packaging/rpm/usagestat.spec').read_text()
-    rpm = replace_one(r'^Version:.*$', f'Version:        {version}', rpm)
+    rpm = replace_one(r'^Version:.*$', f'Version:        {package_version}', rpm)
+    if channel == 'alpha':
+        rpm = f'%global upstream_version {version}\n' + rpm
+        rpm = rpm.replace('v%{version}.tar.gz', 'v%{upstream_version}.tar.gz').replace('%autosetup -n usagestat-%{version}', '%autosetup -n usagestat-%{upstream_version}')
     (output / 'usagestat.spec').write_text(rpm)
-    source = output / f'usagestat-{version}'
+    source = output / f'usagestat-{package_version}'
     for arch, debarch in [('x86_64', 'amd64'), ('aarch64', 'arm64')]:
         dest = source / 'bin' / debarch
         dest.mkdir(parents=True)
@@ -103,7 +117,7 @@ def prepare(tag, assets, output, root):
         info.uname = info.gname = ''
         return info
     import gzip
-    with (output / f'usagestat_{version}.orig.tar.gz').open('wb') as raw:
+    with (output / f'usagestat_{package_version}.orig.tar.gz').open('wb') as raw:
         with gzip.GzipFile(filename='', mode='wb', fileobj=raw, mtime=0) as gz:
             with tarfile.open(fileobj=gz, mode='w') as tar:
                 tar.add(source, arcname=source.name, filter=normalize)
@@ -116,5 +130,6 @@ if __name__ == '__main__':
     parser.add_argument('tag')
     parser.add_argument('assets', type=Path)
     parser.add_argument('output', type=Path)
+    parser.add_argument('--channel', choices=['stable', 'alpha'], default='stable')
     args = parser.parse_args()
-    prepare(args.tag, args.assets, args.output, Path(__file__).resolve().parents[3])
+    prepare(args.tag, args.assets, args.output, Path(__file__).resolve().parents[3], args.channel)

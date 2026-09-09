@@ -1,0 +1,26 @@
+{
+  "aur": {
+    "account": "hashimkarim",
+    "pkgbase": "usagestat-alpha-bin",
+    "package": "usagestat-alpha-bin"
+  },
+  "homebrew": {
+    "tap": "hashimkarim/homebrew-tap",
+    "formula": "usagestat-alpha"
+  },
+  "copr": {
+    "owner": "hashimkarim",
+    "project": "usagestat-alpha",
+    "package": "usagestat",
+    "chroots": ["fedora-43-x86_64", "fedora-44-x86_64", "fedora-45-x86_64", "fedora-rawhide-x86_64"]
+  },
+  "ppa": {
+    "owner": "hashimkarim",
+    "archive": "usagestat-alpha",
+    "uploader": "hashimkarim",
+    "source": "usagestat",
+    "package": "usagestat",
+    "series": ["noble"],
+    "architectures": ["amd64"]
+  }
+}

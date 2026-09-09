@@ -47,6 +47,13 @@ backend alpha includes native archives and a Windows per-user installer. Native
 bar frontends, desktop acceptance, signing and public npm publication remain
 pending. Stable package-manager instructions follow below.
 
+Separate **[alpha package repositories](docs/alpha.md#alpha-package-repositories)**
+are being published for [Fedora COPR](https://copr.fedorainfracloud.org/coprs/hashimkarim/usagestat-alpha/),
+[Ubuntu PPA](https://launchpad.net/~hashimkarim/+archive/ubuntu/usagestat-alpha),
+[AUR](https://aur.archlinux.org/packages/usagestat-alpha-bin), and
+[Homebrew](https://github.com/hashimkarim/homebrew-tap/blob/main/Formula/usagestat-alpha.rb).
+First publication checks are in progress.
+
 Choose a package manager already available on your system. Published packages
 and stable release downloads target **Linux**; the stable Homebrew formula is also
 Linux-only. Stable availability below was checked against release **v1.0.3**.

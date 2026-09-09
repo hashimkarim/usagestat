@@ -24,9 +24,15 @@ def get(url):
         return json.load(response)
 
 
-def state(platform, version):
+def state(platform, version, channel='stable'):
+    if channel not in ('stable', 'alpha'):
+        raise ValueError('Unknown publication channel')
+    project = 'usagestat-alpha' if channel == 'alpha' else 'usagestat'
+    if channel == 'alpha':
+        from release_channel import alpha_version
+        version = alpha_version('v' + version).replace('-', '~')
     if platform == 'copr':
-        data = get('https://copr.fedorainfracloud.org/api_3/build/list?ownername=hashimkarim&projectname=usagestat&limit=100')
+        data = get(f'https://copr.fedorainfracloud.org/api_3/build/list?ownername=hashimkarim&projectname={project}&limit=100')
         builds = [b for b in data['items'] if (b.get('source_package') or {}).get('version') == version + '-1']
         if not builds:
             if any(not b.get('source_package') and b['state'] not in {'succeeded', 'failed', 'canceled', 'skipped'} for b in data['items']):
@@ -39,7 +45,7 @@ def state(platform, version):
         if status in {'failed', 'canceled', 'skipped'}:
             return 'failed'
         return 'pending'
-    archive = 'https://api.launchpad.net/1.0/~hashimkarim/+archive/ubuntu/usagestat'
+    archive = 'https://api.launchpad.net/1.0/~hashimkarim/+archive/ubuntu/' + project
     deb_version = ppa_version(version)
     query = urllib.parse.urlencode({'ws.op': 'getPublishedSources', 'source_name': 'usagestat', 'exact_match': 'true', 'version': deb_version})
     entries = get(archive + '?' + query)['entries']
@@ -65,14 +71,16 @@ def main():
     parser.add_argument('platform', choices=['copr', 'ppa'])
     parser.add_argument('version')
     parser.add_argument('--wait', action='store_true')
+    parser.add_argument('--channel', choices=['stable', 'alpha'], default='stable')
     parser.add_argument('--print-version', action='store_true', help='Print the package revision without querying the platform')
     args = parser.parse_args()
     if args.print_version:
-        print(ppa_version(args.version) if args.platform == 'ppa' else args.version + '-1')
+        version = args.version.replace('-', '~') if args.channel == 'alpha' else args.version
+        print(ppa_version(version) if args.platform == 'ppa' else version + '-1')
         return 0
     deadline = time.monotonic() + 2700
     while True:
-        result = state(args.platform, args.version)
+        result = state(args.platform, args.version, args.channel)
         print(f'{args.platform} {args.version}: {result}', flush=True)
         if result == 'done':
             return 0

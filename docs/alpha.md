@@ -13,6 +13,75 @@ login/reboot and real provider authentication still need qualification; see the
 Server 2025. Older candidate OS floors remain unverified. Linux requires glibc
 2.39+; Windows ARM64 and musl/Alpine have no alpha payload.
 
+## Alpha package repositories
+
+The separate alpha repositories are being published. Their first-package checks
+are still in progress; the portable downloads below are already available.
+
+| Channel | Alpha destination | Package / formula | Target |
+| --- | --- | --- | --- |
+| Fedora | [COPR](https://copr.fedorainfracloud.org/coprs/hashimkarim/usagestat-alpha/) | `usagestat` | Fedora 43, 44, 45, Rawhide; x86-64 |
+| Ubuntu | [Launchpad PPA](https://launchpad.net/~hashimkarim/+archive/ubuntu/usagestat-alpha) | `usagestat` | Ubuntu 24.04 Noble; amd64 |
+| Arch Linux | [AUR](https://aur.archlinux.org/packages/usagestat-alpha-bin) | `usagestat-alpha-bin` | x86-64; glibc 2.39+ |
+| Linux / macOS | [Homebrew](https://github.com/hashimkarim/homebrew-tap/blob/main/Formula/usagestat-alpha.rb) | `hashimkarim/tap/usagestat-alpha` | Linux x86-64/ARM64; macOS Intel/Apple Silicon |
+
+Alpha packages install the same `usagestat` and `usagestatd` commands as stable.
+Switching channels replaces the package; these are not separate daemon profiles.
+If a backend is already running, stop it with its current CLI's `daemon stop`
+before replacing the package. Keep a backup of settings/history before trying an
+alpha. Startup remains explicit; package installation does not enable a service.
+
+After first publication completes, Fedora installation is:
+
+```sh
+sudo dnf install dnf5-plugins
+sudo dnf copr enable hashimkarim/usagestat-alpha
+sudo dnf install usagestat
+usagestat --version
+```
+
+Ubuntu 24.04:
+
+```sh
+sudo apt install software-properties-common
+sudo add-apt-repository ppa:hashimkarim/usagestat-alpha
+sudo apt update
+sudo apt install usagestat
+usagestat --version
+```
+
+Arch users with an AUR helper can run `yay -S usagestat-alpha-bin`. For a
+helper-free installation, clone
+`https://aur.archlinux.org/usagestat-alpha-bin.git`, review `PKGBUILD`, and run
+`makepkg -si` as your regular user. Accept replacement of the stable package only
+when you intend to switch channels.
+
+Homebrew installation is `brew install hashimkarim/tap/usagestat-alpha`.
+If the stable formula is installed, stop/unregister its owned daemon and run
+`brew uninstall usagestat` before installing the alpha formula. The new formula
+uses a different Cellar path, so register startup explicitly again if wanted.
+If Homebrew requires formula trust, review the generated formula and run
+`brew trust --formula hashimkarim/tap/usagestat-alpha`; do not disable trust checks.
+The macOS binaries remain unsigned, with desktop/minimum-OS qualification pending.
+
+Update with `sudo dnf upgrade usagestat`, `sudo apt install --only-upgrade
+usagestat`, `yay -Syu usagestat-alpha-bin`, or `brew upgrade usagestat-alpha`.
+Stop a running backend first, then use `usagestat daemon start` afterward if it
+was previously configured. Homebrew upgrades change the Cellar path: retain the
+old keg until `usagestat daemon relocate` has succeeded; see
+[Homebrew upgrade recovery](macos-distribution.md).
+
+Before removing a managed backend, run its `usagestat daemon unregister`.
+Uninstall with `sudo dnf remove usagestat`, `sudo apt remove usagestat`,
+`sudo pacman -R usagestat-alpha-bin`, or `brew uninstall usagestat-alpha`.
+Settings/history are retained. Optionally remove only the alpha repository with
+`sudo dnf copr remove hashimkarim/usagestat-alpha` or
+`sudo add-apt-repository --remove ppa:hashimkarim/usagestat-alpha`.
+Disabling an alpha repository alone does not downgrade its installed package.
+To return to stable, unregister the alpha backend, remove its package, disable
+the alpha repository and install from the [stable channel](installation.md).
+Restore the pre-alpha settings backup if the older backend needs it.
+
 ## Windows: portable first run
 
 Download `usagestat-windows-x86_64.zip` and its `.sha256` sidecar into the same
@@ -116,6 +185,7 @@ as part of removing the backend.
 
 npm remains a planned distribution channel with passing native installation
 rehearsals. `@hashimkarim/usagestat` has not yet been published; use these GitHub
-downloads for this alpha. AUR/Homebrew/COPR/PPA continue to serve their stable
-packages. WinGet/Scoop/Chocolatey, desktop stores and signed desktop bundles are
-outside this alpha's published channels.
+downloads while public npm publication is pending. Stable AUR/Homebrew/COPR/PPA
+destinations are preserved alongside their separate alpha channels. Windows feed
+publication is being prepared; desktop stores and signed desktop bundles require
+separate product/signing work.

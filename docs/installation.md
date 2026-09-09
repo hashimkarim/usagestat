@@ -67,6 +67,8 @@ Homebrew's prefix and discovered automatically.
 
 ## Fedora / COPR
 
+For the v2 preview, use the separate [alpha COPR instructions](alpha.md#alpha-package-repositories).
+
 The [COPR project](https://copr.fedorainfracloud.org/coprs/hashimkarim/usagestat/)
 has v1.0.3 builds for **Fedora 43, 44, 45, and Rawhide, on x86-64**.
 These targets use DNF5; its COPR command is supplied by
