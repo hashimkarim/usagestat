@@ -8,6 +8,6 @@
   "channels": {
     "scoop": {"name": "usagestat-alpha", "bucket": "hashimkarim/scoop-bucket", "branch": "main"},
     "winget": {"id": "HashimKarim.UsageStat.Alpha", "fork": "hashimkarim/winget-pkgs"},
-    "chocolatey": {"id": "usagestat-alpha", "source": "https://push.chocolatey.org/"}
+    "chocolatey": {"id": "usagestat", "source": "https://push.chocolatey.org/"}
   }
 }

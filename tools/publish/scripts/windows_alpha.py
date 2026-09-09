@@ -43,7 +43,8 @@ def target():
     require(t['channels'] == {
         'scoop': {'name': 'usagestat-alpha', 'bucket': 'hashimkarim/scoop-bucket', 'branch': 'main'},
         'winget': {'id': 'HashimKarim.UsageStat.Alpha', 'fork': 'hashimkarim/winget-pkgs'},
-        'chocolatey': {'id': 'usagestat-alpha', 'source': 'https://push.chocolatey.org/'}},
+        # CPMR0024 requires prerelease identity in the version, never the package ID.
+        'chocolatey': {'id': 'usagestat', 'source': 'https://push.chocolatey.org/'}},
         'Alpha feed destinations differ from the reviewed channel identities')
     return t
 
@@ -215,7 +216,7 @@ def write_files(directory, files):
 def chocolatey_preflight(package, files, tag):
     """Check the actual tested nupkg and refuse a duplicate community upload."""
     expected_version = chocolatey_version(version(tag))
-    require(package.name == f'usagestat-alpha.{expected_version}.nupkg', 'Unexpected Chocolatey package filename')
+    require(package.name == f'usagestat.{expected_version}.nupkg', 'Unexpected Chocolatey package filename')
     with zipfile.ZipFile(package) as archive:
         names = archive.namelist()
         require(len(names) == len(set(names)), 'Duplicate Chocolatey archive entries')
@@ -224,7 +225,7 @@ def chocolatey_preflight(package, files, tag):
             if name.endswith('.nuspec'):
                 metadata = ET.fromstring(archive.read(name))
                 fields = {e.tag.rsplit('}', 1)[-1]: e.text for e in metadata.iter()}
-                require(fields.get('id') == 'usagestat-alpha' and fields.get('version') == expected_version,
+                require(fields.get('id') == 'usagestat' and fields.get('version') == expected_version,
                         'Chocolatey package identity differs from the reviewed recipe')
             else:
                 require(archive.read(name).decode('utf-8-sig').replace('\r\n', '\n') == content,
@@ -233,7 +234,7 @@ def chocolatey_preflight(package, files, tag):
             require(name in files or name in ('[Content_Types].xml', '_rels/.rels') or
                     re.fullmatch(r'package/services/metadata/core-properties/[A-Za-z0-9]+\.psmdcp', name),
                     'Unexpected file in Chocolatey package')
-    url = "https://community.chocolatey.org/api/v2/Packages(Id='usagestat-alpha',Version='" + expected_version + "')"
+    url = "https://community.chocolatey.org/api/v2/Packages(Id='usagestat',Version='" + expected_version + "')"
     try:
         with urllib.request.urlopen(url, timeout=30) as response:
             response.read(1)

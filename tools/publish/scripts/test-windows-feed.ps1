@@ -43,18 +43,22 @@ function Check-Backend {
 try {
     switch ($Channel) {
         'chocolatey' {
+            choco install chocolatey-community-validation.extension --version 0.2.0 --yes --no-progress
+            Check-Exit 'Install Chocolatey community metadata validator'
             $nuspec = Get-ChildItem -LiteralPath $recipes -Filter '*.nuspec' | Select-Object -First 1
             [xml]$metadata = Get-Content -LiteralPath $nuspec.FullName -Raw
+            $packageId = $metadata.package.metadata.id
             $packageVersion = $metadata.package.metadata.version
+            if ($packageId -ne 'usagestat') { throw 'Chocolatey requires a release-neutral package ID.' }
             $packed = Join-Path $recipes 'packed'
             New-Item -ItemType Directory -Path $packed | Out-Null
             choco pack $nuspec.FullName --outputdirectory $packed
             Check-Exit 'Chocolatey pack'
-            choco install usagestat-alpha --version $packageVersion --pre --source $packed --yes --no-progress
+            choco install $packageId --version $packageVersion --pre --source $packed --yes --no-progress
             Check-Exit 'Chocolatey installation'
             Check-Backend
             if (Test-Path -LiteralPath (Join-Path $env:ChocolateyInstall 'bin/usagestat-service.exe')) { throw 'Service supervisor must not have a public command shim.' }
-            choco uninstall usagestat-alpha --yes --no-progress
+            choco uninstall $packageId --yes --no-progress
             Check-Exit 'Chocolatey removal'
         }
         'scoop' {

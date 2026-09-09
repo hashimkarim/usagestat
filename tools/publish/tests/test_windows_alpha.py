@@ -53,7 +53,7 @@ class WindowsAlphaTests(unittest.TestCase):
     def test_chocolatey_checks_packed_files_and_fails_closed_on_registry_errors(self):
         files = self.recipes('chocolatey')
         with tempfile.TemporaryDirectory() as temporary:
-            package = Path(temporary) / 'usagestat-alpha.2.0.0-alpha000001.nupkg'
+            package = Path(temporary) / 'usagestat.2.0.0-alpha000001.nupkg'
             with zipfile.ZipFile(package, 'w') as archive:
                 for name, content in files.items(): archive.writestr(name, content)
             missing = urllib.error.HTTPError('https://fixture.invalid', 404, 'missing', {}, None)
