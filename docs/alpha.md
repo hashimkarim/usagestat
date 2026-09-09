@@ -30,7 +30,7 @@ was checked on September 9, 2026; pending channels are explicitly marked below.
 | All five native targets | npm | `@hashimkarim/usagestat@alpha` | Installation rehearsals passed; main package publication awaits npm's publishing approval |
 
 Ubuntu's signed
-[Noble build](https://launchpad.net/~hashimkarim/+archive/ubuntu/usagestat-alpha/+build/33580662)
+[Noble package](https://launchpad.net/~hashimkarim/+archive/ubuntu/usagestat-alpha)
 is published as `usagestat 2.0.0~alpha.1-1ppa1`. Installation from the public PPA
 passed in a clean Ubuntu 24.04 container: both executables, all 61 providers/icons,
 no automatic service registration, and removal retaining user data were checked.
