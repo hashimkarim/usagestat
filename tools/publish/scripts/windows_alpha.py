@@ -150,7 +150,7 @@ def recipes(t, tag, records, channel):
                 item['ArchiveBinariesDependOnPath'] = True
             if "silent_args" in a:
                 item["InstallerSwitches"] = {"Silent": a["silent_args"], "SilentWithProgress": a["silent_args"]}
-            if "scope" in a:
+            if "scope" in a and a['type'] != 'zip':
                 item["Scope"] = a["scope"]
             installers.append(item)
         documents = {
@@ -161,7 +161,9 @@ def recipes(t, tag, records, channel):
                                          "ReleaseNotesUrl": f"{t['homepage']}/releases/tag/{tag}",
                                          "ManifestType": "defaultLocale", "ManifestVersion": "1.12.0"},
             f"{base}.installer.yaml": {**common, "Installers": installers, "ManifestType": "installer", "ManifestVersion": "1.12.0"}}
-        return {p: yaml(d) + "\n" for p, d in documents.items()}
+        schema_types = {'version': 'version', 'defaultLocale': 'defaultLocale', 'installer': 'installer'}
+        return {p: '# yaml-language-server: $schema=https://aka.ms/winget-manifest.' +
+                schema_types[d['ManifestType']] + '.1.12.0.schema.json\n' + yaml(d) + "\n" for p, d in documents.items()}
     package = c["id"]
     fields = {"id": package, "version": chocolatey_version(v), "title": t["name"], "authors": t["publisher"],
               "description": t["description"], "projectUrl": t["homepage"],
