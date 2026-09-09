@@ -47,9 +47,9 @@ def compare_existing(release, expected, prerelease):
         if actual != 'sha256:' + digest:
             raise ValueError(f'Existing release asset checksum differs: {name}')
 
-def check(directory, *, require_existing=False):
+def check(directory, *, require_existing=False, tag=None):
     repository = os.environ['GITHUB_REPOSITORY']
-    tag = os.environ['GITHUB_REF_NAME']
+    tag = tag or os.environ['GITHUB_REF_NAME']
     if not re.fullmatch(r'[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+', repository):
         raise ValueError('Invalid source repository')
     manifest = json.loads((directory / 'usagestat-artifacts.json').read_text())
@@ -83,8 +83,9 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('directory', type=Path)
     parser.add_argument('--require-existing', action='store_true')
+    parser.add_argument('--tag', help='Existing release tag for a package workflow dispatched from a branch')
     args = parser.parse_args()
-    create = check(args.directory, require_existing=args.require_existing)
+    create = check(args.directory, require_existing=args.require_existing, tag=args.tag)
     print('Release does not exist; publication can create it.' if create else 'Existing release matches all staged assets; no upload needed.')
     if os.environ.get('GITHUB_OUTPUT'):
         with open(os.environ['GITHUB_OUTPUT'], 'a') as output:

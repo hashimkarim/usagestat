@@ -122,11 +122,10 @@ jobs:
       - name: Download and validate release archives
         env:
           GH_TOKEN: ${{ github.token }}
-          GITHUB_REF_NAME: ${{ inputs.tag }}
         run: |
           if [[ "$PACKAGE_CHANNEL" == alpha ]]; then
             gh release download "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --dir assets
-            python3 tools/publish/scripts/release_guard.py assets --require-existing
+            python3 tools/publish/scripts/release_guard.py assets --require-existing --tag "$RELEASE_TAG"
             python3 tools/publish/scripts/prepare-packages.py "$RELEASE_TAG" assets prepared --channel alpha
             exit 0
           fi

@@ -1,4 +1,5 @@
 import importlib.util
+import hashlib
 import json
 from pathlib import Path
 import sys
@@ -11,6 +12,7 @@ sys.path.insert(0, str(ROOT / 'tools/publish/scripts'))
 import homebrew_formula
 import native_artifacts
 import release_channel
+import release_guard
 import test_homebrew_formula as fixtures
 
 
@@ -26,6 +28,18 @@ publication = load('alpha_publication', 'publication-state.py')
 
 
 class AlphaChannelsTests(unittest.TestCase):
+    def test_branch_dispatch_verifies_the_explicit_release_tag(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            data = json.dumps({'version': '2.0.0-alpha.1', 'sourceCommit': 'a' * 40}).encode()
+            (root / 'usagestat-artifacts.json').write_bytes(data)
+            release = dict(draft=False, prerelease=True, assets=[dict(name='usagestat-artifacts.json',
+                size=len(data), digest='sha256:' + hashlib.sha256(data).hexdigest())])
+            with patch.dict('os.environ', {'GITHUB_REPOSITORY': 'hashimkarim/usagestat', 'GITHUB_REF_NAME': 'feature/alpha'}), \
+                    patch.object(release_guard, 'get', side_effect=[{}, {'object': {'type': 'commit', 'sha': 'a' * 40}}, release]) as get:
+                self.assertFalse(release_guard.check(root, require_existing=True, tag='v2.0.0-alpha.1'))
+                self.assertIn('git/ref/tags/v2.0.0-alpha.1', get.call_args_list[1].args[0])
+
     def test_channel_gates_and_numeric_alpha_order(self):
         for invalid in ['v2.0.0', 'v2.0.0-beta.1', 'v2.0.0-alpha.01', 'v2.0.0-alpha.1\n', 'v2.0.0-alpha.1;bad']:
             with self.subTest(tag=invalid), self.assertRaises(ValueError):
