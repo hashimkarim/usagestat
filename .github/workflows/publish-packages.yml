@@ -207,6 +207,36 @@ jobs:
             prepared/*.debian.tar.xz
             prepared/*.deb
 
+  homebrew-install:
+    name: Public alpha Homebrew on ${{ matrix.runner }}
+    needs: [validate, publish]
+    if: inputs.channel == 'alpha' && inputs.dry_run != true && contains(fromJSON(needs.validate.outputs.platforms), 'homebrew')
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [macos-15, macos-15-intel]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify existing release and install the public formula
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          gh release download "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --dir assets
+          python3 tools/publish/scripts/release_guard.py assets --require-existing --tag "$RELEASE_TAG"
+          python3 tools/publish/scripts/test_homebrew_alpha.py --artifacts assets --report target/homebrew-alpha-result.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: homebrew-alpha-${{ matrix.runner }}
+          path: target/homebrew-alpha-result.json
+
   windows:
     name: Windows alpha ${{ matrix.channel }}
     needs: validate
