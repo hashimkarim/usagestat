@@ -33,6 +33,30 @@ GitHub prerelease and matching immutable source/tag/assets. RPM and Debian use
 The alpha Homebrew formula explicitly includes the unsigned macOS candidates;
 the stable formula retains its existing qualification gate.
 
+Windows alpha destinations are in [windows-alpha.json](../packaging/windows-alpha.json):
+Scoop `hashimkarim/scoop-bucket`, Chocolatey `usagestat-alpha`, and WinGet
+`HashimKarim.UsageStat.Alpha`. The same workflow supports `platform=scoop`,
+`chocolatey`, or `winget`. It validates the actual Windows ZIP/PE files and runs
+native package-manager install/resource/removal checks before publication.
+Scoop uses the owned bucket; WinGet submits an upstream PR; Chocolatey uploads
+the tested nupkg. The latter two remain pending until their platform review
+completes. Duplicate Chocolatey versions and existing WinGet submissions stop
+for reconciliation instead of being overwritten or submitted twice.
+
+Chocolatey maps `2.0.0-alpha.1` to `2.0.0-alpha000001` for its SemVer 1 community
+feed, retaining numeric prerelease order. CI uses the existing account credentials
+under `WINDOWS_SCOOP_TOKEN`, `WINDOWS_WINGET_TOKEN`, and `WINDOWS_CHOCO_API_KEY`.
+The first Chocolatey upload used the exact Windows-tested nupkg through NuGet's
+standard push protocol and verified account access before installing the CI key.
+The generic Windows toolkit doctor targets stable installer templates; this
+project's existing Rust/native-archive pipeline instead uses the native evidence
+above. Store submissions and Apple signing require separate product/signing
+qualification; these CLI packages do not enable those destinations.
+
+npm uses `@hashimkarim/usagestat@alpha`; first publication and trusted-publisher
+status are tracked in [npm distribution](npm-distribution.md). Native GitHub
+downloads remain available on every target without Node or a package manager.
+
 The native artifact workflow and schema are documented in
 [native release artifacts](native-artifacts.md). Manual Release workflow dispatch
 stages all targets without publishing. Stable publication retains Linux while

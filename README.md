@@ -47,12 +47,30 @@ backend alpha includes native archives and a Windows per-user installer. Native
 bar frontends, desktop acceptance, signing and public npm publication remain
 pending. Stable package-manager instructions follow below.
 
-Separate **[alpha package repositories](docs/alpha.md#alpha-package-repositories)**
-are being published for [Fedora COPR](https://copr.fedorainfracloud.org/coprs/hashimkarim/usagestat-alpha/),
-[Ubuntu PPA](https://launchpad.net/~hashimkarim/+archive/ubuntu/usagestat-alpha),
-[AUR](https://aur.archlinux.org/packages/usagestat-alpha-bin), and
-[Homebrew](https://github.com/hashimkarim/homebrew-tap/blob/main/Formula/usagestat-alpha.rb).
-First publication checks are in progress.
+Separate **[alpha packages and installation instructions](docs/alpha.md#alpha-package-repositories)**
+are available through Fedora COPR, AUR, Homebrew (including macOS), and Scoop.
+The signed Ubuntu PPA upload is being published; Chocolatey is awaiting community
+review. WinGet and npm publication are still in progress. The linked guide tracks
+each channel's actual availability.
+
+<p>
+  <a href="https://copr.fedorainfracloud.org/coprs/hashimkarim/usagestat-alpha/"><picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://shieldcn.dev/badge/Fedora-alpha-51A2DA.svg?variant=outline&amp;size=sm&amp;logo=fedora&amp;mode=dark">
+    <img alt="Fedora alpha package" src="https://shieldcn.dev/badge/Fedora-alpha-51A2DA.svg?variant=outline&amp;size=sm&amp;logo=fedora&amp;mode=light">
+  </picture></a>
+  <a href="https://aur.archlinux.org/packages/usagestat-alpha-bin"><picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://shieldcn.dev/badge/AUR-alpha-1793D1.svg?variant=outline&amp;size=sm&amp;logo=archlinux&amp;mode=dark">
+    <img alt="AUR alpha package" src="https://shieldcn.dev/badge/AUR-alpha-1793D1.svg?variant=outline&amp;size=sm&amp;logo=archlinux&amp;mode=light">
+  </picture></a>
+  <a href="https://github.com/hashimkarim/homebrew-tap/blob/main/Formula/usagestat-alpha.rb"><picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://shieldcn.dev/badge/Homebrew-alpha-FBB040.svg?variant=outline&amp;size=sm&amp;logo=homebrew&amp;mode=dark">
+    <img alt="Homebrew alpha package" src="https://shieldcn.dev/badge/Homebrew-alpha-FBB040.svg?variant=outline&amp;size=sm&amp;logo=homebrew&amp;mode=light">
+  </picture></a>
+  <a href="https://github.com/hashimkarim/scoop-bucket/blob/main/bucket/usagestat-alpha.json"><picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://shieldcn.dev/badge/Scoop-alpha-3B82F6.svg?variant=outline&amp;size=sm&amp;logo=windows&amp;mode=dark">
+    <img alt="Scoop alpha package" src="https://shieldcn.dev/badge/Scoop-alpha-3B82F6.svg?variant=outline&amp;size=sm&amp;logo=windows&amp;mode=light">
+  </picture></a>
+</p>
 
 Choose a package manager already available on your system. Published packages
 and stable release downloads target **Linux**; the stable Homebrew formula is also

@@ -15,8 +15,8 @@ Server 2025. Older candidate OS floors remain unverified. Linux requires glibc
 
 ## Alpha package repositories
 
-The separate alpha repositories are being published. Their first-package checks
-are still in progress; the portable downloads below are already available.
+Alpha packages are published separately from the stable repositories. Availability
+was checked on September 9, 2026; pending channels are explicitly marked below.
 
 | Channel | Alpha destination | Package / formula | Target |
 | --- | --- | --- | --- |
@@ -24,6 +24,13 @@ are still in progress; the portable downloads below are already available.
 | Ubuntu | [Launchpad PPA](https://launchpad.net/~hashimkarim/+archive/ubuntu/usagestat-alpha) | `usagestat` | Ubuntu 24.04 Noble; amd64 |
 | Arch Linux | [AUR](https://aur.archlinux.org/packages/usagestat-alpha-bin) | `usagestat-alpha-bin` | x86-64; glibc 2.39+ |
 | Linux / macOS | [Homebrew](https://github.com/hashimkarim/homebrew-tap/blob/main/Formula/usagestat-alpha.rb) | `hashimkarim/tap/usagestat-alpha` | Linux x86-64/ARM64; macOS Intel/Apple Silicon |
+| Windows | [Scoop bucket](https://github.com/hashimkarim/scoop-bucket/blob/main/bucket/usagestat-alpha.json) | `usagestat-alpha` | Windows x64; published and installation tested |
+| Windows | [Chocolatey submission](https://community.chocolatey.org/packages/usagestat-alpha/2.0.0-alpha000001) | `usagestat-alpha` | Windows x64; submitted, awaiting community review |
+| Windows | WinGet | `HashimKarim.UsageStat.Alpha` | Windows x64; validation in progress, not yet submitted |
+| All five native targets | npm | `@hashimkarim/usagestat@alpha` | Installation tests passed; main package publication awaits account login |
+
+Ubuntu's signed source upload has been accepted; its build is still being
+published. The Ubuntu commands below become usable after that completes.
 
 Alpha packages install the same `usagestat` and `usagestatd` commands as stable.
 Switching channels replaces the package; these are not separate daemon profiles.
@@ -31,7 +38,7 @@ If a backend is already running, stop it with its current CLI's `daemon stop`
 before replacing the package. Keep a backup of settings/history before trying an
 alpha. Startup remains explicit; package installation does not enable a service.
 
-After first publication completes, Fedora installation is:
+Fedora installation:
 
 ```sh
 sudo dnf install dnf5-plugins
@@ -65,10 +72,12 @@ If Homebrew requires formula trust, review the generated formula and run
 The macOS binaries remain unsigned, with desktop/minimum-OS qualification pending.
 
 Update with `sudo dnf upgrade usagestat`, `sudo apt install --only-upgrade
-usagestat`, `yay -Syu usagestat-alpha-bin`, or `brew upgrade usagestat-alpha`.
+usagestat`, or `yay -Syu usagestat-alpha-bin`.
 Stop a running backend first, then use `usagestat daemon start` afterward if it
-was previously configured. Homebrew upgrades change the Cellar path: retain the
-old keg until `usagestat daemon relocate` has succeeded; see
+was previously configured. Homebrew upgrades change the Cellar path: use
+`HOMEBREW_NO_INSTALL_CLEANUP=1 brew upgrade usagestat-alpha`, then
+`usagestat daemon relocate` before cleaning the old keg. Restore the previous
+running/autostart state afterward; see
 [Homebrew upgrade recovery](macos-distribution.md).
 
 Before removing a managed backend, run its `usagestat daemon unregister`.
@@ -81,6 +90,48 @@ Disabling an alpha repository alone does not downgrade its installed package.
 To return to stable, unregister the alpha backend, remove its package, disable
 the alpha repository and install from the [stable channel](installation.md).
 Restore the pre-alpha settings backup if the older backend needs it.
+
+### Windows package managers
+
+With [Scoop installed](https://scoop.sh/), run:
+
+```powershell
+scoop bucket add hashimkarim https://github.com/hashimkarim/scoop-bucket
+scoop install hashimkarim/usagestat-alpha
+usagestat --version
+usagestat --json list
+usagestat doctor
+```
+
+Scoop installs the complete ZIP and exposes the CLI and daemon commands. It does
+not register login startup. To opt in, run `usagestat daemon enable` after a
+durable installation. Keep one installation owner per backend profile; unregister
+an old portable or npm owner before intentionally switching to Scoop.
+
+Before an update, record `usagestat daemon status --json`, including `running`
+and `autostart`, then run `usagestat daemon disable` if configured. Run
+`scoop update usagestat-alpha`, followed by `usagestat daemon relocate` for a
+registered installation. Restore the saved state: turn autostart on only if it
+was previously on, and run `usagestat daemon start` only if it was running.
+Keep the previous Scoop version until this succeeds. Distinct-version desktop
+upgrades still need acceptance testing.
+
+Before removal, run `usagestat daemon unregister`, then
+`scoop uninstall usagestat-alpha`. User settings and history are retained.
+
+Chocolatey uses `2.0.0-alpha000001` because its community feed requires SemVer 1
+prerelease syntax; the binaries still report `2.0.0-alpha.1`. After community
+review, installation will be `choco install usagestat-alpha --pre` in an elevated
+shell. Updates use `choco upgrade usagestat-alpha --pre`; release Windows file
+locks with `daemon disable` first and restore the saved daemon state afterward.
+Removal uses `daemon unregister`, then `choco uninstall usagestat-alpha`.
+Run backend setup commands from the regular user's shell so startup belongs to
+the intended user. Chocolatey installation/removal was tested on Windows CI;
+review approval is a separate step.
+
+WinGet commands will be added once its submission is accepted. These packages
+contain the unsigned backend; package-manager availability does not qualify
+desktop login, provider authentication, signing, or the bar frontend.
 
 ## Windows: portable first run
 

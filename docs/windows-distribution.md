@@ -2,11 +2,12 @@
 
 Tracker: [#16](https://github.com/hashimkarim/usagestat/issues/16).
 For **v2.0.0-alpha.1**, see the [alpha downloads and quick start](alpha.md).
-Windows x64 artifacts are currently unsigned release candidates from the native
-workflow. Windows minimum-version, standard-user desktop, distinct-version upgrades
-and public distribution qualification remain pending. Windows ARM64 and 32-bit
-builds are not included. npm is also a planned distribution channel; its native
-installation rehearsal passed, but registry publication is still disabled.
+Windows x64 alpha artifacts are published unsigned. Scoop's `usagestat-alpha`
+package is published; Chocolatey has accepted the package for community review.
+See [Windows package managers](alpha.md#windows-package-managers) for installation,
+updates and removal. WinGet validation and npm account setup remain in progress.
+Windows minimum-version, standard-user desktop and distinct-version upgrades
+remain pending. Windows ARM64 and 32-bit builds are not included.
 
 The portable ZIP contains `usagestat.exe`, `usagestatd.exe`,
 `usagestat-service.exe`, plugins/icons and license notices. Keep them together.

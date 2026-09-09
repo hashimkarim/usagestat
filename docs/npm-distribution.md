@@ -1,11 +1,13 @@
 # npm distribution implementation
 
 Issue: #21. The selected name is `@hashimkarim/usagestat`, with five
-`@hashimkarim/usagestat-<platform>` payload packages. On September 7, 2026,
-`npm whoami` authenticated as `hashimkarim`; both unscoped and selected scoped
-main names returned registry 404. This proves local identity, not a name
-reservation or CI publication access. No packages have been published;
-`npm/distribution.json` keeps `publicationEnabled` false.
+`@hashimkarim/usagestat-<platform>` payload packages. On September 9, 2026,
+the alpha installation rehearsal passed on all five native targets in
+[run 34297460188](https://github.com/hashimkarim/usagestat/actions/runs/34297460188).
+First publication created the Linux x64 payload. The main package is not yet
+published: npm rejects the saved token for dist-tag cleanup and trusted-publisher
+configuration (HTTP 403), so a fresh account login is pending.
+`npm/distribution.json` keeps automated `publicationEnabled` false.
 
 The [package README](../npm/README.md) covers requirements, explicit service
 ownership, updates and removal. Node 24/npm 11.5.1+ are required. Node raises the
@@ -61,19 +63,27 @@ All five npm installation jobs also passed with the final `354c390` candidate in
 The publication helper checks every staged/existing version before uploading,
 publishes and verifies platforms before the main package, and rejects conflicting
 published bytes. Retries skip only matching integrity and metadata. It sets
-`latest`/`next` directly during publication; npm's trusted publishing does not
+`latest` for stable, `alpha` for numbered alphas, and `next` for other prereleases
+directly during publication; npm's trusted publishing does not
 automatically authenticate a separate `dist-tag` command.
 It rejects any retry that would move a tag backwards. If identical bytes already
 exist under a different tag, it stops before uploading and reports the explicit
 authenticated promotion needed; it never rewrites an existing release version.
 
-First publication and trust setup remain pending. Publication requires both
+The explicit local `--publish --bootstrap` mode uses the authenticated namespace
+owner for the first alpha packages, without claiming CI provenance. It keeps
+the exact staged tarballs for partial-publication recovery, waits for registry
+read replicas, and removes an automatically assigned `latest` tag only when
+that tag names the same first alpha. Tag removal requires account authentication.
+
+First publication completion and trust setup remain pending. CI publication requires both
 `publicationEnabled: true` and repository variable `NPM_PUBLISH_ENABLED=true`.
 Configure each npm package's trusted publisher with owner `hashimkarim`, repo
 `usagestat`, workflow `release.yml`, environment `npm`, and direct publish
 permission. The job grants `id-token: write` and requests provenance. Initial
 package creation may require an authorized first publication before these
-settings exist. No credentials or account settings have been changed.
+settings exist. Bootstrap login uses a separate private local npm config, preserving
+the existing credential configuration.
 
 Sources: [npm metadata](https://docs.npmjs.com/cli/v11/configuring-npm/package-json/),
 [trusted publishers](https://docs.npmjs.com/trusted-publishers/),

@@ -2,8 +2,11 @@
 
 Implementation and acceptance tracker: [#15](https://github.com/hashimkarim/usagestat/issues/15).
 Unsigned **v2.0.0-alpha.1** archives are covered in the [alpha installation guide](alpha.md).
-Stable macOS packages remain pending public qualification. The currently published
-Homebrew formula supports Linux. The existing owned tap is
+Stable macOS packages remain pending public qualification. The published alpha
+formula is `hashimkarim/tap/usagestat-alpha` and supports Intel and Apple Silicon.
+Its public URLs, install, provider resources, explicit startup and removal passed
+on both Mac architectures in [run 34297938494](https://github.com/hashimkarim/usagestat/actions/runs/34297938494).
+The stable formula remains Linux-only. The existing owned tap is
 [`hashimkarim/homebrew-tap`](https://github.com/hashimkarim/homebrew-tap).
 
 [Release rehearsal 34094784327](https://github.com/hashimkarim/usagestat/actions/runs/34094784327)
