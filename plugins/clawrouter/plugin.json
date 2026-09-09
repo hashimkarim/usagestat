@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "id": "clawrouter",
+  "name": "ClawRouter",
+  "version": "0.1.0",
+  "entry": "plugin.js",
+  "enabledByDefault": false,
+  "envVars": [
+    "CLAWROUTER_API_KEY",
+    "CLAWROUTER_BASE_URL"
+  ],
+  "supportedModes": [
+    "api"
+  ],
+  "autoMode": "api",
+  "links": [
+    {
+      "label": "Dashboard",
+      "url": "https://clawrouter.openclaw.ai"
+    }
+  ]
+}

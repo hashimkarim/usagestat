@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "id": "ibmbob",
+  "name": "IBM Bob",
+  "version": "0.1.0",
+  "entry": "plugin.js",
+  "enabledByDefault": false,
+  "envVars": [
+    "BOBSHELL_API_KEY"
+  ],
+  "supportedModes": [
+    "api"
+  ],
+  "autoMode": "api",
+  "usageDashboardUrl": "https://bob.ibm.com",
+  "links": [
+    {
+      "label": "Dashboard",
+      "url": "https://bob.ibm.com"
+    }
+  ]
+}

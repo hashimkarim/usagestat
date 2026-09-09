@@ -49,16 +49,12 @@
   }
 
   function parseDate(value) {
-    if (typeof value === "number" && Number.isFinite(value)) {
-      return new Date(value > 1000000000000 ? value / 1000 : value * 1000);
-    }
-    if (typeof value === "string" && value.trim()) {
-      var numeric = Number(value);
-      if (Number.isFinite(numeric)) return parseDate(numeric);
-      var ms = Date.parse(value);
-      if (Number.isFinite(ms)) return new Date(ms);
-    }
-    return null;
+    if (typeof value !== "number" && (typeof value !== "string" || !value.trim())) return null;
+    var numeric = Number(value);
+    var date = Number.isFinite(numeric)
+      ? new Date(Math.abs(numeric) > 100000000000000 ? numeric / 1000 : Math.abs(numeric) > 1000000000000 ? numeric : numeric * 1000)
+      : new Date(value);
+    return Number.isFinite(date.getTime()) && date.getUTCFullYear() >= 1 && date.getUTCFullYear() <= 9999 ? date : null;
   }
 
   function dayKey(date) {
@@ -77,6 +73,7 @@
   }
 
   function parseHistoryEntry(row) {
+    if (!row || typeof row !== "object") return null;
     var createdAt = parseDate(row.creation_time ?? row.timestamp ?? row.created_at);
     if (!createdAt) return null;
     var points = numberValue(row.cost_points ?? row.points ?? row.point_cost) || 0;
@@ -90,10 +87,10 @@
     };
   }
 
-  function fetchHistory(ctx, key) {
+  function fetchHistory(ctx, key, nowMs) {
     var entries = [];
     var cursor = null;
-    var cutoff = Date.now() - 30 * 24 * 3600 * 1000;
+    var cutoff = nowMs - 30 * 24 * 3600 * 1000;
     for (var page = 0; page < 5; page++) {
       var url = HISTORY_URL + "?limit=100";
       if (cursor) url += "&starting_after=" + encodeURIComponent(cursor);
@@ -111,7 +108,7 @@
       var lastEntry = entries[entries.length - 1];
       if (!cursor || (lastEntry && lastEntry.createdAt.getTime() < cutoff)) break;
     }
-    return entries.filter(function (entry) { return entry.createdAt.getTime() >= cutoff; });
+    return entries.filter(function (entry) { return entry.createdAt.getTime() >= cutoff && entry.createdAt.getTime() <= nowMs; });
   }
 
   function summarizeHistory(entries) {
@@ -142,12 +139,19 @@
     return { byDay: byDay, days: days, topModel: topModel, totalPoints: totalPoints, totalCost: hasCost ? totalCost : null, requests: entries.length };
   }
 
-  function appendHistoryLines(lines, ctx, entries) {
-    if (!entries.length) return;
-    var summary = summarizeHistory(entries);
+  function appendSummary(lines, ctx, label, summary) {
     var value = fmtNumber(summary.totalPoints) + " points";
     if (summary.totalCost != null) value += " · $" + summary.totalCost.toFixed(2);
-    lines.push(ctx.line.text({ label: "Last 30 Days", value: value + " · " + summary.requests + " requests" }));
+    lines.push(ctx.line.text({ label: label, value: value + " · " + summary.requests + " requests" }));
+  }
+
+  function appendHistoryLines(lines, ctx, entries, nowMs) {
+    if (!entries.length) return;
+    var summary = summarizeHistory(entries);
+    var today = dayKey(new Date(nowMs));
+    appendSummary(lines, ctx, "Today", summarizeHistory(entries.filter(function (entry) { return dayKey(entry.createdAt) === today; })));
+    appendSummary(lines, ctx, "Last 7 Days", summarizeHistory(entries.filter(function (entry) { return entry.createdAt.getTime() >= nowMs - 7 * 86400000; })));
+    appendSummary(lines, ctx, "Last 30 Days", summary);
     if (summary.topModel) lines.push(ctx.line.text({ label: "Top Model", value: summary.topModel }));
 
     var points = summary.days.map(function (day) {
@@ -178,7 +182,9 @@
     }
 
     try {
-      appendHistoryLines(lines, ctx, fetchHistory(ctx, key));
+      var nowMs = Date.parse(ctx.nowIso);
+      if (!Number.isFinite(nowMs)) nowMs = Date.now();
+      appendHistoryLines(lines, ctx, fetchHistory(ctx, key, nowMs), nowMs);
     } catch (e) {
       ctx.host.log.warn("poe points_history failed: " + String(e));
     }

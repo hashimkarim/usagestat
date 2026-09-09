@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "id": "aiand",
+  "name": "ai&",
+  "version": "0.1.0",
+  "entry": "plugin.js",
+  "enabledByDefault": false,
+  "supportedModes": [
+    "api"
+  ],
+  "autoMode": "api",
+  "usageDashboardUrl": "https://console.aiand.com",
+  "links": [
+    {
+      "label": "Dashboard",
+      "url": "https://console.aiand.com"
+    }
+  ],
+  "envVars": [
+    "AIAND_API_KEY"
+  ]
+}

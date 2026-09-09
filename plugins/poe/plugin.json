@@ -13,6 +13,8 @@
   "autoMode": "api",
   "lines": [
     { "type": "text", "label": "Balance", "scope": "overview", "primaryOrder": 1 },
+    { "type": "text", "label": "Today", "scope": "detail" },
+    { "type": "text", "label": "Last 7 Days", "scope": "detail" },
     { "type": "text", "label": "Last 30 Days", "scope": "detail" },
     { "type": "barChart", "label": "Point History", "scope": "detail" }
   ]

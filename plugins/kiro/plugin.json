@@ -11,6 +11,8 @@
   "lines": [
     { "type": "progress", "label": "Credits", "scope": "overview", "primaryOrder": 1 },
     { "type": "progress", "label": "Bonus Credits", "scope": "overview" },
-    { "type": "badge", "label": "Overages", "scope": "detail" }
+    { "type": "badge", "label": "Overages", "scope": "detail" },
+    { "type": "progress", "label": "Overage Credits", "scope": "detail" },
+    { "type": "progress", "label": "Overage Charges", "scope": "detail" }
   ]
 }

@@ -199,16 +199,24 @@ Plugins are discovered from:
 3. Installed `share/usagestat/plugins` and `lib/usagestat/plugins` under the binary prefix
 4. `./plugins`
 
-Bundled providers include:
+The source tree bundles **77 providers**:
 
-- `abacus-ai`, `alibaba`, `alibaba-token-plan`, `amp`, `antigravity`, `augment`
-- `aws-bedrock`, `azure-openai`, `claude`, `codebuff`, `codex`, `command-code`
-- `copilot`, `crof`, `cursor`, `deepgram`, `deepseek`, `doubao`, `droid`
-- `elevenlabs`, `factory`, `gemini`, `grok`, `groqcloud`, `jetbrains-ai-assistant`
-- `kilo`, `kimi`, `kimi-k2`, `kiro`, `llm-proxy`, `manus`, `mimo`, `minimax`
-- `mistral`, `moonshot`, `nanogpt`, `ollama`, `openai-api`, `opencode`
-- `opencode-go`, `openrouter`, `perplexity`, `stepfun`, `synthetic`, `t3chat`
-- `venice`, `vertex-ai`, `warp`, `windsurf`, `zai`
+- `abacus-ai`, `aiand`, `alibaba`, `alibaba-token-plan`, `amp`, `antigravity`, `antigravity-cli`
+- `antigravity-ide`, `augment`, `aws-bedrock`, `azure-openai`, `chutes`, `claude`, `clawrouter`
+- `clinepass`, `codebuddy`, `codebuff`, `codex`, `command-code`, `copilot`, `crof`
+- `crofai`, `cursor`, `cursor-nightly`, `deepgram`, `deepinfra`, `deepseek`, `devin`
+- `doubao`, `droid`, `elevenlabs`, `factory`, `fireworks-ai`, `gemini`, `grok`
+- `groqcloud`, `ibmbob`, `jetbrains-ai-assistant`, `kilo`, `kimi`, `kimi-k2`, `kiro`
+- `litellm`, `llm-proxy`, `longcat`, `manus`, `mimo`, `minimax`, `mistral`
+- `moonshot`, `nanogpt`, `neuralwatt`, `notion`, `ollama`, `openai-api`, `opencode`
+- `opencode-go`, `openrouter`, `perplexity`, `poe`, `qoder`, `qwencloud`, `sakana`
+- `stepfun`, `sub2api`, `synthetic`, `t3chat`, `venice`, `vertex-ai`, `warp`
+- `wayfinder`, `windsurf`, `xai`, `zai`, `zed`, `zenmux`, `zoommate`
+
+The 16 additions from the September provider sync are disabled by default and
+await the next release; `v2.0.0-alpha.1` ships 61. See the
+[provider compatibility reference](docs/provider-compatibility.md) for supported
+data sources and validation coverage.
 
 `usagestat --json list` includes provider-owned UI metadata. Icon paths are
 resolved to absolute SVG paths; `icon.path` is the monochrome/default icon and
@@ -390,4 +398,5 @@ changes through [GitHub issues](https://github.com/Hashim-K/usagestat/issues).
 
 ## License
 
-[MIT](LICENSE). This project builds on CrossUsage's architecture.
+[MIT](LICENSE). This project builds on CrossUsage's architecture. Adapted provider
+code and assets retain their [upstream notices](plugins/UPSTREAM-LICENSES.md).

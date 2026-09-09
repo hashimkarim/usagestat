@@ -29,6 +29,36 @@
       "auditNote": "Configured credentials and HTTP request code inspected; real credentials, API responses and provider/account behavior remain unverified on each OS."
     },
     {
+      "id": "aiand",
+      "manifest": "plugins/aiand/plugin.json",
+      "entry": "plugins/aiand/plugin.js",
+      "entrySha256": "6a64ff12b03d9174208c0670f2e491ceddfea7246669b42aafbd865fe39eaec3",
+      "declaredModes": [
+        "api"
+      ],
+      "autoMode": "api",
+      "osStatus": {
+        "linux": "I",
+        "macos": "I",
+        "windows": "I"
+      },
+      "liveCredentialQualification": "unverified",
+      "methods": [
+        "configured token/key"
+      ],
+      "hostCalls": [
+        "env.get"
+      ],
+      "literalPathEvidence": [],
+      "branchesOnSourceMode": false,
+      "fixtures": [
+        "tests/plugin-contracts.test.cjs",
+        "tests/provider-updates.test.cjs",
+        "tests/quota-regressions.test.cjs"
+      ],
+      "auditNote": "Configured credentials and HTTP request code inspected; real credentials, API responses and provider/account behavior remain unverified on each OS."
+    },
+    {
       "id": "alibaba",
       "manifest": "plugins/alibaba/plugin.json",
       "entry": "plugins/alibaba/plugin.js",
@@ -333,7 +363,7 @@
       "id": "claude",
       "manifest": "plugins/claude/plugin.json",
       "entry": "plugins/claude/plugin.js",
-      "entrySha256": "1f157a40ec18970a0b2bfafdff7d4523ed1bf3dd4650385bb81d91b76aa71d57",
+      "entrySha256": "62f15a3052847e88a488316b98ad4c40c2e6c52faec6baf69d4a9fb479fead2a",
       "declaredModes": [
         "oauth",
         "web",
@@ -358,6 +388,7 @@
         "ccusage.query",
         "credentials.get",
         "credentials.update",
+        "crypto.sha256",
         "crypto.sha256Hex",
         "env.get",
         "fs.exists",
@@ -373,9 +404,111 @@
       "branchesOnSourceMode": true,
       "fixtures": [
         "tests/provider-account-isolation.test.cjs",
-        "tools/portability/local_usage.py"
+        "tools/portability/local_usage.py",
+        "tests/plugin-contracts.test.cjs",
+        "tests/provider-updates.test.cjs",
+        "tests/quota-regressions.test.cjs"
       ],
       "auditNote": "Native local collectors and macOS profile/account isolation fixtures. OAuth/web/API credentials and real app versions unverified."
+    },
+    {
+      "id": "clawrouter",
+      "manifest": "plugins/clawrouter/plugin.json",
+      "entry": "plugins/clawrouter/plugin.js",
+      "entrySha256": "542df12c56d2590c4314d79699987b39152e6881e3cec1e4d5d66858c88e9d99",
+      "declaredModes": [
+        "api"
+      ],
+      "autoMode": "api",
+      "osStatus": {
+        "linux": "I",
+        "macos": "I",
+        "windows": "I"
+      },
+      "liveCredentialQualification": "unverified",
+      "methods": [
+        "configured token/key"
+      ],
+      "hostCalls": [
+        "env.get",
+        "http.validateBaseUrl"
+      ],
+      "literalPathEvidence": [],
+      "branchesOnSourceMode": false,
+      "fixtures": [
+        "tests/plugin-contracts.test.cjs",
+        "tests/provider-updates.test.cjs",
+        "tests/quota-regressions.test.cjs"
+      ],
+      "auditNote": "Configured credentials and HTTP request code inspected; real credentials, API responses and provider/account behavior remain unverified on each OS."
+    },
+    {
+      "id": "clinepass",
+      "manifest": "plugins/clinepass/plugin.json",
+      "entry": "plugins/clinepass/plugin.js",
+      "entrySha256": "4ef6dbdbb32fd59bc58876c34cf4947a3cdcb1e6e4fac25a52c53eaa54ed7fc5",
+      "declaredModes": [
+        "api"
+      ],
+      "autoMode": "api",
+      "osStatus": {
+        "linux": "I",
+        "macos": "I",
+        "windows": "I"
+      },
+      "liveCredentialQualification": "unverified",
+      "methods": [
+        "configured token/key"
+      ],
+      "hostCalls": [
+        "env.get"
+      ],
+      "literalPathEvidence": [],
+      "branchesOnSourceMode": false,
+      "fixtures": [
+        "tests/plugin-contracts.test.cjs",
+        "tests/provider-updates.test.cjs",
+        "tests/quota-regressions.test.cjs"
+      ],
+      "auditNote": "Configured credentials and HTTP request code inspected; real credentials, API responses and provider/account behavior remain unverified on each OS."
+    },
+    {
+      "id": "codebuddy",
+      "manifest": "plugins/codebuddy/plugin.json",
+      "entry": "plugins/codebuddy/plugin.js",
+      "entrySha256": "f23f7d9eab91f03e8e436abb71ff3c1c137635f34573adb6253cbbda88a0fc88",
+      "declaredModes": [
+        "web",
+        "local"
+      ],
+      "autoMode": "web",
+      "osStatus": {
+        "linux": "I",
+        "macos": "I",
+        "windows": "I"
+      },
+      "liveCredentialQualification": "unverified",
+      "methods": [
+        "manual web credential",
+        "files"
+      ],
+      "hostCalls": [
+        "crypto.sha256",
+        "env.get",
+        "fs.exists",
+        "fs.homeDir",
+        "fs.readText",
+        "fs.writeText",
+        "http.validateBaseUrl"
+      ],
+      "literalPathEvidence": [],
+      "branchesOnSourceMode": true,
+      "fixtures": [
+        "tests/plugin-contracts.test.cjs",
+        "tests/provider-updates.test.cjs",
+        "tests/quota-regressions.test.cjs"
+      ],
+      "auditNote": "Configured credentials and HTTP request code inspected; real credentials, API responses and provider/account behavior remain unverified on each OS."
     },
     {
       "id": "codebuff",
@@ -413,7 +546,7 @@
       "id": "codex",
       "manifest": "plugins/codex/plugin.json",
       "entry": "plugins/codex/plugin.js",
-      "entrySha256": "b455f81b4f5a9c4a4b1f330ea11606e9d32d4a279c743f7a487a51183280a9bc",
+      "entrySha256": "9fb67dc8609cf4178718f88d40d92f1fd32261da747aa08f8f529da4e4b232e5",
       "declaredModes": [
         "oauth",
         "local",
@@ -461,7 +594,7 @@
       "id": "command-code",
       "manifest": "plugins/command-code/plugin.json",
       "entry": "plugins/command-code/plugin.js",
-      "entrySha256": "67b5db0e25afbf1997dfa4d883a03697a813946025f678a8d5055c23d940edd8",
+      "entrySha256": "d48db2e7cefd995e652c2bf7b5b5be08ce0717c20c704ea38a70c8f990fe6b2f",
       "declaredModes": [
         "web"
       ],
@@ -486,14 +619,16 @@
         "~/.commandcode/auth.json"
       ],
       "branchesOnSourceMode": false,
-      "fixtures": [],
+      "fixtures": [
+        "tests/inspo-sync-20260909.test.cjs"
+      ],
       "auditNote": "Configured credentials and HTTP request code inspected; real credentials, API responses and provider/account behavior remain unverified on each OS."
     },
     {
       "id": "copilot",
       "manifest": "plugins/copilot/plugin.json",
       "entry": "plugins/copilot/plugin.js",
-      "entrySha256": "b2a6eb18de4726d1bf26e299a97adedd0807998b5d01d062ecf6a2e7c6deb880",
+      "entrySha256": "007897d0a8d3253df2f294d599b57ca8ff823216068a54b39fc910e87a710e90",
       "declaredModes": [
         "oauth",
         "local",
@@ -524,7 +659,11 @@
       ],
       "literalPathEvidence": [],
       "branchesOnSourceMode": false,
-      "fixtures": [],
+      "fixtures": [
+        "tests/plugin-contracts.test.cjs",
+        "tests/provider-updates.test.cjs",
+        "tests/quota-regressions.test.cjs"
+      ],
       "auditNote": "Bounded CLI helper host and native home expansion; real gh/Copilot auth stores, CLI versions and account mappings unverified."
     },
     {
@@ -583,7 +722,7 @@
       "id": "cursor",
       "manifest": "plugins/cursor/plugin.json",
       "entry": "plugins/cursor/plugin.js",
-      "entrySha256": "23f34f7cbd33c10f7bf55682ff0a7d3363001d01779e76c91f1422d9a771db54",
+      "entrySha256": "6cdd892165022889bf662c3c09054837071084b458cb8f0b55bcc081790e0b77",
       "declaredModes": [
         "oauth",
         "local"
@@ -620,7 +759,10 @@
       "literalPathEvidence": [],
       "branchesOnSourceMode": false,
       "fixtures": [
-        "tests/provider-account-isolation.test.cjs"
+        "tests/provider-account-isolation.test.cjs",
+        "tests/plugin-contracts.test.cjs",
+        "tests/provider-updates.test.cjs",
+        "tests/quota-regressions.test.cjs"
       ],
       "auditNote": "Native DB resolver and stable/custom-profile isolation. Shared CLI fallback only for default stable profile; SQLite refresh writeback capability needs audit."
     },
@@ -628,7 +770,7 @@
       "id": "cursor-nightly",
       "manifest": "plugins/cursor-nightly/plugin.json",
       "entry": "plugins/cursor-nightly/plugin.js",
-      "entrySha256": "23f34f7cbd33c10f7bf55682ff0a7d3363001d01779e76c91f1422d9a771db54",
+      "entrySha256": "9175cbcabd4bf791c7f56c1a06bba176699d0ace1453e3245068567566f79533",
       "declaredModes": [
         "oauth",
         "local"
@@ -665,7 +807,10 @@
       "literalPathEvidence": [],
       "branchesOnSourceMode": false,
       "fixtures": [
-        "tests/provider-account-isolation.test.cjs"
+        "tests/provider-account-isolation.test.cjs",
+        "tests/plugin-contracts.test.cjs",
+        "tests/provider-updates.test.cjs",
+        "tests/quota-regressions.test.cjs"
       ],
       "auditNote": "Separate native DB and override; shared stable CLI auth/history excluded. SQLite refresh writeback capability needs audit."
     },
@@ -693,6 +838,36 @@
       "literalPathEvidence": [],
       "branchesOnSourceMode": false,
       "fixtures": [],
+      "auditNote": "Configured credentials and HTTP request code inspected; real credentials, API responses and provider/account behavior remain unverified on each OS."
+    },
+    {
+      "id": "deepinfra",
+      "manifest": "plugins/deepinfra/plugin.json",
+      "entry": "plugins/deepinfra/plugin.js",
+      "entrySha256": "440f7b398205b50538582d5a22b383e462ceb9e84de150d2d6234532048f79e0",
+      "declaredModes": [
+        "api"
+      ],
+      "autoMode": "api",
+      "osStatus": {
+        "linux": "I",
+        "macos": "I",
+        "windows": "I"
+      },
+      "liveCredentialQualification": "unverified",
+      "methods": [
+        "configured token/key"
+      ],
+      "hostCalls": [
+        "env.get"
+      ],
+      "literalPathEvidence": [],
+      "branchesOnSourceMode": false,
+      "fixtures": [
+        "tests/plugin-contracts.test.cjs",
+        "tests/provider-updates.test.cjs",
+        "tests/quota-regressions.test.cjs"
+      ],
       "auditNote": "Configured credentials and HTTP request code inspected; real credentials, API responses and provider/account behavior remain unverified on each OS."
     },
     {
@@ -791,10 +966,12 @@
       "id": "droid",
       "manifest": "plugins/droid/plugin.json",
       "entry": "plugins/factory/plugin.js",
-      "entrySha256": "79ed1f356c06580867a630ad17a31a1a2362f1bb3033478027d6ec7439b9072b",
+      "entrySha256": "8386c74e99c341e962a3ebddea6e319b6e7745470ed0980ce95e0a1f381a8217",
       "declaredModes": [
+        "api",
         "oauth",
-        "local"
+        "local",
+        "web"
       ],
       "autoMode": "oauth",
       "osStatus": {
@@ -804,12 +981,15 @@
       },
       "liveCredentialQualification": "unverified",
       "methods": [
+        "configured token/key",
+        "manual web credential",
         "files",
         "OS store"
       ],
       "hostCalls": [
         "crypto.decryptAes256Gcm",
         "crypto.encryptAes256Gcm",
+        "env.get",
         "fs.exists",
         "fs.readText",
         "fs.writeText",
@@ -822,15 +1002,19 @@
         "~/.factory/auth.v2.file",
         "~/.factory/auth.v2.key"
       ],
-      "branchesOnSourceMode": false,
-      "fixtures": [],
-      "auditNote": "Aliases Factory code: v2 encrypted files require absent AES-GCM host methods; legacy methods and current auth formats remain unverified."
+      "branchesOnSourceMode": true,
+      "fixtures": [
+        "tests/plugin-contracts.test.cjs",
+        "tests/provider-updates.test.cjs",
+        "tests/quota-regressions.test.cjs"
+      ],
+      "auditNote": "Aliases Factory API/manual-web and legacy auth code; v2 encrypted files still require absent AES-GCM host methods. Live credentials remain unverified."
     },
     {
       "id": "elevenlabs",
       "manifest": "plugins/elevenlabs/plugin.json",
       "entry": "plugins/elevenlabs/plugin.js",
-      "entrySha256": "376f3af0935e6891f0bc0a1737846bb016de1b84aa4044af6f5a0c02362a3490",
+      "entrySha256": "a83d67fb8c0983947f60950b4f7620e0e17b5a4881e100ed4cce2d93436862f1",
       "declaredModes": [
         "api"
       ],
@@ -849,17 +1033,21 @@
       ],
       "literalPathEvidence": [],
       "branchesOnSourceMode": false,
-      "fixtures": [],
+      "fixtures": [
+        "tests/inspo-sync-20260909.test.cjs"
+      ],
       "auditNote": "Configured credentials and HTTP request code inspected; real credentials, API responses and provider/account behavior remain unverified on each OS."
     },
     {
       "id": "factory",
       "manifest": "plugins/factory/plugin.json",
       "entry": "plugins/factory/plugin.js",
-      "entrySha256": "79ed1f356c06580867a630ad17a31a1a2362f1bb3033478027d6ec7439b9072b",
+      "entrySha256": "8386c74e99c341e962a3ebddea6e319b6e7745470ed0980ce95e0a1f381a8217",
       "declaredModes": [
+        "api",
         "oauth",
-        "local"
+        "local",
+        "web"
       ],
       "autoMode": "oauth",
       "osStatus": {
@@ -869,12 +1057,15 @@
       },
       "liveCredentialQualification": "unverified",
       "methods": [
+        "configured token/key",
+        "manual web credential",
         "files",
         "OS store"
       ],
       "hostCalls": [
         "crypto.decryptAes256Gcm",
         "crypto.encryptAes256Gcm",
+        "env.get",
         "fs.exists",
         "fs.readText",
         "fs.writeText",
@@ -887,9 +1078,13 @@
         "~/.factory/auth.v2.file",
         "~/.factory/auth.v2.key"
       ],
-      "branchesOnSourceMode": false,
-      "fixtures": [],
-      "auditNote": "Legacy file/keychain paths exist, but v2 encrypted files require AES-GCM host methods that are absent; formats/account selection need implementation and native evidence."
+      "branchesOnSourceMode": true,
+      "fixtures": [
+        "tests/plugin-contracts.test.cjs",
+        "tests/provider-updates.test.cjs",
+        "tests/quota-regressions.test.cjs"
+      ],
+      "auditNote": "Configured API keys and manual web credentials are implemented; legacy file/keychain paths remain. V2 encrypted files still require absent AES-GCM host methods; real auth formats/account selection are unverified."
     },
     {
       "id": "fireworks-ai",
@@ -963,7 +1158,7 @@
       "id": "grok",
       "manifest": "plugins/grok/plugin.json",
       "entry": "plugins/grok/plugin.js",
-      "entrySha256": "c60f28b63133ee175091c3717cf2db94ef884d6d807ba32e6c79ac69787ca06c",
+      "entrySha256": "820fa8c08804732e44fbf4b1377352ad784cc7798c7242dc7e6c15f4f022360e",
       "declaredModes": [
         "cli",
         "local"
@@ -979,6 +1174,7 @@
         "files"
       ],
       "hostCalls": [
+        "env.get",
         "fs.exists",
         "fs.readText",
         "fs.writeText"
@@ -987,7 +1183,11 @@
         "~/.grok/auth.json"
       ],
       "branchesOnSourceMode": false,
-      "fixtures": [],
+      "fixtures": [
+        "tests/plugin-contracts.test.cjs",
+        "tests/provider-updates.test.cjs",
+        "tests/quota-regressions.test.cjs"
+      ],
       "auditNote": "Home credential-file method carried; CLI auth schema and declared cli/local equivalence need verification."
     },
     {
@@ -1014,6 +1214,36 @@
       "literalPathEvidence": [],
       "branchesOnSourceMode": false,
       "fixtures": [],
+      "auditNote": "Configured credentials and HTTP request code inspected; real credentials, API responses and provider/account behavior remain unverified on each OS."
+    },
+    {
+      "id": "ibmbob",
+      "manifest": "plugins/ibmbob/plugin.json",
+      "entry": "plugins/ibmbob/plugin.js",
+      "entrySha256": "6016e482baa98d372610b44620c3546b731531a4bdb74a79f1a065584bbf3d21",
+      "declaredModes": [
+        "api"
+      ],
+      "autoMode": "api",
+      "osStatus": {
+        "linux": "I",
+        "macos": "I",
+        "windows": "I"
+      },
+      "liveCredentialQualification": "unverified",
+      "methods": [
+        "configured token/key"
+      ],
+      "hostCalls": [
+        "env.get"
+      ],
+      "literalPathEvidence": [],
+      "branchesOnSourceMode": false,
+      "fixtures": [
+        "tests/plugin-contracts.test.cjs",
+        "tests/provider-updates.test.cjs",
+        "tests/quota-regressions.test.cjs"
+      ],
       "auditNote": "Configured credentials and HTTP request code inspected; real credentials, API responses and provider/account behavior remain unverified on each OS."
     },
     {
@@ -1083,10 +1313,12 @@
       "id": "kimi",
       "manifest": "plugins/kimi/plugin.json",
       "entry": "plugins/kimi/plugin.js",
-      "entrySha256": "d400410027a88f193c1b2f489fa1daacac78b047e3707dbf923b6222273ae74e",
+      "entrySha256": "f4a03347dd64cf005630d529e15a426b2c82b0fb726606827b1efa6bab9944f3",
       "declaredModes": [
+        "api",
         "oauth",
-        "local"
+        "cli",
+        "web"
       ],
       "autoMode": "oauth",
       "osStatus": {
@@ -1096,19 +1328,28 @@
       },
       "liveCredentialQualification": "unverified",
       "methods": [
+        "configured token/key",
+        "manual web credential",
         "files"
       ],
       "hostCalls": [
-        "fs.exists",
+        "env.get",
         "fs.readText",
-        "fs.writeText"
+        "fs.writeText",
+        "http.validateBaseUrl"
       ],
       "literalPathEvidence": [
-        "~/.kimi/credentials/kimi-code.json"
+        "~/.kimi",
+        "~/.kimi-code"
       ],
-      "branchesOnSourceMode": false,
-      "fixtures": [],
-      "auditNote": "Home credential-file reader/refresh carried; current CLI schema and store behavior unverified."
+      "branchesOnSourceMode": true,
+      "fixtures": [
+        "tests/plugin-contracts.test.cjs",
+        "tests/provider-updates.test.cjs",
+        "tests/quota-regressions.test.cjs",
+        "tests/kimi-updates.test.cjs"
+      ],
+      "auditNote": "Configured Code API key and isolated CLI-home OAuth refresh plus optional membership/web metadata fixtures; real CLI/Desktop schemas and account stores remain unverified."
     },
     {
       "id": "kimi-k2",
@@ -1140,7 +1381,7 @@
       "id": "kiro",
       "manifest": "plugins/kiro/plugin.json",
       "entry": "plugins/kiro/plugin.js",
-      "entrySha256": "6bc1ed82a69606688f2997d4222a76c53e6920187c1e1b97c2d3b9c1f27975e4",
+      "entrySha256": "c90db2d483cc06aa8eb53f936146607409e384bcfb94b4ce8c12fe1bdd15a964",
       "declaredModes": [
         "oauth",
         "local"
@@ -1167,11 +1408,15 @@
       "literalPathEvidence": [
         "~/.aws/sso/cache/kiro-auth-token.json"
       ],
-      "branchesOnSourceMode": false,
+      "branchesOnSourceMode": true,
       "fixtures": [
-        "tests/provider-paths.test.cjs"
+        "tests/provider-paths.test.cjs",
+        "tests/plugin-contracts.test.cjs",
+        "tests/provider-updates.test.cjs",
+        "tests/quota-regressions.test.cjs",
+        "tests/inspo-sync-20260909.test.cjs"
       ],
-      "auditNote": "Native app-support/custom-root fixtures for carried cached usage layouts; current Kiro auth/usage schema and app version unverified."
+      "auditNote": "Native app-support/custom-root fixtures, included/overage credit parsing, and validated supported IDE API profile regions. CLI SQLite credential import and live app/account versions remain unverified."
     },
     {
       "id": "litellm",
@@ -1223,6 +1468,36 @@
       "literalPathEvidence": [],
       "branchesOnSourceMode": false,
       "fixtures": [],
+      "auditNote": "Configured credentials and HTTP request code inspected; real credentials, API responses and provider/account behavior remain unverified on each OS."
+    },
+    {
+      "id": "longcat",
+      "manifest": "plugins/longcat/plugin.json",
+      "entry": "plugins/longcat/plugin.js",
+      "entrySha256": "6b0e092fac735fb94eafdb72034a7c9ab40d10f20b93272f5ae380df1125fc25",
+      "declaredModes": [
+        "web"
+      ],
+      "autoMode": "web",
+      "osStatus": {
+        "linux": "I",
+        "macos": "I",
+        "windows": "I"
+      },
+      "liveCredentialQualification": "unverified",
+      "methods": [
+        "manual web credential"
+      ],
+      "hostCalls": [
+        "env.get"
+      ],
+      "literalPathEvidence": [],
+      "branchesOnSourceMode": false,
+      "fixtures": [
+        "tests/plugin-contracts.test.cjs",
+        "tests/provider-updates.test.cjs",
+        "tests/quota-regressions.test.cjs"
+      ],
       "auditNote": "Configured credentials and HTTP request code inspected; real credentials, API responses and provider/account behavior remain unverified on each OS."
     },
     {
@@ -1281,7 +1556,7 @@
       "id": "minimax",
       "manifest": "plugins/minimax/plugin.json",
       "entry": "plugins/minimax/plugin.js",
-      "entrySha256": "58de79adcd0401b4918e28f6996e0f15c0e8d79ed518cc4c371729f90f5c0783",
+      "entrySha256": "efd785a39db637ee4e808503b9bd4e539ed0af1c60f9b40d66d7f6a4ee2aa042",
       "declaredModes": [
         "api"
       ],
@@ -1300,7 +1575,9 @@
       ],
       "literalPathEvidence": [],
       "branchesOnSourceMode": false,
-      "fixtures": [],
+      "fixtures": [
+        "tests/inspo-sync-20260909.test.cjs"
+      ],
       "auditNote": "Configured credentials and HTTP request code inspected; real credentials, API responses and provider/account behavior remain unverified on each OS."
     },
     {
@@ -1333,7 +1610,7 @@
       "id": "moonshot",
       "manifest": "plugins/moonshot/plugin.json",
       "entry": "plugins/moonshot/plugin.js",
-      "entrySha256": "8399ad5d5e026a0e1f575b74d1a60ae109a835172a134275133a82daade71fb5",
+      "entrySha256": "57bad21029337f6c9372e403a41d280c6576d951962f7f6f851f8fb113b497da",
       "declaredModes": [
         "api"
       ],
@@ -1352,7 +1629,9 @@
       ],
       "literalPathEvidence": [],
       "branchesOnSourceMode": false,
-      "fixtures": [],
+      "fixtures": [
+        "tests/inspo-sync-20260909.test.cjs"
+      ],
       "auditNote": "Configured credentials and HTTP request code inspected; real credentials, API responses and provider/account behavior remain unverified on each OS."
     },
     {
@@ -1408,10 +1687,10 @@
       "auditNote": "Configured credentials and HTTP request code inspected; real credentials, API responses and provider/account behavior remain unverified on each OS."
     },
     {
-      "id": "ollama",
-      "manifest": "plugins/ollama/plugin.json",
-      "entry": "plugins/ollama/plugin.js",
-      "entrySha256": "1638278ae7c16f47c4fee0f16b173f90e74e24bcfc870e0a4f6062c0b299c3f2",
+      "id": "notion",
+      "manifest": "plugins/notion/plugin.json",
+      "entry": "plugins/notion/plugin.js",
+      "entrySha256": "cbdd33451873fa9164fbfd7dbd2b973bce4f2788b45e79d577259cc43bd5e109",
       "declaredModes": [
         "web"
       ],
@@ -1426,12 +1705,48 @@
         "manual web credential"
       ],
       "hostCalls": [
+        "env.get"
+      ],
+      "literalPathEvidence": [],
+      "branchesOnSourceMode": false,
+      "fixtures": [
+        "tests/plugin-contracts.test.cjs",
+        "tests/provider-updates.test.cjs",
+        "tests/quota-regressions.test.cjs"
+      ],
+      "auditNote": "Configured credentials and HTTP request code inspected; real credentials, API responses and provider/account behavior remain unverified on each OS."
+    },
+    {
+      "id": "ollama",
+      "manifest": "plugins/ollama/plugin.json",
+      "entry": "plugins/ollama/plugin.js",
+      "entrySha256": "24f4b42240e82496a33b68d97c1771a9ff6411b546fc7a02c76abb6ff21a32e2",
+      "declaredModes": [
+        "api",
+        "web"
+      ],
+      "autoMode": "web",
+      "osStatus": {
+        "linux": "I",
+        "macos": "I",
+        "windows": "I"
+      },
+      "liveCredentialQualification": "unverified",
+      "methods": [
+        "configured token/key",
+        "manual web credential"
+      ],
+      "hostCalls": [
         "env.get",
         "http.request"
       ],
       "literalPathEvidence": [],
-      "branchesOnSourceMode": false,
-      "fixtures": [],
+      "branchesOnSourceMode": true,
+      "fixtures": [
+        "tests/plugin-contracts.test.cjs",
+        "tests/provider-updates.test.cjs",
+        "tests/quota-regressions.test.cjs"
+      ],
       "auditNote": "Configured credentials and HTTP request code inspected; real credentials, API responses and provider/account behavior remain unverified on each OS."
     },
     {
@@ -1491,12 +1806,13 @@
       "id": "opencode-go",
       "manifest": "plugins/opencode-go/plugin.json",
       "entry": "plugins/opencode-go/plugin.js",
-      "entrySha256": "8813fa15312092d60d3f87a38e45d4ef37f2af04bff9616fcac3c22c99a6bcc0",
+      "entrySha256": "501b305d9b2a22ef58315ad0d3fd05226bccc01c20a59e6b63538d4d39e16757",
       "declaredModes": [
+        "api",
         "local",
         "web"
       ],
-      "autoMode": "local",
+      "autoMode": "api",
       "osStatus": {
         "linux": "I",
         "macos": "I",
@@ -1504,6 +1820,7 @@
       },
       "liveCredentialQualification": "unverified",
       "methods": [
+        "configured token/key",
         "manual web credential",
         "files",
         "SQLite"
@@ -1513,12 +1830,16 @@
         "fs.exists",
         "fs.homeDir",
         "fs.readText",
-        "sqlite.query"
+        "sqlite.query",
+        "usageDaily.ingest"
       ],
       "literalPathEvidence": [],
-      "branchesOnSourceMode": false,
+      "branchesOnSourceMode": true,
       "fixtures": [
-        "tests/provider-xdg-paths.test.cjs"
+        "tests/provider-xdg-paths.test.cjs",
+        "tests/plugin-contracts.test.cjs",
+        "tests/provider-updates.test.cjs",
+        "tests/quota-regressions.test.cjs"
       ],
       "auditNote": "Upstream XDG roots on all OSes, explicit data/database and inline auth overrides covered by fixtures. Preview channels require databasePath/OPENCODE_DB; current database schema, API, and account versions unverified."
     },
@@ -1526,7 +1847,7 @@
       "id": "openrouter",
       "manifest": "plugins/openrouter/plugin.json",
       "entry": "plugins/openrouter/plugin.js",
-      "entrySha256": "c18dbaf3583b513101217e7c3472497f477223b13c8cf046ac7f0274144836f2",
+      "entrySha256": "aa3d8fcc13322e773637f91cef2264bf3b042de923228def6913cb810400baf4",
       "declaredModes": [
         "api"
       ],
@@ -1542,11 +1863,18 @@
       ],
       "hostCalls": [
         "env.get",
-        "http.request"
+        "http.request",
+        "http.validateBaseUrl",
+        "usageDaily.ingest"
       ],
       "literalPathEvidence": [],
       "branchesOnSourceMode": false,
-      "fixtures": [],
+      "fixtures": [
+        "tests/plugin-contracts.test.cjs",
+        "tests/provider-updates.test.cjs",
+        "tests/quota-regressions.test.cjs",
+        "tests/inspo-sync-20260909.test.cjs"
+      ],
       "auditNote": "Configured credentials and HTTP request code inspected; real credentials, API responses and provider/account behavior remain unverified on each OS."
     },
     {
@@ -1588,7 +1916,7 @@
       "id": "poe",
       "manifest": "plugins/poe/plugin.json",
       "entry": "plugins/poe/plugin.js",
-      "entrySha256": "8fafebe66a008a8ae02244f2f66b2a02ad6af8a93d51cf3bb0df6ac9cce620e4",
+      "entrySha256": "e45ac8883fdd1584d7491244142949ea6a9dc45b809dc1fe1c78eb993f35dd7e",
       "declaredModes": [
         "api"
       ],
@@ -1607,7 +1935,99 @@
       ],
       "literalPathEvidence": [],
       "branchesOnSourceMode": false,
-      "fixtures": [],
+      "fixtures": [
+        "tests/inspo-sync-20260909.test.cjs"
+      ],
+      "auditNote": "Configured credentials and HTTP request code inspected; real credentials, API responses and provider/account behavior remain unverified on each OS."
+    },
+    {
+      "id": "qoder",
+      "manifest": "plugins/qoder/plugin.json",
+      "entry": "plugins/qoder/plugin.js",
+      "entrySha256": "e4279cc749021e03a98f90c46f8af7fbc63992d1ab089178c0b344d984af6a0b",
+      "declaredModes": [
+        "web"
+      ],
+      "autoMode": "web",
+      "osStatus": {
+        "linux": "I",
+        "macos": "I",
+        "windows": "I"
+      },
+      "liveCredentialQualification": "unverified",
+      "methods": [
+        "manual web credential"
+      ],
+      "hostCalls": [
+        "env.get"
+      ],
+      "literalPathEvidence": [],
+      "branchesOnSourceMode": false,
+      "fixtures": [
+        "tests/plugin-contracts.test.cjs",
+        "tests/provider-updates.test.cjs",
+        "tests/quota-regressions.test.cjs"
+      ],
+      "auditNote": "Configured credentials and HTTP request code inspected; real credentials, API responses and provider/account behavior remain unverified on each OS."
+    },
+    {
+      "id": "qwencloud",
+      "manifest": "plugins/qwencloud/plugin.json",
+      "entry": "plugins/qwencloud/plugin.js",
+      "entrySha256": "0b1ce4fb91e57794cf44bf45d645aa6e77e69bd885a54392c2d17df2c5190ebd",
+      "declaredModes": [
+        "web"
+      ],
+      "autoMode": "web",
+      "osStatus": {
+        "linux": "I",
+        "macos": "I",
+        "windows": "I"
+      },
+      "liveCredentialQualification": "unverified",
+      "methods": [
+        "manual web credential"
+      ],
+      "hostCalls": [
+        "env.get"
+      ],
+      "literalPathEvidence": [],
+      "branchesOnSourceMode": false,
+      "fixtures": [
+        "tests/plugin-contracts.test.cjs",
+        "tests/provider-updates.test.cjs",
+        "tests/quota-regressions.test.cjs"
+      ],
+      "auditNote": "Configured credentials and HTTP request code inspected; real credentials, API responses and provider/account behavior remain unverified on each OS."
+    },
+    {
+      "id": "sakana",
+      "manifest": "plugins/sakana/plugin.json",
+      "entry": "plugins/sakana/plugin.js",
+      "entrySha256": "7a8f9f38aa4067386cce73adadf2d9cbe512c3015504cc81d8891c923e9e3f25",
+      "declaredModes": [
+        "web"
+      ],
+      "autoMode": "web",
+      "osStatus": {
+        "linux": "I",
+        "macos": "I",
+        "windows": "I"
+      },
+      "liveCredentialQualification": "unverified",
+      "methods": [
+        "manual web credential"
+      ],
+      "hostCalls": [
+        "env.get"
+      ],
+      "literalPathEvidence": [],
+      "branchesOnSourceMode": false,
+      "fixtures": [
+        "tests/plugin-contracts.test.cjs",
+        "tests/provider-updates.test.cjs",
+        "tests/quota-regressions.test.cjs"
+      ],
       "auditNote": "Configured credentials and HTTP request code inspected; real credentials, API responses and provider/account behavior remain unverified on each OS."
     },
     {
@@ -1635,6 +2055,38 @@
       "literalPathEvidence": [],
       "branchesOnSourceMode": false,
       "fixtures": [],
+      "auditNote": "Configured credentials and HTTP request code inspected; real credentials, API responses and provider/account behavior remain unverified on each OS."
+    },
+    {
+      "id": "sub2api",
+      "manifest": "plugins/sub2api/plugin.json",
+      "entry": "plugins/sub2api/plugin.js",
+      "entrySha256": "ed7aff4c4dd8aa06df752ea0c47427646dfe42b972dd09fc97c069b5865100eb",
+      "declaredModes": [
+        "api"
+      ],
+      "autoMode": "api",
+      "osStatus": {
+        "linux": "I",
+        "macos": "I",
+        "windows": "I"
+      },
+      "liveCredentialQualification": "unverified",
+      "methods": [
+        "configured token/key"
+      ],
+      "hostCalls": [
+        "env.get",
+        "http.validateBaseUrl",
+        "usageDaily.ingest"
+      ],
+      "literalPathEvidence": [],
+      "branchesOnSourceMode": false,
+      "fixtures": [
+        "tests/plugin-contracts.test.cjs",
+        "tests/provider-updates.test.cjs",
+        "tests/quota-regressions.test.cjs"
+      ],
       "auditNote": "Configured credentials and HTTP request code inspected; real credentials, API responses and provider/account behavior remain unverified on each OS."
     },
     {
@@ -1786,6 +2238,38 @@
       "auditNote": "Configured credentials and HTTP request code inspected; real credentials, API responses and provider/account behavior remain unverified on each OS."
     },
     {
+      "id": "wayfinder",
+      "manifest": "plugins/wayfinder/plugin.json",
+      "entry": "plugins/wayfinder/plugin.js",
+      "entrySha256": "8499221de19b26617747782881678072d08ba1e7797274493697b2185334e76e",
+      "declaredModes": [
+        "local"
+      ],
+      "autoMode": "local",
+      "osStatus": {
+        "linux": "I",
+        "macos": "I",
+        "windows": "I"
+      },
+      "liveCredentialQualification": "unverified",
+      "methods": [
+        "provider-specific settings/HTTPS"
+      ],
+      "hostCalls": [
+        "env.get",
+        "http.request",
+        "http.validateBaseUrl"
+      ],
+      "literalPathEvidence": [],
+      "branchesOnSourceMode": false,
+      "fixtures": [
+        "tests/plugin-contracts.test.cjs",
+        "tests/provider-updates.test.cjs",
+        "tests/quota-regressions.test.cjs"
+      ],
+      "auditNote": "Configured credentials and HTTP request code inspected; real credentials, API responses and provider/account behavior remain unverified on each OS."
+    },
+    {
       "id": "windsurf",
       "manifest": "plugins/windsurf/plugin.json",
       "entry": "plugins/windsurf/plugin.js",
@@ -1819,10 +2303,41 @@
       "auditNote": "Native stable/Next/Devin profile selection fixtures; carried auth schemas and current application versions unverified."
     },
     {
+      "id": "xai",
+      "manifest": "plugins/xai/plugin.json",
+      "entry": "plugins/xai/plugin.js",
+      "entrySha256": "672ab195e4b5eeabaf83460fa90ce412bbfb2bb2fcdd3fb1398441503b8e993e",
+      "declaredModes": [
+        "api"
+      ],
+      "autoMode": "api",
+      "osStatus": {
+        "linux": "I",
+        "macos": "I",
+        "windows": "I"
+      },
+      "liveCredentialQualification": "unverified",
+      "methods": [
+        "configured token/key"
+      ],
+      "hostCalls": [
+        "env.get",
+        "usageDaily.ingest"
+      ],
+      "literalPathEvidence": [],
+      "branchesOnSourceMode": false,
+      "fixtures": [
+        "tests/plugin-contracts.test.cjs",
+        "tests/provider-updates.test.cjs",
+        "tests/quota-regressions.test.cjs"
+      ],
+      "auditNote": "Configured credentials and HTTP request code inspected; real credentials, API responses and provider/account behavior remain unverified on each OS."
+    },
+    {
       "id": "zai",
       "manifest": "plugins/zai/plugin.json",
       "entry": "plugins/zai/plugin.js",
-      "entrySha256": "b010a95a30f25329df4f2fdae7361a03b509a89cf261499c0ca0384bde542570",
+      "entrySha256": "4e88d1a07226c08d85ca30c30027a381643ddc71704ad245b09a16ec1c705221",
       "declaredModes": [
         "api"
       ],
@@ -1841,7 +2356,11 @@
       ],
       "literalPathEvidence": [],
       "branchesOnSourceMode": false,
-      "fixtures": [],
+      "fixtures": [
+        "tests/plugin-contracts.test.cjs",
+        "tests/provider-updates.test.cjs",
+        "tests/quota-regressions.test.cjs"
+      ],
       "auditNote": "Configured credentials and HTTP request code inspected; real credentials, API responses and provider/account behavior remain unverified on each OS."
     },
     {
@@ -1877,6 +2396,66 @@
         "tests/provider-xdg-paths.test.cjs"
       ],
       "auditNote": "Upstream native/Flatpak/custom data settings paths and JSONC fixtures. Explicit credentials available; real app versions and OS credential mappings unverified."
+    },
+    {
+      "id": "zenmux",
+      "manifest": "plugins/zenmux/plugin.json",
+      "entry": "plugins/zenmux/plugin.js",
+      "entrySha256": "c5fd103b4b9331b62a1b3524a37fae55d479651eb0760231744cfc568ef50bf4",
+      "declaredModes": [
+        "api"
+      ],
+      "autoMode": "api",
+      "osStatus": {
+        "linux": "I",
+        "macos": "I",
+        "windows": "I"
+      },
+      "liveCredentialQualification": "unverified",
+      "methods": [
+        "configured token/key"
+      ],
+      "hostCalls": [
+        "env.get"
+      ],
+      "literalPathEvidence": [],
+      "branchesOnSourceMode": false,
+      "fixtures": [
+        "tests/plugin-contracts.test.cjs",
+        "tests/provider-updates.test.cjs",
+        "tests/quota-regressions.test.cjs"
+      ],
+      "auditNote": "Configured credentials and HTTP request code inspected; real credentials, API responses and provider/account behavior remain unverified on each OS."
+    },
+    {
+      "id": "zoommate",
+      "manifest": "plugins/zoommate/plugin.json",
+      "entry": "plugins/zoommate/plugin.js",
+      "entrySha256": "78204d9ea579afd7636237adb80bb86f75d06b553cd17f3c7e58f431070cf1c8",
+      "declaredModes": [
+        "web"
+      ],
+      "autoMode": "web",
+      "osStatus": {
+        "linux": "I",
+        "macos": "I",
+        "windows": "I"
+      },
+      "liveCredentialQualification": "unverified",
+      "methods": [
+        "manual web credential"
+      ],
+      "hostCalls": [
+        "env.get"
+      ],
+      "literalPathEvidence": [],
+      "branchesOnSourceMode": false,
+      "fixtures": [
+        "tests/plugin-contracts.test.cjs",
+        "tests/provider-updates.test.cjs",
+        "tests/quota-regressions.test.cjs"
+      ],
+      "auditNote": "Configured credentials and HTTP request code inspected; real credentials, API responses and provider/account behavior remain unverified on each OS."
     }
   ]
 }

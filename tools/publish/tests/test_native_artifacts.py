@@ -40,6 +40,23 @@ class NativeArtifactTests(unittest.TestCase):
         self.assertEqual(sum(name.endswith('/plugin.json') for name in selected), len(list((ROOT / 'plugins').glob('*/plugin.json'))))
         self.assertFalse(any(name.endswith('.test.js') for name in selected))
 
+    def test_packaging_rejects_untracked_providers_and_retains_upstream_notices(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            provider = root / 'plugins/added'
+            provider.mkdir(parents=True)
+            (provider / 'plugin.json').write_text(json.dumps({'entry': 'plugin.js'}))
+            notice = 'plugins/UPSTREAM-LICENSES.md'
+            (root / notice).write_text('Upstream MIT notices')
+            with self.assertRaisesRegex(ValueError, 'Commit provider resources'):
+                artifacts.runtime_resource_names(root, ['LICENSE'])
+            tracked = ['LICENSE', 'plugins/added/plugin.json', 'plugins/added/plugin.js']
+            with self.assertRaisesRegex(ValueError, 'UPSTREAM-LICENSES'):
+                artifacts.runtime_resource_names(root, tracked)
+            selected = artifacts.runtime_resource_names(root, tracked + [notice])
+            self.assertIn('plugins/added/plugin.json', selected)
+            self.assertIn(notice, selected)
+
     def test_pinned_license_notices_reject_changes_and_unreviewed_versions(self):
         import shutil
         with tempfile.TemporaryDirectory() as temporary:

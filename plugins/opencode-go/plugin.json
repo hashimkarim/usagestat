@@ -17,9 +17,12 @@
     }
   ],
   "usageDashboardUrl": "https://opencode.ai/auth",
-  "supportedModes": ["local", "web"],
-  "autoMode": "local",
+  "envVars": ["OPENCODE_GO_API_KEY", "OPENCODE_GO_COOKIE", "OPENCODE_GO_WORKSPACE_ID"],
+  "supportedModes": ["api", "local", "web"],
+  "autoMode": "api",
   "lines": [
+    { "type": "text", "label": "Local Cost", "scope": "detail" },
+    { "type": "barChart", "label": "Cost History", "scope": "detail" },
     {
       "type": "progress",
       "label": "Session",

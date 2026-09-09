@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "id": "notion",
+  "name": "Notion AI",
+  "version": "0.1.0",
+  "entry": "plugin.js",
+  "enabledByDefault": false,
+  "supportedModes": [
+    "web"
+  ],
+  "autoMode": "web",
+  "webUrl": "https://app.notion.com",
+  "usageDashboardUrl": "https://app.notion.com/",
+  "statusPageUrl": "https://status.notion.so",
+  "links": [
+    {
+      "label": "Dashboard",
+      "url": "https://app.notion.com/"
+    },
+    {
+      "label": "Status",
+      "url": "https://status.notion.so"
+    }
+  ],
+  "envVars": [
+    "NOTION_COOKIE",
+    "NOTION_SPACE_ID"
+  ]
+}

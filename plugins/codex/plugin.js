@@ -691,6 +691,7 @@
       let didReloadAuth = false
       try {
         resp = ctx.util.retryOnceOnAuth({
+          isAuthStatus: (status) => status === 401,
           request: (token) => {
             try {
               return fetchUsage(ctx, token || accessToken, accountId)
@@ -727,7 +728,7 @@
         throw ERR_USAGE_CONNECTION
       }
 
-      if (didReloadAuth && ctx.util.isAuthStatus(resp.status)) {
+      if (didReloadAuth && resp.status === 401) {
         ctx.host.log.info("reloaded auth returned 401, attempting refresh")
         didRefresh = true
         const refreshed = refreshToken(ctx, authState)
@@ -741,9 +742,13 @@
         }
       }
 
-      if (ctx.util.isAuthStatus(resp.status)) {
+      if (resp.status === 401) {
         ctx.host.log.error("usage returned auth error after all retries: status=" + resp.status)
         throw ERR_TOKEN_EXPIRED
+      }
+
+      if (resp.status === 403) {
+        throw "Codex usage access denied (HTTP 403). Check this account's permissions."
       }
 
       if (resp.status < 200 || resp.status >= 300) {

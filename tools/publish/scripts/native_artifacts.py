@@ -133,7 +133,14 @@ def resource_files(root=ROOT) -> dict[str, bytes]:
 def runtime_resource_names(root: Path, tracked: list[str]) -> list[str]:
     """Only manifests, their entry scripts, icons and licenses enter a release."""
     names = set(tracked)
-    selected = {"LICENSE"} if "LICENSE" in names else set()
+    provider_files = {path.relative_to(root).as_posix() for path in (root / 'plugins').glob('*/plugin.json')}
+    notice = 'plugins/UPSTREAM-LICENSES.md'
+    if (root / notice).exists():
+        provider_files.add(notice)
+    missing = sorted(provider_files - names)
+    if missing:
+        raise ValueError('Commit provider resources before packaging: ' + ', '.join(missing))
+    selected = names & {'LICENSE', notice}
     for name in sorted(names):
         path = PurePosixPath(name)
         if len(path.parts) != 3 or path.name != "plugin.json":

@@ -9,7 +9,10 @@
   "supportedModes": ["oauth", "local", "cli"],
   "autoMode": "local",
   "lines": [
-    { "type": "progress", "label": "Premium", "scope": "overview", "primaryOrder": 1 },
+    { "type": "progress", "label": "Credits", "scope": "overview", "primaryOrder": 1 },
+    { "type": "text", "label": "Extra Usage", "scope": "detail" },
+    { "type": "text", "label": "Org Credits", "scope": "detail" },
+    { "type": "text", "label": "Org Spend", "scope": "detail" },
     { "type": "progress", "label": "Chat", "scope": "overview", "primaryOrder": 2 },
     { "type": "progress", "label": "Completions", "scope": "overview" },
     { "type": "progress", "label": "Budget - Copilot", "scope": "detail" },

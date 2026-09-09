@@ -34,6 +34,8 @@
   `;
 
   function readNumber(value) {
+    if (typeof value !== "number" && typeof value !== "string") return null;
+    if (typeof value === "string" && !value.trim()) return null;
     const n = Number(value);
     return Number.isFinite(n) ? n : null;
   }
@@ -318,6 +320,8 @@
   }
 
   function loadAuthKey(ctx) {
+    const configured = trim(ctx.provider && ctx.provider.apiKey) || env(ctx, "OPENCODE_GO_API_KEY");
+    if (configured) return configured;
     const inline = ctx.host.env.get("OPENCODE_AUTH_CONTENT");
     const path = inline ? null : dataPath(ctx, "auth.json");
     if (!inline && !ctx.host.fs.exists(path)) return null;
@@ -438,10 +442,9 @@
         text,
         new RegExp(name + "[^}]*?(?:resetInSec|resetInSeconds|resetSeconds|resetSec)\\s*[:=]\\s*([0-9]+)")
       ) || 0;
-      const normalized = percent <= 1 ? percent * 100 : percent;
       return {
-        percent: Math.max(0, Math.min(100, normalized)),
-        resetsAt: toIso(Date.now() + Math.max(0, reset) * 1000),
+        percent: Math.max(0, Math.min(100, percent)),
+        resetsAt: reset > 0 ? toIso(Date.now() + reset * 1000) : null,
       };
     }
     return null;
@@ -560,11 +563,52 @@
     if (!parsed.lines.length) {
       throw "OpenCode Go parse error: missing usage and balance fields.";
     }
-    return { plan: "Go", lines: parsed.lines };
+    return { plan: "Go", source: "web", lines: parsed.lines };
+  }
+
+  function fetchApiResult(ctx, key) {
+    const result = ctx.util.requestJson({
+      method: "GET", url: BASE_URL + "/zen/go/v1/usage",
+      headers: { Authorization: "Bearer " + key, Accept: "application/json" }, timeoutMs: 15000,
+    });
+    if (result.resp.status === 403 && result.json && result.json.error && result.json.error.type === "EntitlementError")
+      throw "No OpenCode Go subscription on this key.";
+    if (ctx.util.isAuthStatus(result.resp.status)) throw "OpenCode Go key was rejected. Sign into OpenCode Go again.";
+    if (result.resp.status < 200 || result.resp.status >= 300) throw "OpenCode Go usage API returned HTTP " + result.resp.status + ".";
+    const usage = result.json && result.json.usage;
+    const specs = [["rolling", "Session", FIVE_HOURS_MS], ["weekly", "Weekly", WEEK_MS], ["monthly", "Monthly", null]];
+    const lines = [];
+    for (const spec of specs) {
+      const window = usage && usage[spec[0]];
+      if (window == null && spec[0] !== "rolling") continue;
+      const percent = window && readNumber(window.percent);
+      if (!Number.isFinite(percent)) throw "OpenCode Go usage API returned an invalid quota.";
+      const resetInSec = readNumber(window.resetInSec);
+      const resetsAt = ctx.util.toIso(window.resetsAt) || (resetInSec !== null && resetInSec >= 0
+        ? ctx.util.toIso(Date.parse(ctx.nowIso) + resetInSec * 1000) : null);
+      lines.push(ctx.line.progress({ label: spec[1], used: Math.max(0, Math.min(100, percent)), limit: 100,
+        format: { kind: "percent" }, resetsAt, periodDurationMs: spec[2] }));
+    }
+    return { plan: "Go", source: "api", lines };
   }
 
   function probe(ctx) {
+    const source = ctx.sourceMode || "auto";
+    if (source === "web") {
+      const cookie = cookieHeader(ctx);
+      if (!cookie) throw "OpenCode Go session cookie is missing.";
+      return fetchWebResult(ctx, cookie);
+    }
     const authKey = loadAuthKey(ctx);
+    if (source === "api" && !authKey) throw "OpenCode Go API key missing. Set OPENCODE_GO_API_KEY.";
+    if (authKey && source !== "local") {
+      const result = fetchApiResult(ctx, authKey);
+      try {
+        const history = loadHistory(ctx);
+        if (history.ok) attachCostHistory(ctx, result.lines, history.rows);
+      } catch (_) { ctx.host.log.warn("OpenCode Go local cost history unavailable"); }
+      return result;
+    }
     const history = hasHistory(ctx);
     const cookie = cookieHeader(ctx);
     const detected = !!authKey || !!cookie || (history.ok && history.present);
@@ -574,13 +618,15 @@
     }
 
     if (!history.ok && !cookie) {
-      return { plan: "Go", lines: buildSoftEmptyLines(ctx) };
+      return { plan: "Go", source: "local", lines: buildSoftEmptyLines(ctx) };
     }
 
     const rowsResult = loadHistory(ctx);
     if (rowsResult.ok && rowsResult.rows.length > 0) {
       const lines = buildProgressLines(ctx, rowsResult.rows, readNowMs());
-      if (cookie) {
+      for (const line of lines) line.detail = "Estimated from local API-rate costs";
+      attachCostHistory(ctx, lines, rowsResult.rows);
+      if (cookie && source !== "local") {
         try {
           const webResult = fetchWebResult(ctx, cookie);
           for (let i = 0; i < webResult.lines.length; i += 1) {
@@ -592,10 +638,10 @@
           ctx.host.log.warn("OpenCode Go web enrichment failed: " + String(e));
         }
       }
-      return { plan: "Go", lines };
+      return { plan: "Go", source: "local-estimate", lines };
     }
 
-    if (cookie) {
+    if (cookie && source !== "local") {
       try {
         return fetchWebResult(ctx, cookie);
       } catch (e) {
@@ -604,13 +650,35 @@
     }
 
     if (!rowsResult.ok) {
-      return { plan: "Go", lines: buildSoftEmptyLines(ctx) };
+      return { plan: "Go", source: "local", lines: buildSoftEmptyLines(ctx) };
     }
 
     return {
       plan: "Go",
-      lines: buildProgressLines(ctx, rowsResult.rows, readNowMs()),
+      source: "local",
+      lines: buildSoftEmptyLines(ctx),
     };
+  }
+
+  function attachCostHistory(ctx, lines, rows) {
+    const byDay = {};
+    const now = Date.parse(ctx.nowIso);
+    const since = Date.parse(ctx.nowIso.slice(0, 10)) - 29 * 86400000;
+    for (const row of rows) {
+      if (row.createdMs < since || row.createdMs > now) continue;
+      const date = toIso(row.createdMs);
+      if (!date) continue;
+      const day = date.slice(0, 10);
+      byDay[day] = (byDay[day] || 0) + row.cost;
+    }
+    const daily = Object.keys(byDay).sort().map((day) => ({ date: day, costUsd: byDay[day] }));
+    if (!daily.length) return;
+    lines.push(ctx.line.text({ label: "Local Cost", value: "$" + daily.reduce((n, day) => n + day.costUsd, 0).toFixed(2), subtitle: "Last 30 days; estimated API-rate cost" }));
+    lines.push(ctx.line.barChart({ label: "Cost History", points: daily.map((day) => ({ label: day.date, value: day.costUsd, valueLabel: "$" + day.costUsd.toFixed(2) })),
+      note: "Estimated from local OpenCode Go messages, not a subscription bill.", color: "#4d9f75" }));
+    try {
+      ctx.host.usageDaily.ingest({ displayName: "OpenCode Go", source: "opencode_go_local_estimated", daily });
+    } catch (_) { ctx.host.log.warn("Could not persist OpenCode Go daily costs"); }
   }
 
   globalThis.__openusage_plugin = { id: PROVIDER_ID, probe };

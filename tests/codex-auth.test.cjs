@@ -52,3 +52,38 @@ test('Codex refresh writes only the original selected native profile and revisio
   assert.deepEqual(writes[0].slice(0, 4), ['auto', 'fixture-profile', 'fixture-revision', 'keyring']);
   assert.equal(JSON.parse(writes[0][4]).tokens.account_id, 'fixture-account');
 });
+
+for (const platform of ['linux', 'macos', 'windows']) {
+  test(`${platform}: Codex permission denial never refreshes or changes credentials`, () => {
+    const harness = providerHarness('codex', {platform, host: {codex: {
+      readAuth: () => JSON.stringify(state('keyring')),
+      writeAuth() { assert.fail('permission denial must not rotate credentials'); },
+    }}, http(request) {
+      assert.equal(request.method, 'GET');
+      return response(403, {});
+    }});
+    assert.throws(() => harness.probe(), error => /access denied.*403/.test(String(error)));
+    assert.equal(harness.calls.http.length, 1);
+  });
+}
+
+test('Codex preserves a permission denial after reloading changed CLI credentials', () => {
+  let reads = 0;
+  let requests = 0;
+  const harness = providerHarness('codex', {host: {codex: {
+    readAuth() {
+      const selected = state('file');
+      if (++reads > 1) {
+        selected.revision = 'changed-revision';
+        selected.auth.tokens.access_token = 'changed-access';
+      }
+      return JSON.stringify(selected);
+    },
+    writeAuth() { assert.fail('permission denial must not rotate credentials'); },
+  }}, http(request) {
+    assert.equal(request.method, 'GET');
+    return response(++requests === 1 ? 401 : 403, {});
+  }});
+  assert.throws(() => harness.probe(), error => /access denied.*403/.test(String(error)));
+  assert.equal(requests, 2);
+});

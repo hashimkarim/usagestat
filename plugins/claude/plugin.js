@@ -20,13 +20,24 @@
   const MIN_USAGE_FETCH_INTERVAL_MS = 5 * 60 * 1000  // never poll more than once per 5 min
   const DEFAULT_RATE_LIMIT_BACKOFF_MS = 5 * 60 * 1000 // fallback when no Retry-After header
   const LIVE_USAGE_CACHE_FILE = "live-usage-cache.json"
-  const LIVE_USAGE_CACHE_VERSION = 1
+  const LIVE_USAGE_CACHE_VERSION = 2
   const LIVE_USAGE_CACHE_MAX_AGE_MS = 24 * 60 * 60 * 1000
   let rateLimitedUntilMs = 0  // epoch ms; 0 = not rate-limited
   let lastUsageFetchMs = 0    // epoch ms of the most-recent OAuth API attempt
   let cachedUsageData = null  // last successful OAuth API response body (parsed JSON)
   let lastWebUsageFetchMs = 0   // epoch ms of the most-recent Web API attempt
   let cachedWebUsageData = null // last successful Web API response body (parsed JSON)
+  let activeCacheIdentity = null
+
+  function bindUsageCache(ctx, creds, sessionKey) {
+    const identity = ctx.host.crypto.sha256(JSON.stringify([
+      creds && creds.oauth && creds.oauth.accessToken || "", sessionKey || "",
+      ctx.provider && ctx.provider.workspaceId || "",
+    ]))
+    if (activeCacheIdentity !== identity) _resetState()
+    activeCacheIdentity = identity
+    ctx.claudeCacheIdentity = identity
+  }
 
   function utf8DecodeBytes(bytes) {
     // Prefer native TextDecoder when available (QuickJS may not expose it).
@@ -194,7 +205,7 @@
     if (!path || !ctx.host.fs.exists(path)) return null
     try {
       const parsed = ctx.util.tryParseJson(ctx.host.fs.readText(path))
-      if (!parsed || typeof parsed !== "object") return null
+      if (!parsed || typeof parsed !== "object" || parsed.accountHash !== ctx.claudeCacheIdentity) return null
       return parsed
     } catch {
       return null
@@ -210,6 +221,7 @@
         cache[key] = updates[key]
       }
       cache.version = LIVE_USAGE_CACHE_VERSION
+      cache.accountHash = ctx.claudeCacheIdentity
       cache.updatedAtMs = Date.now()
       ctx.host.fs.writeText(path, JSON.stringify(cache, null, 2))
     } catch (e) {
@@ -569,6 +581,7 @@
       // Persist updated credentials back to the same source we read from.
       fullData.claudeAiOauth = oauth
       saveCredentials(ctx, source, creds.serviceName, fullData)
+      bindUsageCache(ctx, creds, getSessionKey(ctx))
 
       ctx.host.log.info("refresh succeeded, new token expires in " + (body.expires_in || "unknown") + "s")
       return newAccessToken
@@ -603,8 +616,8 @@
     if (!str) return null
     // Retry-After can be a delay-seconds or HTTP-date (RFC 7231).
     // 0 means "retry immediately" — return 0 as a valid value.
-    const seconds = parseInt(str, 10)
-    if (Number.isFinite(seconds) && seconds >= 0) return seconds
+    const seconds = /^\d+$/.test(str) ? Number(str) : NaN
+    if (Number.isSafeInteger(seconds)) return seconds
     const dateMs = Date.parse(str)
     if (Number.isFinite(dateMs)) {
       const delay = Math.ceil((dateMs - Date.now()) / 1000)
@@ -1254,17 +1267,21 @@
     const liveCache = readLiveUsageCache(ctx)
     const cachedLastWebUsageFetchMs = Number(liveCache && liveCache.lastWebUsageFetchMs) || 0
     const effectiveLastWebUsageFetchMs = Math.max(lastWebUsageFetchMs, cachedLastWebUsageFetchMs)
-    if (nowMs - effectiveLastWebUsageFetchMs < MIN_USAGE_FETCH_INTERVAL_MS) {
+    const cached = cachedWebUsageData || cachedLiveUsageData(liveCache, nowMs)
+    if (cached && nowMs - effectiveLastWebUsageFetchMs < MIN_USAGE_FETCH_INTERVAL_MS) {
       lastWebUsageFetchMs = effectiveLastWebUsageFetchMs
       ctx.host.log.info(
         "web usage fetch skipped: last fetch was " +
         Math.round((nowMs - effectiveLastWebUsageFetchMs) / 1000) + "s ago"
       )
-      return { data: cachedWebUsageData || cachedLiveUsageData(liveCache, nowMs), plan: null }
+      return { data: cached, plan: null }
     }
 
     lastWebUsageFetchMs = nowMs
     const result = fetchWebUsage(ctx, sessionKey)
+    const validLines = []
+    addUsageWindowLines(ctx, result.usageData, validLines)
+    if (!validLines.length) throw "Web usage response invalid. Try again later."
     cachedWebUsageData = result.usageData
     writeLiveUsageCache(ctx, {
       usageData: result.usageData,
@@ -1282,7 +1299,9 @@
     const t = (tier || "").toLowerCase()
     if (t === "free") return "Claude Free"
     if (t === "pro" || t === "claude_pro") return "Claude Pro"
-    if (t === "max" || t === "claude_max_5" || t === "claude_max_20") return "Claude Max"
+    if (t === "claude_max_5" || t === "claude_max_5x") return "Claude Max 5x"
+    if (t === "claude_max_20" || t === "claude_max_20x") return "Claude Max 20x"
+    if (t === "max") return "Claude Max"
     if (t === "team") return "Claude Team"
     if (t === "enterprise") return "Claude Enterprise"
     return "Claude (" + tier + ")"
@@ -1299,6 +1318,8 @@
   }
 
   function moneyMajorUnits(value) {
+    if (typeof value !== "number" && typeof value !== "string") return null
+    if (typeof value === "string" && !value.trim()) return null
     const n = Number(value)
     if (!Number.isFinite(n)) return null
     // Claude usage APIs return Extra usage amounts in minor units (cents).
@@ -1333,9 +1354,18 @@
     return months[d.getUTCMonth()] + " " + String(d.getUTCDate())
   }
 
+  function currentUsageWindow(data, kind, fallback) {
+    const entries = Array.isArray(data.limits) ? data.limits.filter((entry) =>
+      entry && entry.kind === kind && Number.isFinite(entry.percent) &&
+      !(entry.scope && (entry.scope.model || entry.scope.surface))) : []
+    const entry = entries.find((item) => item.is_active === true) || entries[0]
+    return entry ? { utilization: entry.percent, resets_at: entry.resets_at } : fallback
+  }
+
   function addUsageWindowLines(ctx, data, lines) {
-    const fiveHour = data.five_hour
-    if (fiveHour && typeof fiveHour.utilization === "number") {
+    const settings = ctx.provider && ctx.provider.settings || {}
+    const fiveHour = currentUsageWindow(data, "session", data.five_hour)
+    if (fiveHour && Number.isFinite(fiveHour.utilization)) {
       lines.push(ctx.line.progress({
         label: "Session",
         used: fiveHour.utilization,
@@ -1346,8 +1376,8 @@
       }))
     }
 
-    const sevenDay = data.seven_day
-    if (sevenDay && typeof sevenDay.utilization === "number") {
+    const sevenDay = currentUsageWindow(data, "weekly_all", data.seven_day)
+    if (sevenDay && Number.isFinite(sevenDay.utilization)) {
       lines.push(ctx.line.progress({
         label: "Weekly",
         used: sevenDay.utilization,
@@ -1359,7 +1389,7 @@
     }
 
     const sevenDaySonnet = data.seven_day_sonnet
-    if (sevenDaySonnet && typeof sevenDaySonnet.utilization === "number") {
+    if (settings.showModelQuotas === true && sevenDaySonnet && Number.isFinite(sevenDaySonnet.utilization)) {
       lines.push(ctx.line.progress({
         label: "Sonnet",
         used: sevenDaySonnet.utilization,
@@ -1371,7 +1401,7 @@
     }
 
     const sevenDayOpus = data.seven_day_opus
-    if (sevenDayOpus && typeof sevenDayOpus.utilization === "number") {
+    if (settings.showModelQuotas === true && sevenDayOpus && Number.isFinite(sevenDayOpus.utilization)) {
       lines.push(ctx.line.progress({
         label: "Opus",
         used: sevenDayOpus.utilization,
@@ -1382,13 +1412,23 @@
       }))
     }
 
+    if (settings.showModelQuotas === true && Array.isArray(data.limits)) {
+      for (const entry of data.limits) {
+        if (!entry || entry.kind !== "weekly_scoped" || !Number.isFinite(entry.percent)) continue
+        const model = entry.scope && entry.scope.model && entry.scope.model.display_name
+        if (typeof model !== "string" || !model.trim() || lines.some((line) => line.label === model.trim())) continue
+        lines.push(ctx.line.progress({ label: model.trim(), used: entry.percent, limit: 100,
+          format: { kind: "percent" }, resetsAt: ctx.util.toIso(entry.resets_at), periodDurationMs: 7 * 24 * 60 * 60 * 1000 }))
+      }
+    }
+
     // Routines: check canonical name first, then legacy aliases
     const routinesWindow = pickUsageWindow(data, [
       "seven_day_routines",
       "seven_day_cowork",
       "seven_day_claude_routines",
     ])
-    if (routinesWindow && typeof routinesWindow.utilization === "number") {
+    if (settings.hideDailyRoutines !== true && routinesWindow && Number.isFinite(routinesWindow.utilization)) {
       lines.push(ctx.line.progress({
         label: "Routines",
         used: routinesWindow.utilization,
@@ -1472,15 +1512,13 @@
       ctx.host.log.error("api mode requested but no Claude Admin API key found")
       throw "Claude API usage needs an Anthropic Admin API key. Set ANTHROPIC_ADMIN_KEY."
     }
-    if (!wantsLocal && !wantsApi && !hasOAuth && !sessionKey && !adminApiKey) {
-      ctx.host.log.error("probe failed: no credentials or session key")
-      throw "Not logged in. Run `claude` to authenticate, set CLAUDE_AI_SESSION_KEY, or set ANTHROPIC_ADMIN_KEY."
-    }
-
+    const noLiveCredentials = !hasOAuth && !sessionKey && !adminApiKey
+    bindUsageCache(ctx, creds, sessionKey)
     const nowMs = Date.now()
     const liveCache = readLiveUsageCache(ctx)
     const homePath = getClaudeHomeOverride(ctx)
     let data = null
+    let quotaSource = null
     let lines = []
     let plan = null
     let rateLimited = false
@@ -1495,6 +1533,7 @@
     } else if (wantsApi) {
       ctx.host.log.info("api mode requested; skipping live quota fetch")
     } else if (hasOAuth && !wantsWeb) {
+      quotaSource = "oauth"
       // ── OAuth mode ───────────────────────────────────────────────────────
       let accessToken = creds.oauth.accessToken
       const canFetchLiveUsage = hasProfileScope(creds)
@@ -1521,7 +1560,7 @@
 
           const cachedLastUsageFetchMs = Number(liveCache && liveCache.lastUsageFetchMs) || 0
           const effectiveLastUsageFetchMs = Math.max(lastUsageFetchMs, cachedLastUsageFetchMs)
-          if (!wasRateLimited && nowMs - effectiveLastUsageFetchMs < MIN_USAGE_FETCH_INTERVAL_MS) {
+          if (cachedData && !wasRateLimited && nowMs - effectiveLastUsageFetchMs < MIN_USAGE_FETCH_INTERVAL_MS) {
             // Polled too recently in normal operation — reuse last cached response.
             lastUsageFetchMs = effectiveLastUsageFetchMs
             data = cachedData
@@ -1600,7 +1639,9 @@
             } else {
               ctx.host.log.info("usage fetch succeeded")
               data = ctx.util.tryParseJson(resp.bodyText)
-              if (data === null) {
+              const validLines = []
+              if (data && typeof data === "object") addUsageWindowLines(ctx, data, validLines)
+              if (!validLines.length) {
                 throw "Usage response invalid. Try again later."
               }
               cachedUsageData = data
@@ -1622,11 +1663,12 @@
       // ── Web mode ─────────────────────────────────────────────────────────
       const webResult = loadWebUsageData(ctx, sessionKey, nowMs)
       data = webResult.data
+      quotaSource = "web"
       if (webResult.plan) {
         plan = webResult.plan
       }
     } else {
-      ctx.host.log.info("auto mode using Claude Admin API history only")
+      ctx.host.log.info("auto mode using available Claude usage history")
     }
 
     if (rateLimited && wantsAuto && sessionKey) {
@@ -1635,6 +1677,7 @@
         const webResult = loadWebUsageData(ctx, sessionKey, nowMs)
         if (webResult.data) {
           data = webResult.data
+          quotaSource = "web"
           rateLimited = false
           retryAfterSeconds = null
           if (webResult.plan) {
@@ -1703,10 +1746,14 @@
         : "Live usage rate limited — data may be stale"
       lines.push(ctx.line.text({ label: "Note", value: noteText }))
     } else if (lines.length === 0) {
+      if (noLiveCredentials && wantsAuto) throw "Not logged in and no local Claude usage found. Run `claude` to authenticate."
       lines.push(ctx.line.badge({ label: "Status", text: "No usage data", color: "#a3a3a3" }))
     }
 
-    return { plan: plan, lines: lines }
+    const finalCache = readLiveUsageCache(ctx)
+    const fetchedAt = data && finalCache && ctx.util.toIso(finalCache.usageFetchedAtMs)
+    return { plan: plan, lines: lines, fetchedAt: fetchedAt || ctx.nowIso,
+      source: data ? (rateLimited ? "cached" : quotaSource) : wantsApi ? "api" : "local" }
   }
 
   // _resetState is a testing hook — resets module-scope rate-limit state between tests.

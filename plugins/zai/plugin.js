@@ -1,187 +1,137 @@
 (function () {
-  const BASE_URL = "https://api.z.ai"
-  const SUBSCRIPTION_URL = BASE_URL + "/api/biz/subscription/list"
-  const QUOTA_URL = BASE_URL + "/api/monitor/usage/quota/limit"
-  const PERIOD_MS = 5 * 60 * 60 * 1000
-  const WEEK_MS = 7 * 24 * 60 * 60 * 1000
-  const MONTH_MS = 30 * 24 * 60 * 60 * 1000
+  const HOUR_MS = 60 * 60 * 1000
+  const WEEK_MS = 7 * 24 * HOUR_MS
+  const MONTH_MS = 30 * 24 * HOUR_MS
+  const INVALID = "Z.ai usage response invalid. Try again later."
 
-  function loadApiKey(ctx) {
-    const zai = ctx.host.env.get("ZAI_API_KEY")
-    if (typeof zai === "string" && zai.trim()) return zai.trim()
+  function clean(value) {
+    return typeof value === "string" && value.trim() ? value.trim() : null
+  }
 
-    const glm = ctx.host.env.get("GLM_API_KEY")
-    if (typeof glm === "string" && glm.trim()) return glm.trim()
+  function number(value) {
+    if (typeof value !== "number" && typeof value !== "string") return null
+    if (typeof value === "string" && !value.trim()) return null
+    const parsed = Number(value)
+    return Number.isFinite(parsed) ? parsed : null
+  }
 
+  function credentials(ctx) {
+    const provider = ctx.provider || {}
+    const settings = provider.settings || {}
+    const env = (name) => clean(ctx.host.env.get(name))
+    const cnKey = env("BIGMODEL_API_KEY") || env("ZHIPU_API_KEY")
+    const key = clean(provider.apiKey) || env("ZAI_API_KEY") || env("Z_AI_API_KEY") || env("GLM_API_KEY") || cnKey
+    if (!key) throw "No ZAI_API_KEY found. Set a provider API key or environment variable."
+    const region = (clean(provider.region) || clean(settings.region) || env("Z_AI_REGION") || (key === cnKey ? "bigmodel-cn" : "global")).toLowerCase()
+    const china = ["cn", "china", "bigmodel-cn"].includes(region)
+    if (!china && region !== "global") throw "Unsupported Z.ai region. Use global or bigmodel-cn."
+    if (key === cnKey && !china) throw "BigModel API keys must use the bigmodel-cn region."
+    const headers = { Authorization: "Bearer " + key, Accept: "application/json" }
+    const scope = clean(settings.usageScope) || env("Z_AI_USAGE_SCOPE") || "personal"
+    if (!["personal", "team"].includes(scope)) throw "Unsupported Z.ai usage scope."
+    if (scope === "team") {
+      const organization = clean(settings.organization) || env("Z_AI_ORGANIZATION")
+      const project = clean(settings.project) || clean(provider.workspaceId) || env("Z_AI_PROJECT")
+      if (!organization || !project) throw "Z.ai team usage needs organization and project settings."
+      headers["Bigmodel-Organization"] = organization
+      headers["Bigmodel-Project"] = project
+    }
+    return { base: china ? "https://open.bigmodel.cn" : "https://api.z.ai", china, headers, scope }
+  }
+
+  function request(ctx, auth, url, timeoutMs) {
+    const result = ctx.util.requestJson({ method: "GET", url, headers: auth.headers, timeoutMs })
+    if (ctx.util.isAuthStatus(result.resp.status)) throw "Z.ai API key invalid. Check its region and credentials."
+    if (result.resp.status < 200 || result.resp.status >= 300) throw "Z.ai API returned HTTP " + result.resp.status + "."
+    const root = result.json
+    if (!root || root.success === false || (root.code !== undefined && number(root.code) !== 200)) throw INVALID
+    return root
+  }
+
+  function duration(entry) {
+    const multipliers = { 1: 24 * HOUR_MS, 3: HOUR_MS, 5: 60000, 6: WEEK_MS }
+    const unit = number(entry.unit)
+    const count = number(entry.number)
+    if ((entry.type || entry.name) === "TIME_LIMIT" && unit === 5 && count === 1) return MONTH_MS
+    if (count > 0 && multipliers[unit]) return count * multipliers[unit]
+    if (unit === 6) return WEEK_MS
+    if (unit === 3 || unit === null) return 5 * HOUR_MS
     return null
   }
 
-  function fetchSubscription(ctx, apiKey) {
-    try {
-      const resp = ctx.util.request({
-        method: "GET",
-        url: SUBSCRIPTION_URL,
-        headers: {
-          Authorization: "Bearer " + apiKey,
-          Accept: "application/json",
-        },
-        timeoutMs: 10000,
-      })
-      if (resp.status < 200 || resp.status >= 300) {
-        ctx.host.log.warn("subscription request failed: HTTP " + resp.status)
-        return null
-      }
-      const data = ctx.util.tryParseJson(resp.bodyText)
-      if (!data) return null
-      const list = data.data
-      if (!Array.isArray(list) || list.length === 0) return null
-      return {
-        productName: list[0].productName || null,
-        nextRenewTime: list[0].nextRenewTime || null,
-      }
-    } catch (e) {
-      ctx.host.log.warn("subscription request exception: " + String(e))
-      return null
-    }
+  function reset(ctx, entry, periodMs) {
+    const raw = entry.nextResetTime
+    let ms = number(raw)
+    if (ms === null && typeof raw === "string") ms = Date.parse(raw)
+    if (!Number.isFinite(ms) || ms < 1000000000000 || ms > 4102444800000) return undefined
+    const now = Date.parse(ctx.nowIso) || Date.now()
+    if (periodMs === 5 * HOUR_MS && ms > now + periodMs + 60000) return undefined
+    return new Date(ms).toISOString()
   }
 
-  function fetchQuota(ctx, apiKey) {
-    let resp
-    try {
-      resp = ctx.util.request({
-        method: "GET",
-        url: QUOTA_URL,
-        headers: {
-          Authorization: "Bearer " + apiKey,
-          Accept: "application/json",
-        },
-        timeoutMs: 10000,
-      })
-    } catch (e) {
-      ctx.host.log.error("usage request exception: " + String(e))
-      throw "Usage request failed. Check your connection."
+  function quotaLine(ctx, entry) {
+    let used = number(entry.percentage)
+    const cap = number(entry.usage)
+    const current = number(entry.currentValue)
+    const remaining = number(entry.remaining)
+    if (cap > 0 && (current !== null || remaining !== null)) {
+      used = Math.max(current === null ? 0 : current, remaining === null ? 0 : cap - remaining) / cap * 100
     }
-
-    if (ctx.util.isAuthStatus(resp.status)) {
-      throw "API key invalid. Check your Z.ai API key."
-    }
-
-    if (resp.status < 200 || resp.status >= 300) {
-      throw "Usage request failed (HTTP " + String(resp.status) + "). Try again later."
-    }
-
-    const data = ctx.util.tryParseJson(resp.bodyText)
-    if (!data) {
-      throw "Usage response invalid. Try again later."
-    }
-
-    return data
-  }
-
-  function findLimit(limits, type, unit) {
-    let fallback = null
-    for (let i = 0; i < limits.length; i++) {
-      const item = limits[i]
-      if (item.type === type || item.name === type) {
-        if (unit === undefined) {
-          return item
-        }
-        if (item.unit === unit) {
-          return item
-        }
-        // Store first entry without unit as fallback
-        if (fallback === null && item.unit === undefined) {
-          fallback = item
-        }
-      }
-    }
-    return fallback
+    if (used === null) throw INVALID
+    const periodMs = duration(entry)
+    const label = periodMs === WEEK_MS ? "Weekly" : periodMs === 5 * HOUR_MS ? "Session" : "Quota"
+    return ctx.line.progress({
+      label, used: Math.max(0, Math.min(100, used)), limit: 100,
+      format: { kind: "percent" }, periodDurationMs: periodMs || undefined,
+      resetsAt: reset(ctx, entry, periodMs),
+    })
   }
 
   function probe(ctx) {
-    const apiKey = loadApiKey(ctx)
-    if (!apiKey) {
-      throw "No ZAI_API_KEY found. Set up environment variable first."
-    }
-
-    const sub = fetchSubscription(ctx, apiKey)
-    const plan = sub && sub.productName ? ctx.fmt.planLabel(sub.productName) : null
-
-    const quota = fetchQuota(ctx, apiKey)
+    const auth = credentials(ctx)
+    const root = request(ctx, auth, auth.base + "/api/monitor/usage/quota/limit" + (auth.scope === "team" ? "?type=2" : ""), 10000)
+    const data = root.data || root
+    const limits = Array.isArray(data) ? data : data.limits
+    if (!Array.isArray(limits) || limits.some((item) => !item || typeof item !== "object")) throw INVALID
     const lines = []
+    const quota = limits.filter((item) => ["TOKENS_LIMIT", "CREDIT_LIMIT"].includes(item.type || item.name))
+      .sort((a, b) => (duration(a) || Infinity) - (duration(b) || Infinity))
+    for (const item of quota) lines.push(quotaLine(ctx, item))
+    const mcp = limits.find((item) => (item.type || item.name) === "TIME_LIMIT")
+    if (mcp) {
+      const used = number(mcp.currentValue)
+      const limit = number(mcp.usage)
+      if (used === null || limit === null || used < 0 || limit < 0) throw INVALID
+      lines.push(ctx.line.progress({ label: "Web Searches", used, limit,
+        format: { kind: "count", suffix: "searches" }, periodDurationMs: MONTH_MS,
+        resetsAt: reset(ctx, mcp, MONTH_MS) }))
+    }
+    if (!lines.length) lines.push(ctx.line.badge({ label: "Status", text: "No usage data", color: "#a3a3a3" }))
 
-    const container = quota.data || quota
-    const limits = container.limits || container
-    if (!Array.isArray(limits) || limits.length === 0) {
-      lines.push(ctx.line.badge({ label: "Session", text: "No usage data", color: "#a3a3a3" }))
-      return { plan, lines }
+    if (quota.some((item) => (item.type || item.name) === "CREDIT_LIMIT")) {
+      const now = new Date(ctx.nowIso)
+      const peak = now.getUTCDay() >= 1 && now.getUTCDay() <= 5 && now.getUTCHours() >= 6 && now.getUTCHours() < 10
+      lines.push(ctx.line.text({ label: "Quota rate", value: peak ? "Peak" : "Off-peak",
+        subtitle: "Peak: Mon-Fri 06:00-10:00 UTC" }))
     }
 
-    const tokenLimit = findLimit(limits, "TOKENS_LIMIT", 3)
-
-    if (!tokenLimit) {
-      lines.push(ctx.line.badge({ label: "Session", text: "No usage data", color: "#a3a3a3" }))
-      return { plan, lines }
+    let plan = clean(data.planName) || clean(data.plan) || clean(data.packageName)
+    if (!plan) {
+      try {
+        const sub = request(ctx, auth, auth.base + "/api/biz/subscription/list", 1500)
+        if (Array.isArray(sub.data) && sub.data.length) plan = clean(sub.data[0].productName)
+      } catch (_) { ctx.host.log.warn("Z.ai plan details unavailable") }
     }
-
-    const used = typeof tokenLimit.percentage === "number" ? tokenLimit.percentage : 0
-    const resetsAt = tokenLimit.nextResetTime ? ctx.util.toIso(tokenLimit.nextResetTime) : undefined
-
-    const progressOpts = {
-      label: "Session",
-      used,
-      limit: 100,
-      format: { kind: "percent" },
-      periodDurationMs: PERIOD_MS,
+    if (auth.china) {
+      try {
+        const balance = request(ctx, auth, "https://www.bigmodel.cn/api/biz/account/query-customer-account-report", 3000)
+        const account = balance.data || {}
+        const available = number(account.availableBalance)
+        const value = available !== null ? available : number(account.balance)
+        if (value !== null) lines.push(ctx.line.text({ label: "Balance", value: "CNY " + value.toFixed(2) }))
+      } catch (_) { ctx.host.log.warn("BigModel balance unavailable") }
     }
-    if (resetsAt) {
-      progressOpts.resetsAt = resetsAt
-    }
-    lines.push(ctx.line.progress(progressOpts))
-
-    const weeklyTokenLimit = findLimit(limits, "TOKENS_LIMIT", 6)
-    if (weeklyTokenLimit) {
-      const weeklyUsed = Number.isFinite(weeklyTokenLimit.percentage) ? weeklyTokenLimit.percentage : 0
-      const weeklyResetsAt = weeklyTokenLimit.nextResetTime ? ctx.util.toIso(weeklyTokenLimit.nextResetTime) : undefined
-
-      const weeklyOpts = {
-        label: "Weekly",
-        used: weeklyUsed,
-        limit: 100,
-        format: { kind: "percent" },
-        periodDurationMs: WEEK_MS,
-      }
-      if (weeklyResetsAt) {
-        weeklyOpts.resetsAt = weeklyResetsAt
-      }
-      lines.push(ctx.line.progress(weeklyOpts))
-    }
-
-    const timeLimit = findLimit(limits, "TIME_LIMIT")
-
-    if (timeLimit) {
-      const webUsed = typeof timeLimit.currentValue === "number" ? timeLimit.currentValue : 0
-      const webTotal = typeof timeLimit.usage === "number" ? timeLimit.usage : 0
-      const now = new Date()
-      const nextMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1))
-      const webResetsAt = timeLimit.nextResetTime
-        ? ctx.util.toIso(timeLimit.nextResetTime)
-        : nextMonth.toISOString()
-
-      const webOpts = {
-        label: "Web Searches",
-        used: webUsed,
-        limit: webTotal,
-        format: { kind: "count", suffix: "/ " + webTotal },
-        periodDurationMs: MONTH_MS,
-      }
-      if (webResetsAt) {
-        webOpts.resetsAt = webResetsAt
-      }
-      lines.push(ctx.line.progress(webOpts))
-    }
-
-    return { plan, lines }
+    return { displayName: "Z.ai", source: "api", plan: plan || undefined, lines }
   }
 
   globalThis.__openusage_plugin = { id: "zai", probe }

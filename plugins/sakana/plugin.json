@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "id": "sakana",
+  "name": "Sakana AI",
+  "version": "0.1.0",
+  "entry": "plugin.js",
+  "enabledByDefault": false,
+  "supportedModes": [
+    "web"
+  ],
+  "autoMode": "web",
+  "webUrl": "https://console.sakana.ai",
+  "usageDashboardUrl": "https://console.sakana.ai/billing",
+  "links": [
+    {
+      "label": "Dashboard",
+      "url": "https://console.sakana.ai/billing"
+    }
+  ],
+  "envVars": [
+    "SAKANA_COOKIE"
+  ]
+}

@@ -87,6 +87,14 @@ fn run_in_context(
     let source = result.get::<_, String>("source").ok();
     let plan = result.get::<_, String>("plan").ok();
     let metrics = parse_metrics(&result)?;
+    let now = Utc::now();
+    let fetched_at = result
+        .get::<_, String>("fetchedAt")
+        .ok()
+        .and_then(|value| DateTime::parse_from_rfc3339(&value).ok())
+        .map(|value| value.with_timezone(&Utc))
+        .filter(|value| value.timestamp() > 0 && *value <= now)
+        .unwrap_or(now);
     let state = result
         .get::<_, String>("state")
         .ok()
@@ -103,7 +111,7 @@ fn run_in_context(
         source,
         plan,
         metrics,
-        fetched_at: Utc::now(),
+        fetched_at,
         status_page_url: None,
         pace: None,
         state: Some(state),
@@ -403,4 +411,61 @@ fn parse_optional_datetime(value: Option<String>) -> Option<DateTime<Utc>> {
         .as_deref()
         .and_then(|value| DateTime::parse_from_rfc3339(value).ok())
         .map(|value| value.with_timezone(&Utc))
+}
+
+#[cfg(test)]
+mod provider_sync_tests {
+    use super::*;
+
+    fn fixture(script: &str) -> LoadedProvider {
+        LoadedProvider {
+            manifest: serde_json::from_value(serde_json::json!({
+                "id": "runtime-test", "name": "Runtime Test", "entry": "plugin.js"
+            }))
+            .unwrap(),
+            dir: std::path::PathBuf::from("."),
+            entry_script: script.to_string(),
+        }
+    }
+
+    #[test]
+    fn cached_snapshots_preserve_original_timestamp() {
+        let provider = fixture(
+            "globalThis.__openusage_plugin = { probe: function(ctx) { return { source: 'cached', fetchedAt: '2026-01-01T00:00:00Z', lines: [ctx.line.progress({label:'Session', used:12, limit:100})] }; } };",
+        );
+        let snapshot = probe_provider(&provider, "auto", None);
+        assert_eq!(snapshot.source.as_deref(), Some("cached"));
+        assert_eq!(
+            snapshot.fetched_at,
+            "2026-01-01T00:00:00Z".parse::<DateTime<Utc>>().unwrap()
+        );
+        assert_eq!(snapshot.metrics.len(), 1);
+    }
+
+    #[test]
+    fn future_and_invalid_cache_dates_use_probe_time() {
+        for date in ["invalid", "2999-01-01T00:00:00Z", "1970-01-01T00:00:00Z"] {
+            let before = Utc::now();
+            let provider = fixture(&format!(
+                "globalThis.__openusage_plugin = {{ probe: function(ctx) {{ return {{ fetchedAt: '{date}', lines: [ctx.line.text({{label:'Status',value:'Ready'}})] }}; }} }};"
+            ));
+            let snapshot = probe_provider(&provider, "auto", None);
+            assert!(snapshot.fetched_at >= before && snapshot.fetched_at <= Utc::now());
+        }
+    }
+
+    #[test]
+    fn crypto_and_url_validation_are_available_in_quickjs() {
+        let provider = fixture(
+            "globalThis.__openusage_plugin = { probe: function(ctx) { return { lines: [ctx.line.text({label:'Fingerprint',value:ctx.host.crypto.sha256('abc')}), ctx.line.text({label:'URL',value:ctx.host.http.validateBaseUrl('http://[::1]:8080/v1/',true)})] }; } };",
+        );
+        let snapshot = probe_provider(&provider, "auto", None);
+        assert_ne!(snapshot.source.as_deref(), Some("error"));
+        assert!(
+            matches!(&snapshot.metrics[0], MetricLine::Text { value, .. } if value == "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad")
+        );
+        assert!(
+            matches!(&snapshot.metrics[1], MetricLine::Text { value, .. } if value == "http://[::1]:8080/v1")
+        );
+    }
 }

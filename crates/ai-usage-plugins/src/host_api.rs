@@ -133,6 +133,56 @@ const ENV_ALLOWLIST: &[&str] = &[
     "XDG_CONFIG_HOME",
     "ZAI_API_KEY",
     "ZAI_API_TOKEN",
+    "AIAND_API_KEY",
+    "CODEBUDDY_COOKIE",
+    "CODEBUDDY_HOME",
+    "CLINEPASS_API_KEY",
+    "CLINE_API_KEY",
+    "CB_API_URL",
+    "CB_COOKIE",
+    "CB_COOKIE_FILE",
+    "CB_CREDITS_FILE",
+    "CB_PACKAGE_CODES",
+    "DEEPINFRA_API_KEY",
+    "DEEPINFRA_TOKEN",
+    "FACTORY_API_KEY",
+    "GROK_HOME",
+    "KIMI_CODE_API_KEY",
+    "KIMI_CODE_HOME",
+    "KIMI_CODE_BASE_URL",
+    "KIMI_CODE_OAUTH_HOST",
+    "KIMI_OAUTH_HOST",
+    "KIMI_AUTH_TOKEN",
+    "LONGCAT_COOKIE",
+    "NOTION_COOKIE",
+    "NOTION_SPACE_ID",
+    "OLLAMA_API_KEY",
+    "OLLAMA_KEY",
+    "OPENCODE_GO_API_KEY",
+    "OPENROUTER_MANAGEMENT_API_KEY",
+    "QODER_COOKIE",
+    "QWEN_CLOUD_COOKIE",
+    "QWEN_CLOUD_COOKIE_HEADER",
+    "SAKANA_COOKIE",
+    "SUB2API_API_KEY",
+    "SUB2API_BASE_URL",
+    "XAI_MANAGEMENT_API_KEY",
+    "XAI_TEAM_ID",
+    "Z_AI_API_KEY",
+    "Z_AI_REGION",
+    "Z_AI_USAGE_SCOPE",
+    "Z_AI_ORGANIZATION",
+    "Z_AI_PROJECT",
+    "BIGMODEL_API_KEY",
+    "ZHIPU_API_KEY",
+    "BOBSHELL_API_KEY",
+    "CLAWROUTER_API_KEY",
+    "CLAWROUTER_BASE_URL",
+    "WAYFINDER_GATEWAY_URL",
+    "ZENMUX_API_KEY",
+    "ZENMUX_MANAGEMENT_API_KEY",
+    "ZOOMMATE_BEARER_TOKEN",
+    "ZOOMMATE_COOKIE",
 ];
 
 const FIRECTL_TIMEOUT_SECS: u64 = 15;
@@ -249,6 +299,7 @@ pub fn inject<'js>(
     inject_fs(ctx, &host)?;
     inject_codex(ctx, &host)?;
     let crypto = Object::new(ctx.clone())?;
+    crypto.set("sha256", Function::new(ctx.clone(), |value: String| sha256_hex(value.as_bytes()))?)?;
     crypto.set("sha256Hex", Function::new(ctx.clone(), |value: String| sha256_hex(value.as_bytes()))?)?;
     host.set("crypto", crypto)?;
     let cursor_paths = Object::new(ctx.clone())?;
@@ -811,6 +862,17 @@ fn inject_http<'js>(ctx: &Ctx<'js>, host: &Object<'js>) -> rquickjs::Result<()> 
     let http_obj = Object::new(ctx.clone())?;
 
     http_obj.set(
+        "validateBaseUrl",
+        Function::new(
+            ctx.clone(),
+            |ctx: Ctx<'_>, raw: String, allow_loopback_http: bool| -> rquickjs::Result<String> {
+                validate_base_url(&raw, allow_loopback_http)
+                    .map_err(|message| Exception::throw_message(&ctx, message))
+            },
+        )?,
+    )?;
+
+    http_obj.set(
         "_requestRaw",
         Function::new(
             ctx.clone(),
@@ -829,6 +891,33 @@ fn inject_http<'js>(ctx: &Ctx<'js>, host: &Object<'js>) -> rquickjs::Result<()> 
 
     host.set("http", http_obj)?;
     Ok(())
+}
+
+fn validate_base_url(raw: &str, allow_loopback_http: bool) -> Result<String, &'static str> {
+    const INVALID: &str =
+        "Use an HTTPS base URL, or loopback HTTP, without credentials, query or fragment";
+    let raw = raw.trim();
+    if raw.contains('\\') || raw.chars().any(char::is_whitespace) {
+        return Err(INVALID);
+    }
+    let url = reqwest::Url::parse(raw).map_err(|_| INVALID)?;
+    let loopback = url.host_str().is_some_and(|host| {
+        host.eq_ignore_ascii_case("localhost")
+            || host
+                .trim_matches(['[', ']'])
+                .parse::<std::net::IpAddr>()
+                .is_ok_and(|ip| ip.is_loopback())
+    });
+    if url.host_str().is_none()
+        || !url.username().is_empty()
+        || url.password().is_some()
+        || url.query().is_some()
+        || url.fragment().is_some()
+        || !(url.scheme() == "https" || allow_loopback_http && url.scheme() == "http" && loopback)
+    {
+        return Err(INVALID);
+    }
+    Ok(url.as_str().trim_end_matches('/').to_string())
 }
 
 fn patch_http_wrapper(ctx: &Ctx<'_>) -> rquickjs::Result<()> {
@@ -925,19 +1014,34 @@ fn inject_utils(ctx: &Ctx<'_>) -> rquickjs::Result<()> {
                     return Number.isFinite(ms) ? ms : null;
                 },
                 toIso: function(value) {
-                    if (value === null || value === undefined) return null;
+                    if (typeof value !== "number" && typeof value !== "string") return null;
                     if (typeof value === "string") {
+                        if (!value.trim()) return null;
                         var parsed = Date.parse(value);
                         if (Number.isFinite(parsed)) return new Date(parsed).toISOString();
                     }
                     var n = Number(value);
                     if (!Number.isFinite(n)) return null;
                     if (Math.abs(n) < 10000000000) n = n * 1000;
-                    return new Date(n).toISOString();
+                    var date = new Date(n);
+                    return Number.isFinite(date.getTime()) ? date.toISOString() : null;
+                },
+                calendarMonthDuration: function(resetsAt) {
+                    var endIso = ctx.util.toIso(resetsAt);
+                    if (!endIso) return null;
+                    var end = new Date(endIso);
+                    var start = new Date(endIso);
+                    var day = start.getUTCDate();
+                    start.setUTCDate(1);
+                    start.setUTCMonth(start.getUTCMonth() - 1);
+                    var lastDay = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth() + 1, 0)).getUTCDate();
+                    start.setUTCDate(Math.min(day, lastDay));
+                    return end.getTime() - start.getTime();
                 },
                 retryOnceOnAuth: function(opts) {
                     var first = opts.request(null);
-                    if (!ctx.util.isAuthStatus(first.status)) return first;
+                    var isAuthStatus = opts.isAuthStatus || ctx.util.isAuthStatus;
+                    if (!isAuthStatus(first.status)) return first;
                     var refreshed = opts.refresh();
                     if (!refreshed) return first;
                     return opts.request(refreshed);
@@ -2430,4 +2534,49 @@ mod tests {
 
         assert_eq!(aws_host_header(&url).unwrap(), "ce.example.test:8443");
     }
+}
+
+#[cfg(test)]
+mod provider_sync_tests {
+    use super::*;
+
+    #[test]
+    fn base_urls_allow_https_and_only_explicit_loopback_http() {
+        for url in [
+            "https://api.example.test/v1/",
+            "https://api.example.test:8443/v1",
+            "http://localhost:8080",
+            "http://127.1.2.3:8080",
+            "http://[::1]:8080",
+        ] {
+            assert!(validate_base_url(url, true).is_ok(), "{url}");
+        }
+        for url in ["http://localhost:8080", "http://127.0.0.1", "http://[::1]"] {
+            assert!(validate_base_url(url, false).is_err(), "{url}");
+        }
+        assert_eq!(
+            validate_base_url("https://api.example.test/v1/", false).unwrap(),
+            "https://api.example.test/v1"
+        );
+    }
+
+    #[test]
+    fn base_urls_reject_ambiguous_hosts_and_credentials() {
+        for url in [
+            "http://127.evil.test",
+            "http://localhost.evil.test",
+            "https://user:password@example.test",
+            "https://user@example.test",
+            "https://example.test?token=secret",
+            "https://example.test#fragment",
+            "https://example.test\\@evil.test",
+            "https://exam ple.test",
+            "file:///etc/passwd",
+            "http://192.168.0.1",
+            "https://",
+        ] {
+            assert!(validate_base_url(url, true).is_err(), "{url}");
+        }
+    }
+
 }

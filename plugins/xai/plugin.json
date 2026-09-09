@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "id": "xai",
+  "name": "xAI",
+  "version": "0.1.0",
+  "entry": "plugin.js",
+  "enabledByDefault": false,
+  "supportedModes": [
+    "api"
+  ],
+  "autoMode": "api",
+  "usageDashboardUrl": "https://console.x.ai",
+  "statusPageUrl": "https://status.x.ai",
+  "links": [
+    {
+      "label": "Dashboard",
+      "url": "https://console.x.ai"
+    },
+    {
+      "label": "Status",
+      "url": "https://status.x.ai"
+    }
+  ],
+  "envVars": [
+    "XAI_MANAGEMENT_API_KEY",
+    "XAI_TEAM_ID"
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "id": "wayfinder",
+  "name": "Wayfinder",
+  "version": "0.1.0",
+  "entry": "plugin.js",
+  "enabledByDefault": false,
+  "envVars": [
+    "WAYFINDER_GATEWAY_URL"
+  ],
+  "supportedModes": [
+    "local"
+  ],
+  "autoMode": "local",
+  "usageDashboardUrl": "http://127.0.0.1:8088/router"
+}

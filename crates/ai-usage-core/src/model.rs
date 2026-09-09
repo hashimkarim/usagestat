@@ -192,6 +192,9 @@ impl UsageSnapshot {
     /// Compute pace from the primary percent metric's reset window.
     /// Returns None if there is no percent metric with both resetsAt and periodDurationMs.
     pub fn compute_pace(&self) -> Option<Pace> {
+        if matches!(self.source.as_deref(), Some("local-estimate" | "cached")) {
+            return None;
+        }
         let now = Utc::now();
 
         let (used, limit, resets_at, period_ms) = self.metrics.iter().find_map(|m| {
@@ -256,5 +259,31 @@ impl UsageSnapshot {
             will_last_to_reset,
             eta_seconds,
         })
+    }
+}
+
+#[cfg(test)]
+mod provider_sync_tests {
+    use super::*;
+
+    #[test]
+    fn pace_requires_live_authoritative_quota_windows() {
+        let mut snapshot = UsageSnapshot::error("test", "Test", "unused");
+        snapshot.metrics = vec![MetricLine::Progress {
+            label: "Session".into(),
+            used: 25.0,
+            limit: 100.0,
+            format: ProgressFormat::Percent,
+            resets_at: Some(Utc::now() + chrono::Duration::hours(2)),
+            period_duration_ms: Some(5 * 60 * 60 * 1000),
+            detail: None,
+            color: None,
+        }];
+        snapshot.source = Some("api".into());
+        assert!(snapshot.compute_pace().is_some());
+        for source in ["local-estimate", "cached"] {
+            snapshot.source = Some(source.into());
+            assert!(snapshot.compute_pace().is_none(), "{source}");
+        }
     }
 }

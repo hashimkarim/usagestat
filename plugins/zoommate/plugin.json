@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "id": "zoommate",
+  "name": "ZoomMate",
+  "version": "0.1.0",
+  "entry": "plugin.js",
+  "enabledByDefault": false,
+  "supportedModes": [
+    "web"
+  ],
+  "autoMode": "web",
+  "webUrl": "https://zoommate.zoom.us",
+  "usageDashboardUrl": "https://zoommate.zoom.us/#/?settings=credit-usage",
+  "statusPageUrl": "https://www.zoomstatus.com/",
+  "links": [
+    {
+      "label": "Dashboard",
+      "url": "https://zoommate.zoom.us/#/?settings=credit-usage"
+    },
+    {
+      "label": "Status",
+      "url": "https://www.zoomstatus.com/"
+    }
+  ],
+  "envVars": [
+    "ZOOMMATE_BEARER_TOKEN",
+    "ZOOMMATE_COOKIE"
+  ]
+}

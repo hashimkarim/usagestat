@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "id": "zenmux",
+  "name": "ZenMux",
+  "version": "0.1.0",
+  "entry": "plugin.js",
+  "enabledByDefault": false,
+  "supportedModes": [
+    "api"
+  ],
+  "autoMode": "api",
+  "usageDashboardUrl": "https://zenmux.ai/platform/management",
+  "links": [
+    {
+      "label": "Dashboard",
+      "url": "https://zenmux.ai/platform/management"
+    }
+  ],
+  "envVars": [
+    "ZENMUX_MANAGEMENT_API_KEY",
+    "ZENMUX_API_KEY"
+  ]
+}

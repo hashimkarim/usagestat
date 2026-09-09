@@ -6,8 +6,9 @@
   "entry": "plugin.js",
   "icon": "icon.svg",
   "brandColor": "#000000",
-  "supportedModes": ["oauth", "local"],
+  "supportedModes": ["api", "oauth", "cli", "web"],
   "autoMode": "oauth",
+  "envVars": ["KIMI_CODE_API_KEY", "KIMI_CODE_HOME", "KIMI_CODE_BASE_URL", "KIMI_CODE_OAUTH_HOST", "KIMI_OAUTH_HOST", "KIMI_AUTH_TOKEN"],
   "lines": [
     { "type": "progress", "label": "Session", "scope": "overview", "primaryOrder": 1 },
     { "type": "progress", "label": "Weekly", "scope": "overview", "primaryOrder": 2 }

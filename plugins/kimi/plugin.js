@@ -1,11 +1,11 @@
 (function () {
-  const CRED_PATH = "~/.kimi/credentials/kimi-code.json"
-  const USAGE_URL = "https://api.kimi.com/coding/v1/usages"
-  const REFRESH_URL = "https://auth.kimi.com/api/oauth/token"
-  const CLIENT_ID = "17e5f671-d194-4dfb-9706-5516cb48c098"
-  const REFRESH_BUFFER_SEC = 5 * 60
+  const WEB_USAGE_URL = "https://www.kimi.com/apiv2/kimi.gateway.billing.v1.BillingService/GetUsages"
+  const MEMBERSHIP_URL = "https://www.kimi.com/apiv2/kimi.gateway.membership.v2.MembershipService/"
+  const WEEK_MS = 7 * 86400000
 
   function readNumber(value) {
+    if (typeof value !== "number" && typeof value !== "string") return null
+    if (typeof value === "string" && !value.trim()) return null
     const n = Number(value)
     return Number.isFinite(n) ? n : null
   }
@@ -29,117 +29,103 @@
         : null
     if (!level) return null
 
+    if (level === "LEVEL_UNSPECIFIED") return null
+    const names = { LEVEL_FREE: "Adagio", LEVEL_TRIAL: "Andante", LEVEL_BASIC: "Moderato", LEVEL_INTERMEDIATE: "Allegretto", LEVEL_ADVANCED: "Allegro" }
+    if (data.version != null && data.version !== "GOODS_VERSION_V1") return level
+    if (names[level]) return names[level]
     const cleaned = level.replace(/^LEVEL_/, "").replace(/_/g, " ")
     const label = titleCaseWords(cleaned)
     return label || null
   }
 
-  function loadCredentials(ctx) {
-    if (!ctx.host.fs.exists(CRED_PATH)) {
-      ctx.host.log.warn("credentials file not found: " + CRED_PATH)
-      return null
-    }
+  function clean(value) {
+    return typeof value === "string" && value.trim() ? value.trim() : null
+  }
 
-    try {
-      const text = ctx.host.fs.readText(CRED_PATH)
-      const parsed = ctx.util.tryParseJson(text)
-      if (!parsed || typeof parsed !== "object") {
-        ctx.host.log.warn("credentials file is not valid json")
-        return null
+  function env(ctx, name) {
+    try { return clean(ctx.host.env.get(name)) } catch (_) { return null }
+  }
+
+  function readText(ctx, path) {
+    try { return clean(ctx.host.fs.readText(path)) } catch (_) { return null }
+  }
+
+  function cliSession(ctx) {
+    const override = env(ctx, "KIMI_CODE_HOME")
+    const homes = override ? [override] : ["~/.kimi-code", "~/.kimi"]
+    for (const home of homes) {
+      const raw = readText(ctx, home + "/credentials/kimi-code.json")
+      if (!raw) continue
+      const credential = ctx.util.tryParseJson(raw)
+      const expires = credential && readNumber(credential.expires_at)
+      if (!credential || !clean(credential.access_token) || expires === null || expires <= Date.parse(ctx.nowIso) / 1000 + 60) continue
+      let deviceId = readText(ctx, home + "/device_id")
+      if (!deviceId) {
+        // This is a client identity, not an authentication secret.
+        deviceId = "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, function (c) {
+          const n = Math.floor(Math.random() * 16)
+          return (c === "x" ? n : (n & 3) | 8).toString(16)
+        })
+        try { ctx.host.fs.writeText(home + "/device_id", deviceId) } catch (_) {}
       }
-      if (!parsed.access_token && !parsed.refresh_token) {
-        ctx.host.log.warn("credentials missing access_token and refresh_token")
-        return null
-      }
-      return parsed
-    } catch (e) {
-      ctx.host.log.warn("credentials read failed: " + String(e))
-      return null
+      return { token: credential.access_token, headers: {
+        "X-Msh-Platform": "kimi_code_cli", "X-Msh-Version": ctx.app.version,
+        "X-Msh-Device-Model": ctx.app.platform,
+        "X-Msh-Device-Id": deviceId.replace(/[^\x20-\x7e]/g, ""),
+      } }
     }
+    return null
   }
 
-  function saveCredentials(ctx, creds) {
-    try {
-      ctx.host.fs.writeText(CRED_PATH, JSON.stringify(creds))
-    } catch (e) {
-      ctx.host.log.warn("failed to persist credentials: " + String(e))
-    }
+  function webToken(ctx) {
+    const raw = clean(ctx.provider.cookieHeader) || env(ctx, "KIMI_AUTH_TOKEN")
+    if (!raw) return null
+    const cookie = raw.replace(/^Cookie:\s*/i, "")
+    const match = /(?:^|;)\s*kimi-auth=([^;]+)/.exec(cookie)
+    if (match) return clean(match[1])
+    return cookie.includes("=") ? null : clean(cookie.replace(/^Bearer\s+/i, ""))
   }
 
-  function needsRefresh(creds, nowSec) {
-    if (!creds.access_token) return true
-    const expiresAt = readNumber(creds.expires_at)
-    if (expiresAt === null) return true
-    return nowSec + REFRESH_BUFFER_SEC >= expiresAt
-  }
-
-  function refreshToken(ctx, creds) {
-    if (!creds.refresh_token) {
-      ctx.host.log.warn("refresh skipped: no refresh token")
-      return null
+  function webRequest(ctx, token, url, body, timeoutMs) {
+    const payload = ctx.jwt.decodePayload(token) || {}
+    const headers = {
+      Authorization: "Bearer " + token, Cookie: "kimi-auth=" + token,
+      "Content-Type": "application/json", Accept: "application/json",
+      Origin: "https://www.kimi.com", Referer: "https://www.kimi.com/code/console",
+      "connect-protocol-version": "1", "x-msh-platform": "web", "x-language": "en-US", "r-timezone": "UTC",
     }
-
-    ctx.host.log.info("attempting token refresh")
-    let resp
-    try {
-      resp = ctx.util.request({
-        method: "POST",
-        url: REFRESH_URL,
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-          Accept: "application/json",
-        },
-        bodyText:
-          "client_id=" +
-          encodeURIComponent(CLIENT_ID) +
-          "&grant_type=refresh_token" +
-          "&refresh_token=" +
-          encodeURIComponent(creds.refresh_token),
-        timeoutMs: 15000,
-      })
-    } catch (e) {
-      ctx.host.log.error("refresh exception: " + String(e))
-      return null
+    for (const pair of [["device_id", "x-msh-device-id"], ["ssid", "x-msh-session-id"], ["sub", "x-traffic-id"]]) {
+      if (clean(payload[pair[0]])) headers[pair[1]] = payload[pair[0]].replace(/[^\x20-\x7e]/g, "")
     }
-
-    if (ctx.util.isAuthStatus(resp.status)) {
-      throw "Session expired. Run `kimi login` to authenticate."
-    }
-
-    if (resp.status < 200 || resp.status >= 300) {
-      ctx.host.log.warn("refresh returned unexpected status: " + resp.status)
-      return null
-    }
-
-    const body = ctx.util.tryParseJson(resp.bodyText)
-    if (!body || !body.access_token) {
-      ctx.host.log.warn("refresh response missing access_token")
-      return null
-    }
-
-    creds.access_token = body.access_token
-    if (body.refresh_token) creds.refresh_token = body.refresh_token
-    if (typeof body.expires_in === "number") {
-      creds.expires_at = Date.now() / 1000 + body.expires_in
-    }
-    if (typeof body.scope === "string") creds.scope = body.scope
-    if (typeof body.token_type === "string") creds.token_type = body.token_type
-
-    saveCredentials(ctx, creds)
-    return creds.access_token
-  }
-
-  function fetchUsage(ctx, accessToken) {
     return ctx.util.request({
-      method: "GET",
-      url: USAGE_URL,
-      headers: {
-        Authorization: "Bearer " + accessToken,
-        Accept: "application/json",
-        "User-Agent": "OpenUsage",
-      },
-      timeoutMs: 10000,
+      method: "POST", url, headers, bodyText: JSON.stringify(body), timeoutMs,
     })
+  }
+
+  function enrichMembership(ctx, result, token) {
+    if (!token || ctx.provider.settings && ctx.provider.settings.cookieSource === "off") return result
+    try {
+      const response = webRequest(ctx, token, MEMBERSHIP_URL + "GetSubscriptionStats", {}, 2000)
+      const data = response.status === 200 && ctx.util.tryParseJson(response.bodyText)
+      if (!data) return result
+      const pool = data.subscriptionBalance
+      const ratio = pool && readNumber(pool.amountUsedRatio)
+      if (Number.isFinite(ratio) && pool && (!pool.feature || pool.feature === "FEATURE_OMNI") && (!pool.type || pool.type === "SUBSCRIPTION")) {
+        const reset = ctx.util.toIso(pool.expireTime)
+        result.lines.push(ctx.line.progress({ label: "Monthly", used: Math.max(0, Math.min(100, ratio * 100)), limit: 100,
+          format: { kind: "percent" }, resetsAt: reset, periodDurationMs: ctx.util.calendarMonthDuration(reset) }))
+      }
+      const weekly = data.ratelimitCode7d
+      const weeklyRatio = weekly && readNumber(weekly.ratio)
+      if (weekly && weekly.enabled !== false && Number.isFinite(weeklyRatio)) {
+        const reset = ctx.util.toIso(weekly.resetTime)
+        const used = Math.max(0, Math.min(100, weeklyRatio * 100))
+        if (!result.lines.some((line) => line.label === "Weekly" && Math.abs(line.used - used) < 0.01 && (line.resetsAt || null) === reset)) {
+          result.lines.push(ctx.line.progress({ label: "Code 7-day", used, limit: 100, format: { kind: "percent" }, resetsAt: reset, periodDurationMs: WEEK_MS }))
+        }
+      }
+    } catch (_) { ctx.host.log.warn("Kimi membership enrichment unavailable") }
+    return result
   }
 
   function parseWindowPeriodMs(window) {
@@ -164,11 +150,11 @@
     let used = readNumber(row.used)
     if (used === null) {
       const remaining = readNumber(row.remaining)
-      if (remaining !== null) {
+      if (remaining !== null && remaining >= 0 && remaining <= limit) {
         used = limit - remaining
       }
     }
-    if (used === null) return null
+    if (used === null || used < 0) return null
 
     return {
       used,
@@ -240,43 +226,29 @@
   }
 
   function probe(ctx) {
-    const creds = loadCredentials(ctx)
-    if (!creds) {
-      throw "Not logged in. Run `kimi login` to authenticate."
-    }
-
-    const nowSec = Date.now() / 1000
-    let accessToken = creds.access_token || ""
-
-    if (needsRefresh(creds, nowSec)) {
-      const refreshed = refreshToken(ctx, creds)
-      if (refreshed) {
-        accessToken = refreshed
-      } else if (!accessToken) {
-        throw "Not logged in. Run `kimi login` to authenticate."
-      }
-    }
-
-    let didRefresh = false
+    const mode = ctx.sourceMode || "auto"
+    if (mode === "local") throw "Kimi quotas require a live source. Select api, oauth, cli, or web."
+    const key = clean(ctx.provider.apiKey) || env(ctx, "KIMI_CODE_API_KEY")
+    const baseOverride = clean(ctx.provider.settings && ctx.provider.settings.baseUrl) || env(ctx, "KIMI_CODE_BASE_URL")
+    const hasOverride = baseOverride || env(ctx, "KIMI_CODE_OAUTH_HOST") || env(ctx, "KIMI_OAUTH_HOST")
+    const token = webToken(ctx)
+    let source
     let resp
-    try {
-      resp = ctx.util.retryOnceOnAuth({
-        request: function (token) {
-          return fetchUsage(ctx, token || accessToken)
-        },
-        refresh: function () {
-          didRefresh = true
-          const refreshed = refreshToken(ctx, creds)
-          if (refreshed) accessToken = refreshed
-          return refreshed
-        },
-      })
-    } catch (e) {
-      if (typeof e === "string") throw e
-      if (didRefresh) {
-        throw "Usage request failed after refresh. Try again."
-      }
-      throw "Usage request failed. Check your connection."
+    if (mode === "api" && !key) throw "Set KIMI_CODE_API_KEY to a Kimi Code key, not an Open Platform key."
+    const useKey = key && (mode === "auto" || mode === "api")
+    const session = mode !== "web" && !useKey && !hasOverride ? cliSession(ctx) : null
+    if (useKey || session) {
+      const base = ctx.host.http.validateBaseUrl(baseOverride || "https://api.kimi.com", false)
+      const url = base + (/\/coding\/v1$/.test(base) ? "/usages" : /\/coding$/.test(base) ? "/v1/usages" : "/coding/v1/usages")
+      resp = ctx.util.request({ method: "GET", url, headers: Object.assign({}, session && session.headers,
+        { Authorization: "Bearer " + (useKey ? key : session.token), Accept: "application/json", "User-Agent": "usagestat/" + ctx.app.version }), timeoutMs: 10000 })
+      source = useKey ? "api" : "oauth"
+    } else if (token && (mode === "web" || mode === "auto")) {
+      resp = webRequest(ctx, token, WEB_USAGE_URL, { scope: ["FEATURE_CODING"] }, 10000)
+      source = "web"
+    } else {
+      if (hasOverride) throw "Kimi endpoint overrides require an explicit API key; CLI credentials are never forwarded."
+      throw "No fresh Kimi Code credentials. Run `kimi login`, set KIMI_CODE_API_KEY, or configure a web session."
     }
 
     if (ctx.util.isAuthStatus(resp.status)) {
@@ -286,7 +258,11 @@
       throw "Usage request failed (HTTP " + String(resp.status) + "). Try again later."
     }
 
-    const data = ctx.util.tryParseJson(resp.bodyText)
+    let data = ctx.util.tryParseJson(resp.bodyText)
+    if (source === "web") {
+      const coding = data && Array.isArray(data.usages) && data.usages.find((item) => item.scope === "FEATURE_CODING")
+      data = coding ? { usage: coding.detail, limits: coding.limits } : null
+    }
     if (!data || typeof data !== "object") {
       throw "Usage response invalid. Try again later."
     }
@@ -298,7 +274,7 @@
     let weeklyCandidate = null
     const usageQuota = parseQuota(data.usage, ctx)
     if (usageQuota) {
-      weeklyCandidate = { quota: usageQuota, periodMs: null }
+      weeklyCandidate = { quota: usageQuota, periodMs: WEEK_MS }
     } else {
       const withoutSession = candidates.filter(function (candidate) {
         return candidate !== sessionCandidate
@@ -345,13 +321,14 @@
     }
 
     if (lines.length === 0) {
-      lines.push(ctx.line.badge({ label: "Status", text: "No usage data", color: "#a3a3a3" }))
+      throw "Kimi usage response did not contain measurable quota counters."
     }
 
-    return {
+    return enrichMembership(ctx, {
+      source,
       plan: parsePlanLabel(data),
       lines,
-    }
+    }, token)
   }
 
   globalThis.__openusage_plugin = { id: "kimi", probe }

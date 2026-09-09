@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "id": "codebuddy",
+  "name": "CodeBuddy",
+  "version": "0.1.0",
+  "entry": "plugin.js",
+  "enabledByDefault": false,
+  "supportedModes": [
+    "web",
+    "local"
+  ],
+  "autoMode": "web",
+  "webUrl": "https://www.codebuddy.cn",
+  "usageDashboardUrl": "https://www.codebuddy.cn/profile/plans-usage",
+  "links": [
+    {
+      "label": "Dashboard",
+      "url": "https://www.codebuddy.cn/profile/plans-usage"
+    }
+  ],
+  "envVars": [
+    "CODEBUDDY_HOME",
+    "CB_COOKIE_FILE",
+    "CB_CREDITS_FILE",
+    "CODEBUDDY_COOKIE",
+    "CB_COOKIE",
+    "CB_API_URL",
+    "CB_PACKAGE_CODES"
+  ]
+}

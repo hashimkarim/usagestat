@@ -8,9 +8,12 @@
   "brandColor": "#2D2D2D",
   "supportedModes": ["api"],
   "autoMode": "api",
+  "envVars": ["ZAI_API_KEY", "Z_AI_API_KEY", "GLM_API_KEY", "BIGMODEL_API_KEY", "ZHIPU_API_KEY", "Z_AI_REGION", "Z_AI_USAGE_SCOPE", "Z_AI_ORGANIZATION", "Z_AI_PROJECT"],
   "lines": [
     { "type": "progress", "label": "Session", "scope": "overview", "primaryOrder": 1 },
     { "type": "progress", "label": "Weekly", "scope": "overview" },
-    { "type": "progress", "label": "Web Searches", "scope": "overview" }
+    { "type": "progress", "label": "Web Searches", "scope": "overview" },
+    { "type": "text", "label": "Quota rate", "scope": "detail" },
+    { "type": "text", "label": "Balance", "scope": "detail" }
   ]
 }

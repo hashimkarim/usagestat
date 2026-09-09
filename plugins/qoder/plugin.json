@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "id": "qoder",
+  "name": "Qoder",
+  "version": "0.1.0",
+  "entry": "plugin.js",
+  "enabledByDefault": false,
+  "supportedModes": [
+    "web"
+  ],
+  "autoMode": "web",
+  "webUrl": "https://qoder.com",
+  "usageDashboardUrl": "https://qoder.com/account/usage",
+  "links": [
+    {
+      "label": "Dashboard",
+      "url": "https://qoder.com/account/usage"
+    }
+  ],
+  "envVars": [
+    "QODER_COOKIE"
+  ]
+}

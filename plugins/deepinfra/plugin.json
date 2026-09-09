@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "id": "deepinfra",
+  "name": "DeepInfra",
+  "version": "0.1.0",
+  "entry": "plugin.js",
+  "enabledByDefault": false,
+  "supportedModes": [
+    "api"
+  ],
+  "autoMode": "api",
+  "usageDashboardUrl": "https://deepinfra.com/dash",
+  "statusPageUrl": "https://status.deepinfra.com",
+  "links": [
+    {
+      "label": "Dashboard",
+      "url": "https://deepinfra.com/dash"
+    },
+    {
+      "label": "Status",
+      "url": "https://status.deepinfra.com"
+    }
+  ],
+  "envVars": [
+    "DEEPINFRA_API_KEY",
+    "DEEPINFRA_TOKEN"
+  ]
+}

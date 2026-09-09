@@ -88,7 +88,13 @@
   }
   function regionFromArn(profileArn) {
     const parts = String(profileArn || "").split(":")
-    return parts.length > 3 && parts[3] ? parts[3] : DEFAULT_REGION
+    if (parts.length !== 6 || parts[0] !== "arn" || parts[1] !== "aws" ||
+        parts[2] !== "codewhisperer" || !/^profile\/.+/.test(parts[5]) ||
+        /[\s\x00-\x1f\x7f]/.test(profileArn) ||
+        ["us-east-1", "eu-central-1"].indexOf(parts[3]) === -1) {
+      throw "Kiro profile ARN is invalid or uses an unsupported region. Sign in again with Kiro."
+    }
+    return parts[3]
   }
   function readStateValue(ctx, key) {
     try {
@@ -118,9 +124,12 @@
   }
   function normalizeBreakdown(ctx, raw) {
     if (!raw || typeof raw !== "object") return null
-    const currentUsage = first(raw.currentUsageWithPrecision, raw.currentUsage)
+    const totalUsage = first(raw.currentUsageWithPrecision, raw.currentUsage)
     const usageLimit = first(raw.usageLimitWithPrecision, raw.usageLimit)
-    if (currentUsage === null || usageLimit === null || usageLimit <= 0) return null
+    const overageUsed = first(raw.currentOveragesWithPrecision, raw.currentOverages)
+    if (totalUsage === null || totalUsage < 0 || usageLimit === null || usageLimit < 0) return null
+    if (overageUsed !== null && (overageUsed < 0 || overageUsed > totalUsage)) return null
+    const currentUsage = totalUsage - (overageUsed || 0)
     const bonuses = Array.isArray(raw.bonuses)
       ? raw.bonuses
           .map((item) =>
@@ -143,6 +152,11 @@
       currentUsage,
       usageLimit,
       resetDate: iso(ctx, raw.nextDateReset || raw.resetDate),
+      overageUsed,
+      overageCap: first(raw.overageCapWithPrecision, raw.overageCap),
+      overageCharges: num(raw.overageCharges),
+      overageRate: num(raw.overageRate),
+      currency: typeof raw.currency === "string" ? raw.currency : "USD",
       freeTrialUsage: normalizePool(ctx, raw.freeTrialInfo || raw.freeTrialUsage, {
         current: "currentUsage",
         preciseCurrent: "currentUsageWithPrecision",
@@ -169,11 +183,14 @@
     if (!raw || typeof raw !== "object") return null
     return {
       usageBreakdowns: Array.isArray(raw.usageBreakdownList)
-        ? raw.usageBreakdownList.map((item) => normalizeBreakdown(ctx, item)).filter(Boolean)
+        ? raw.usageBreakdownList.map((item) => normalizeBreakdown(ctx, {
+            ...item, nextDateReset: item.nextDateReset || raw.nextDateReset,
+          })).filter(Boolean)
         : [],
       timestampMs: timestampMs !== null ? timestampMs : null,
       plan: title(raw.subscriptionInfo && raw.subscriptionInfo.subscriptionTitle),
-      overageEnabled: raw.overageConfiguration ? raw.overageConfiguration.overageStatus === "ENABLED" : null,
+      overageEnabled: raw.overageConfiguration && raw.overageConfiguration.overageStatus === "ENABLED"
+        ? true : raw.overageConfiguration && raw.overageConfiguration.overageStatus === "DISABLED" ? false : null,
     }
   }
   function parseUsageLogText(ctx, text) {
@@ -274,7 +291,7 @@
       encodeURIComponent("AGENTIC_REQUEST")
 
     let accessToken = authState.token && authState.token.accessToken
-    if (!accessToken || needsRefresh(ctx, authState, nowMs)) {
+    if (!accessToken || authState.token.refreshToken && needsRefresh(ctx, authState, nowMs)) {
       const refreshed = refreshAccessToken(ctx, authState, nowMs)
       if (refreshed) accessToken = refreshed
     }
@@ -326,6 +343,7 @@
             : null,
       usageBreakdowns: usageSource.usageBreakdowns,
       timestampMs: usageSource.timestampMs !== null ? usageSource.timestampMs : nowMs,
+      source: usageSource === liveState ? "api" : "local",
     }
   }
   function pickPrimaryBreakdown(usageBreakdowns) {
@@ -347,7 +365,9 @@
   function buildOutput(ctx, snapshot, nowMs) {
     const primary = pickPrimaryBreakdown(snapshot.usageBreakdowns)
     if (!primary) throw DATA_HINT
-    const lines = [ctx.line.progress({ label: "Credits", used: primary.currentUsage, limit: primary.usageLimit, format: COUNT_FORMAT, resetsAt: primary.resetDate || undefined })]
+    const lines = [primary.usageLimit > 0
+      ? ctx.line.progress({ label: "Credits", used: primary.currentUsage, limit: primary.usageLimit, format: COUNT_FORMAT, resetsAt: primary.resetDate || undefined })
+      : ctx.line.text({ label: "Credits", value: String(primary.currentUsage) + " used; no included credits" })]
     const bonusUsage = pickBonusUsage(primary)
     if (bonusUsage) {
       lines.push(
@@ -361,17 +381,36 @@
       )
     }
     if (snapshot.overageEnabled !== null) lines.push(ctx.line.badge({ label: "Overages", text: snapshot.overageEnabled ? "Enabled" : "Disabled" }))
-    return { plan: snapshot.plan || undefined, lines }
+    if (primary.overageUsed !== null && primary.overageUsed !== undefined) {
+      if (snapshot.overageEnabled === true && primary.overageCap > 0) {
+        lines.push(ctx.line.progress({ label: "Overage Credits", used: primary.overageUsed,
+          limit: primary.overageCap, format: COUNT_FORMAT, resetsAt: primary.resetDate || undefined }))
+      } else if (primary.overageUsed > 0) {
+        lines.push(ctx.line.text({ label: "Overage Credits", value: String(primary.overageUsed) + " credits" }))
+      }
+    }
+    if (primary.overageCharges !== null && primary.overageCharges >= 0) {
+      const cap = snapshot.overageEnabled === true && primary.overageCap > 0 && primary.overageRate > 0
+        ? primary.overageCap * primary.overageRate : null
+      if (primary.currency === "USD" && cap > 0) {
+        lines.push(ctx.line.progress({ label: "Overage Charges", used: primary.overageCharges,
+          limit: cap, format: { kind: "dollars" }, resetsAt: primary.resetDate || undefined }))
+      } else {
+        lines.push(ctx.line.text({ label: "Overage Charges",
+          value: primary.currency + " " + primary.overageCharges.toFixed(2) }))
+      }
+    }
+    return { plan: snapshot.plan || undefined, lines, source: snapshot.source, fetchedAt: ctx.util.toIso(snapshot.timestampMs) }
   }
   function probe(ctx) {
     const nowMs = ctx.util.parseDateMs(ctx.nowIso) || Date.now()
     const authState = loadAuthState(ctx)
-    if (!authState || !authState.token || !authState.token.refreshToken) throw LOGIN_HINT
+    if (ctx.sourceMode !== "local" && (!authState || !authState.token)) throw LOGIN_HINT
     const localState = normalizeCachedState(ctx)
     const loggedState = loadLoggedState(ctx)
     let liveState = null
     let liveError = null
-    if (shouldTryLive(localState, loggedState, nowMs)) {
+    if (ctx.sourceMode !== "local" && shouldTryLive(localState, loggedState, nowMs)) {
       try {
         liveState = fetchLiveState(ctx, authState, nowMs)
       } catch (e) {

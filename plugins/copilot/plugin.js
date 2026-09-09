@@ -526,16 +526,18 @@
   }
 
   function makeProgressLine(ctx, label, snapshot, resetDate) {
-    if (!snapshot || typeof snapshot.percent_remaining !== "number")
-      return null;
-    const usedPercent = Math.min(100, Math.max(0, 100 - snapshot.percent_remaining));
+    if (!snapshot || snapshot.unlimited === true || snapshot.entitlement === -1 || snapshot.remaining === -1 || snapshot.entitlement === 0) return null;
+    let percentRemaining = snapshot.percent_remaining;
+    if (!Number.isFinite(percentRemaining) && Number.isFinite(snapshot.entitlement) && snapshot.entitlement > 0 && Number.isFinite(snapshot.remaining)) percentRemaining = snapshot.remaining / snapshot.entitlement * 100;
+    if (!Number.isFinite(percentRemaining)) return null;
+    const usedPercent = Math.min(100, Math.max(0, 100 - percentRemaining));
     return ctx.line.progress({
       label: label,
       used: usedPercent,
       limit: 100,
       format: { kind: "percent" },
       resetsAt: ctx.util.toIso(resetDate),
-      periodDurationMs: 30 * 24 * 60 * 60 * 1000,
+      periodDurationMs: calendarMonthDuration(ctx, resetDate),
     });
   }
 
@@ -550,8 +552,41 @@
       limit: 100,
       format: { kind: "percent" },
       resetsAt: ctx.util.toIso(resetDate),
-      periodDurationMs: 30 * 24 * 60 * 60 * 1000,
+      periodDurationMs: calendarMonthDuration(ctx, resetDate),
     });
+  }
+
+  function calendarMonthDuration(ctx, resetDate) {
+    const end = ctx.util.parseDateMs(resetDate);
+    if (!Number.isFinite(end)) return undefined;
+    const start = new Date(end);
+    start.setUTCMonth(start.getUTCMonth() - 1);
+    return end - start.getTime();
+  }
+
+  function fetchOrgBillingLines(ctx, token) {
+    const deadline = Date.now() + 3000;
+    function get(path) {
+      const remaining = deadline - Date.now();
+      if (remaining <= 0) return null;
+      const result = ctx.util.requestJson({ method: "GET", url: "https://api.github.com" + path,
+        headers: { Authorization: "token " + token, Accept: "application/vnd.github+json", "User-Agent": "usagestat", "X-GitHub-Api-Version": "2022-11-28" }, timeoutMs: remaining });
+      return result.resp.status === 200 ? result.json : null;
+    }
+    const selected = ctx.provider && ctx.provider.workspaceId;
+    const orgs = selected ? [{ login: selected }] : get("/user/orgs?per_page=100");
+    if (!Array.isArray(orgs)) return [];
+    const result = [];
+    for (const org of orgs.slice(0, 5)) {
+      if (!org || typeof org.login !== "string" || !/^[a-zA-Z0-9][a-zA-Z0-9-]*$/.test(org.login)) continue;
+      const body = get("/orgs/" + encodeURIComponent(org.login) + "/settings/billing/usage/summary");
+      if (!body || !Array.isArray(body.usageItems)) continue;
+      const items = body.usageItems.filter((item) => item && String(item.product).toLowerCase() === "copilot" && ["ai-units", "ai-credits"].includes(String(item.unitType).toLowerCase()));
+      if (!items.length || items.some((item) => !Number.isFinite(item.grossQuantity) || item.grossQuantity < 0 || !Number.isFinite(item.netAmount) || item.netAmount < 0)) continue;
+      result.push(ctx.line.text({ label: "Org Credits", value: String(items.reduce((n, item) => n + item.grossQuantity, 0)) + " credits", subtitle: org.login + " - organization total" }));
+      result.push(ctx.line.text({ label: "Org Spend", value: "$" + items.reduce((n, item) => n + item.netAmount, 0).toFixed(2), subtitle: org.login + " - this month" }));
+    }
+    return result;
   }
 
   function probe(ctx) {
@@ -630,11 +665,15 @@
     if (snapshots) {
       const premiumLine = makeProgressLine(
         ctx,
-        "Premium",
+        "Credits",
         snapshots.premium_interactions,
         data.quota_reset_date,
       );
-      if (premiumLine) lines.push(premiumLine);
+      if (premiumLine) {
+        lines.push(premiumLine);
+        const premium = snapshots.premium_interactions;
+        if (premium.overage_permitted === true && Number.isFinite(premium.overage_count) && premium.overage_count >= 0) lines.push(ctx.line.text({ label: "Extra Usage", value: String(premium.overage_count) }));
+      }
 
       const chatLine = makeProgressLine(
         ctx,
@@ -643,10 +682,12 @@
         data.quota_reset_date,
       );
       if (chatLine) lines.push(chatLine);
+      const completionsLine = makeProgressLine(ctx, "Completions", snapshots.completions, data.quota_reset_date);
+      if (completionsLine) lines.push(completionsLine);
     }
 
     // Free tier: limited_user_quotas
-    if (data.limited_user_quotas && data.monthly_quotas) {
+    if (!lines.length && data.limited_user_quotas && data.monthly_quotas) {
       const lq = data.limited_user_quotas;
       const mq = data.monthly_quotas;
       const resetDate = data.limited_user_reset_date;
@@ -656,6 +697,17 @@
 
       const completionsLine = makeLimitedProgressLine(ctx, "Completions", lq.completions, mq.completions, resetDate);
       if (completionsLine) lines.push(completionsLine);
+    }
+
+    const orgManaged = !lines.length && data.token_based_billing === true;
+    if (orgManaged) {
+      const credits = snapshots && snapshots.premium_interactions && snapshots.premium_interactions.credits_used;
+      if (Number.isFinite(credits) && credits > 0) lines.push(ctx.line.text({ label: "Credits", value: String(credits) + " credits" }));
+      try {
+        lines.push(...fetchOrgBillingLines(ctx, token));
+      } catch (_) {
+        ctx.host.log.warn("Copilot organization billing unavailable for this token");
+      }
     }
 
     try {
@@ -677,7 +729,7 @@
       );
     }
 
-    return { plan: plan, lines: lines };
+    return { plan: plan, lines: lines, source: "api" };
   }
 
   globalThis.__openusage_plugin = { id: "copilot", probe };

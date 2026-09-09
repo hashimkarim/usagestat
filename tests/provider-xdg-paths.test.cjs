@@ -32,6 +32,7 @@ for (const platform of ['linux', 'macos', 'windows']) {
   test(`${platform}: OpenCode database and inline auth overrides cannot select a fallback account`, () => {
     const env = {OPENCODE_DB: 'channel.db', OPENCODE_AUTH_CONTENT: '{"opencode-go":{"type":"api","key":"synthetic"}}'};
     const h = providerHarness('opencode-go', {platform, env});
+    h.ctx.sourceMode = 'local';
     const db = h.normalize(h.home + '/.local/share/opencode/channel.db');
     h.databases.set(db, [{createdMs: Date.now() - 60000, cost: 1.2}]);
     assert.equal(h.probe().lines[0].used, 10);

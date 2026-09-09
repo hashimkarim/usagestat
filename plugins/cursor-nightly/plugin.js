@@ -4,6 +4,7 @@ globalThis.__OPENUSAGE_PLUGIN_REGISTRATION_ID__ = "cursor-nightly";
   const KEYCHAIN_REFRESH_TOKEN_SERVICE = "cursor-refresh-token"
   const BASE_URL = "https://api2.cursor.sh"
   const USAGE_URL = BASE_URL + "/aiserver.v1.DashboardService/GetCurrentPeriodUsage"
+  const GROK_BOT_USAGE_URL = BASE_URL + "/aiserver.v1.DashboardService/GetSandUsageStatus"
   const PLAN_URL = BASE_URL + "/aiserver.v1.DashboardService/GetPlanInfo"
   const REFRESH_URL = BASE_URL + "/oauth/token"
   const CREDITS_URL = BASE_URL + "/aiserver.v1.DashboardService/GetCreditGrantsBalance"
@@ -282,13 +283,13 @@ globalThis.__OPENUSAGE_PLUGIN_REGISTRATION_ID__ = "cursor-nightly";
           format: { kind: "count", suffix: " req" },
         }),
         ctx.line.progress({
-          label: "Auto usage",
+          label: "Cursor Models",
           used: 18,
           limit: 100,
           format: { kind: "percent" },
         }),
         ctx.line.progress({
-          label: "API usage",
+          label: "Other Models",
           used: 7,
           limit: 50,
           format: { kind: "percent" },
@@ -414,7 +415,7 @@ globalThis.__OPENUSAGE_PLUGIN_REGISTRATION_ID__ = "cursor-nightly";
     }
   }
 
-  function connectPost(ctx, url, token) {
+  function connectPost(ctx, url, token, timeoutMs) {
     return ctx.util.request({
       method: "POST",
       url: url,
@@ -426,7 +427,7 @@ globalThis.__OPENUSAGE_PLUGIN_REGISTRATION_ID__ = "cursor-nightly";
         "User-Agent": CONNECT_CLIENT_USER_AGENT,
       },
       bodyText: "{}",
-      timeoutMs: 10000,
+      timeoutMs: timeoutMs || 10000,
     })
   }
 
@@ -762,7 +763,7 @@ globalThis.__OPENUSAGE_PLUGIN_REGISTRATION_ID__ = "cursor-nightly";
 
     if (typeof pu.autoPercentUsed === "number" && Number.isFinite(pu.autoPercentUsed)) {
       lines.push(ctx.line.progress({
-        label: "Auto usage",
+        label: "Cursor Models",
         used: pu.autoPercentUsed,
         limit: 100,
         format: { kind: "percent" },
@@ -773,7 +774,7 @@ globalThis.__OPENUSAGE_PLUGIN_REGISTRATION_ID__ = "cursor-nightly";
 
     if (typeof pu.apiPercentUsed === "number" && Number.isFinite(pu.apiPercentUsed)) {
       lines.push(ctx.line.progress({
-        label: "API usage",
+        label: "Other Models",
         used: pu.apiPercentUsed,
         limit: 100,
         format: { kind: "percent" },
@@ -1106,7 +1107,40 @@ globalThis.__OPENUSAGE_PLUGIN_REGISTRATION_ID__ = "cursor-nightly";
     return result
   }
 
-  function probeImpl(ctx) {
+  function attachGrokBotUsage(ctx, result, accessToken) {
+    if (!result || !Array.isArray(result.lines) || !accessToken) return result
+    try {
+      const resp = connectPost(ctx, GROK_BOT_USAGE_URL, accessToken, 3000)
+      if (resp.status < 200 || resp.status >= 300) return result
+      const usage = ctx.util.tryParseJson(resp.bodyText)
+      if (!usage || usage.usesPooledEnterpriseAllowance === true ||
+          usage.hasNonZeroIncludedLimit === false || usage.includedLimitZero === true) return result
+      const percent = readFiniteNumber(usage.usagePercent)
+      if (!Number.isFinite(percent) || percent < 0) return result
+      const resetMs = ctx.util.parseDateMs(usage.nextResetTimestampUtc)
+      const startMs = ctx.util.parseDateMs(usage.currentPeriodStart)
+      const line = ctx.line.progress({
+        label: "Grok Bot usage",
+        used: Math.min(100, percent),
+        limit: 100,
+        format: { kind: "percent" },
+        resetsAt: Number.isFinite(resetMs) ? ctx.util.toIso(resetMs) : undefined,
+        periodDurationMs: Number.isFinite(startMs) && Number.isFinite(resetMs) && resetMs > startMs
+          ? resetMs - startMs : 7 * 24 * 60 * 60 * 1000,
+      })
+      let insertAt = result.lines.length
+      for (const label of ["Other Models", "Cursor Models", "Total usage"]) {
+        const index = result.lines.findIndex((item) => item.label === label)
+        if (index >= 0) { insertAt = index + 1; break }
+      }
+      result.lines.splice(insertAt, 0, line)
+    } catch (_) {
+      ctx.host.log.warn("Cursor Grok Bot quota unavailable")
+    }
+    return result
+  }
+
+  function probeImpl(ctx, state) {
     const authState = loadAuthState(ctx)
     let accessToken = authState.accessToken
     const refreshTokenValue = authState.refreshToken
@@ -1176,6 +1210,7 @@ globalThis.__OPENUSAGE_PLUGIN_REGISTRATION_ID__ = "cursor-nightly";
       throw "Usage request failed. Check your connection."
     }
 
+    state.accessToken = accessToken
     if (ctx.util.isAuthStatus(usageResp.status)) {
       ctx.host.log.error("usage returned auth error after all retries: status=" + usageResp.status)
       throw "Token expired. " + LOGIN_HINT
@@ -1368,7 +1403,9 @@ globalThis.__OPENUSAGE_PLUGIN_REGISTRATION_ID__ = "cursor-nightly";
   }
 
   function probe(ctx) {
-    var result = probeImpl(ctx)
+    var state = {}
+    var result = probeImpl(ctx, state)
+    result = attachGrokBotUsage(ctx, result, state.accessToken)
     result = attachCursorTranscriptActivity(ctx, result)
     result = attachCursorBillingDaily(ctx, result)
     return attachCursorMtdUsage(ctx, result)

@@ -5,6 +5,11 @@
 
   var PLAN_LABELS = {
     "individual-go": "Individual Go",
+    "individual-goat": "GOAT",
+    "individual-pro": "Pro",
+    "individual-pro-v1": "Pro",
+    "individual-max": "Max",
+    "individual-ultra": "Ultra",
     "individual": "Individual",
     "pro": "Pro",
     "team": "Team",
@@ -12,6 +17,8 @@
   };
 
   function readNumber(value) {
+    if (typeof value !== "number" && typeof value !== "string") return null;
+    if (typeof value === "string" && !value.trim()) return null;
     var n = Number(value);
     return Number.isFinite(n) ? n : null;
   }

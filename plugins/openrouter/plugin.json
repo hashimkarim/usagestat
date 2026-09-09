@@ -2,6 +2,12 @@
   "id": "openrouter",
   "name": "OpenRouter",
   "entry": "plugin.js",
+  "envVars": ["OPENROUTER_API_KEY", "OPENROUTER_API_BASE", "OPENROUTER_MANAGEMENT_API_KEY"],
+  "usageDashboardUrl": "https://openrouter.ai/activity",
+  "links": [
+    { "label": "Activity", "url": "https://openrouter.ai/activity" },
+    { "label": "Credits", "url": "https://openrouter.ai/settings/credits" }
+  ],
   "enabledByDefault": false,
   "supportedModes": ["api"],
   "autoMode": "api"

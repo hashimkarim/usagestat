@@ -313,16 +313,14 @@
     }
   }
 
-  function fetchUsage(ctx, accessToken) {
+  function fetchUsage(ctx, accessToken, cookie) {
+    const headers = { Accept: "application/json", "Content-Type": "application/json", "User-Agent": "usagestat" }
+    if (accessToken) headers.Authorization = "Bearer " + accessToken
+    if (cookie) headers.Cookie = cookie
     var resp = ctx.util.request({
       method: "POST",
       url: USAGE_URL,
-      headers: {
-        Authorization: "Bearer " + accessToken,
-        "Content-Type": "application/json",
-        Accept: "application/json",
-        "User-Agent": "OpenUsage",
-      },
+      headers,
       bodyText: JSON.stringify({ useCache: true }),
       timeoutMs: 10000,
     })
@@ -331,18 +329,14 @@
       resp = ctx.util.request({
         method: "GET",
         url: USAGE_URL,
-        headers: {
-          Authorization: "Bearer " + accessToken,
-          Accept: "application/json",
-          "User-Agent": "OpenUsage",
-        },
+        headers,
         timeoutMs: 10000,
       })
     }
     return resp
   }
 
-  function probe(ctx) {
+  function fetchOAuth(ctx) {
     const authState = loadAuth(ctx)
     if (!authState) {
       ctx.host.log.error("probe failed: not logged in")
@@ -412,7 +406,10 @@
     }
 
     ctx.host.log.info("usage fetch succeeded")
+    return resp
+  }
 
+  function buildResult(ctx, resp, source) {
     const data = ctx.util.tryParseJson(resp.bodyText)
     if (data === null) {
       throw "Usage response invalid. Try again later."
@@ -480,7 +477,34 @@
       lines.push(ctx.line.badge({ label: "Status", text: "No usage data", color: "#a3a3a3" }))
     }
 
-    return { plan: plan, lines: lines }
+    return { plan: plan, lines: lines, source }
+  }
+
+  function probe(ctx) {
+    const configured = ctx.provider || {}
+    const mode = ctx.sourceMode || "auto"
+    const key = String(configured.apiKey || ctx.host.env.get("FACTORY_API_KEY") || "").trim()
+    const cookie = String(configured.cookieHeader || ctx.host.env.get("FACTORY_COOKIE") || ctx.host.env.get("DROID_COOKIE") || "").trim().replace(/^cookie:\s*/i, "")
+    if (mode === "api" && !key) throw "Set FACTORY_API_KEY or provider apiKey."
+    if (mode === "web" && !cookie) throw "Set FACTORY_COOKIE or provider cookieHeader."
+    if (key && (mode === "auto" || mode === "api")) {
+      try {
+        const resp = fetchUsage(ctx, key)
+        if (ctx.util.isAuthStatus(resp.status)) throw "Factory API key was rejected."
+        if (resp.status < 200 || resp.status >= 300) throw "Factory API returned HTTP " + resp.status + "."
+        return buildResult(ctx, resp, "api")
+      } catch (error) {
+        if (mode === "api" || (!cookie && !loadAuth(ctx))) throw error
+        ctx.host.log.warn("Factory API unavailable; trying the configured session")
+      }
+    }
+    if (cookie && (mode === "auto" || mode === "web")) {
+      const resp = fetchUsage(ctx, null, cookie)
+      if (ctx.util.isAuthStatus(resp.status)) throw "Factory web session expired."
+      if (resp.status < 200 || resp.status >= 300) throw "Factory web usage returned HTTP " + resp.status + "."
+      return buildResult(ctx, resp, "web")
+    }
+    return buildResult(ctx, fetchOAuth(ctx), "oauth")
   }
 
   globalThis.__openusage_plugin = { id: "factory", probe }

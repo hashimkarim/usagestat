@@ -8,13 +8,16 @@
   "links": [
     { "label": "Settings", "url": "https://ollama.com/settings" }
   ],
-  "envVars": ["OLLAMA_COOKIE"],
-  "supportedModes": ["web"],
+  "envVars": ["OLLAMA_COOKIE", "OLLAMA_API_KEY", "OLLAMA_KEY"],
+  "supportedModes": ["api", "web"],
   "autoMode": "web",
   "webUrl": "https://ollama.com",
   "usageDashboardUrl": "https://ollama.com/settings",
   "lines": [
     { "type": "progress", "label": "Session", "scope": "overview" },
-    { "type": "progress", "label": "Weekly", "scope": "detail" }
+    { "type": "progress", "label": "Weekly", "scope": "detail" },
+    { "type": "progress", "label": "Monthly credits", "scope": "overview" },
+    { "type": "text", "label": "Cloud Models", "scope": "detail" },
+    { "type": "badge", "label": "Status", "scope": "detail" }
   ]
 }

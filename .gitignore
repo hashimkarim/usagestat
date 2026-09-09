@@ -1,5 +1,6 @@
 
 inspo/
+/docs/inspo-sync-*.md
 target/
 dist/
 __pycache__/

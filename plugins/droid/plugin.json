@@ -10,7 +10,8 @@
     { "label": "Factory", "url": "https://app.factory.ai" },
     { "label": "Status", "url": "https://status.factory.ai" }
   ],
-  "supportedModes": ["oauth", "local"],
+  "supportedModes": ["api", "oauth", "local", "web"],
+  "envVars": ["FACTORY_API_KEY", "FACTORY_COOKIE", "DROID_COOKIE"],
   "autoMode": "oauth",
   "webUrl": "https://app.factory.ai",
   "lines": [

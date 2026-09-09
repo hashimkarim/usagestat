@@ -1,12 +1,17 @@
 (function () {
   const AUTH_PATH = "~/.grok/auth.json";
-  const BILLING_URL = "https://cli-chat-proxy.grok.com/v1/billing";
+  const BILLING_URL = "https://cli-chat-proxy.grok.com/v1/billing?format=credits";
   const SETTINGS_URL = "https://cli-chat-proxy.grok.com/v1/settings";
   const REFRESH_URL = "https://auth.x.ai/oauth2/token";
   const DEFAULT_CLIENT_ID = "b1a00492-073a-47ea-816f-4c329264a828";
   const TOKEN_AUTH_HEADER = "xai-grok-cli";
   const AUTH_REFRESH_BUFFER_MS = 5 * 60 * 1000;
   const LOGIN_HINT = "Grok auth expired. Run `grok login` again.";
+
+  function authPath(ctx) {
+    const home = ctx.host.env.get("GROK_HOME");
+    return typeof home === "string" && home.trim() ? home.trim().replace(/\/+$/, "") + "/auth.json" : AUTH_PATH;
+  }
 
   function readJson(ctx, path) {
     if (!ctx.host.fs.exists(path)) return null;
@@ -129,7 +134,7 @@
       entry.expires_at = new Date(expiresAtMs).toISOString();
 
       try {
-        ctx.host.fs.writeText(AUTH_PATH, JSON.stringify(auth, null, 2));
+        ctx.host.fs.writeText(authPath(ctx), JSON.stringify(auth, null, 2));
         ctx.host.log.info("Grok auth refresh succeeded, token persisted");
       } catch (e) {
         ctx.host.log.warn("Grok auth refresh succeeded but failed to save auth: " + String(e));
@@ -144,7 +149,7 @@
   }
 
   function loadAuth(ctx) {
-    const auth = readJson(ctx, AUTH_PATH);
+    const auth = readJson(ctx, authPath(ctx));
     if (!auth || typeof auth !== "object") {
       throw "Grok not logged in. Run `grok login`.";
     }
@@ -179,6 +184,7 @@
 
   function unitsValue(obj) {
     if (!obj || typeof obj !== "object") return null;
+    if ((typeof obj.val !== "number" && typeof obj.val !== "string") || String(obj.val).trim() === "") return null;
     const n = Number(obj.val);
     return Number.isFinite(n) ? n : null;
   }
@@ -235,7 +241,7 @@
           Accept: "application/json",
           "User-Agent": "OpenUsage",
         },
-        timeoutMs: 10000,
+        timeoutMs: 1500,
       });
       if (resp.status < 200 || resp.status >= 300) return null;
       const data = ctx.util.tryParseJson(resp.bodyText);
@@ -260,6 +266,25 @@
     const config = data && data.config;
     if (!config || typeof config !== "object") {
       throw "Grok billing response changed.";
+    }
+
+    if (config.currentPeriod) {
+      const period = config.currentPeriod;
+      const start = ctx.util.parseDateMs(period.start);
+      const end = ctx.util.parseDateMs(period.end);
+      const now = nowMs(ctx);
+      const knownType = ["USAGE_PERIOD_TYPE_WEEKLY", "USAGE_PERIOD_TYPE_MONTHLY"].includes(period.type);
+      if (!knownType || !Number.isFinite(start) || !Number.isFinite(end) || end <= start) throw "Grok billing period is invalid.";
+      const hasPercent = Object.prototype.hasOwnProperty.call(config, "creditUsagePercent");
+      let percent = hasPercent ? unitsValue({ val: config.creditUsagePercent }) : 0;
+      if (percent === null || percent < 0 || (!hasPercent && !(start <= now && now < end))) throw "Grok billing usage is unavailable for this period.";
+      const cap = config.onDemandCap === undefined ? 0 : config.onDemandCap && config.onDemandCap.val === undefined ? 0 : unitsValue(config.onDemandCap);
+      if (cap === null || cap < 0) throw "Grok on-demand cap is invalid.";
+      return { plan: fetchPlanName(ctx, auth.token), source: "api", lines: [
+        ctx.line.progress({ label: period.type === "USAGE_PERIOD_TYPE_WEEKLY" ? "Weekly limit" : "Monthly limit", used: clampPercent(percent), limit: 100,
+          format: { kind: "percent" }, resetsAt: ctx.util.toIso(end), periodDurationMs: end - start }),
+        ctx.line.badge({ label: "Pay as you go", text: cap > 0 ? String(cap) + " cap" : "Disabled", color: cap > 0 ? "#22c55e" : "#a3a3a3" }),
+      ] };
     }
 
     const usedUnits = unitsValue(config.used);
@@ -290,7 +315,7 @@
       }),
     ];
 
-    return { plan: fetchPlanName(ctx, auth.token), lines };
+    return { plan: fetchPlanName(ctx, auth.token), source: "api", lines };
   }
 
   globalThis.__openusage_plugin = { id: "grok", probe };

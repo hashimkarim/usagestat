@@ -1,10 +1,11 @@
 (function () {
-  const GLOBAL_PRIMARY_USAGE_URL = "https://www.minimax.io/v1/token_plan/remains"
+  const GLOBAL_PRIMARY_USAGE_URL = "https://platform.minimax.io/v1/api/openplatform/coding_plan/remains"
   const GLOBAL_FALLBACK_USAGE_URLS = [
+    "https://www.minimax.io/v1/api/openplatform/coding_plan/remains",
     "https://www.minimax.io/v1/token_plan/remains",
   ]
-  const CN_PRIMARY_USAGE_URL = "https://api.minimaxi.com/v1/token_plan/remains"
-  const CN_FALLBACK_USAGE_URLS = ["https://api.minimaxi.com/v1/token_plan/remains"]
+  const CN_PRIMARY_USAGE_URL = "https://platform.minimaxi.com/v1/api/openplatform/coding_plan/remains"
+  const CN_FALLBACK_USAGE_URLS = ["https://www.minimaxi.com/v1/api/openplatform/coding_plan/remains", "https://api.minimaxi.com/v1/token_plan/remains"]
   const GLOBAL_API_KEY_ENV_VARS = ["MINIMAX_API_KEY", "MINIMAX_API_TOKEN"]
   const CN_API_KEY_ENV_VARS = ["MINIMAX_CN_API_KEY", "MINIMAX_API_KEY", "MINIMAX_API_TOKEN"]
   const CODING_PLAN_WINDOW_MS = 5 * 60 * 60 * 1000
@@ -112,6 +113,8 @@
   }
 
   function loadApiKey(ctx, endpointSelection) {
+    const configured = readString(ctx.provider && ctx.provider.apiKey)
+    if (configured) return { value: configured, source: "configuration" }
     const envVars = endpointSelection === "CN" ? CN_API_KEY_ENV_VARS : GLOBAL_API_KEY_ENV_VARS
     for (let i = 0; i < envVars.length; i += 1) {
       const name = envVars[i]
@@ -138,15 +141,21 @@
   }
 
   function endpointAttempts(ctx) {
-    // AUTO: if CN key exists, try CN first; otherwise try GLOBAL first.
+    const region = readString(ctx.provider && ctx.provider.region)
+    if (region) {
+      if (/^(cn|china)$/i.test(region)) return ["CN"]
+      if (/^(global|international)$/i.test(region)) return ["GLOBAL"]
+      throw "MiniMax region must be global or cn."
+    }
+    // Keep credentials within the selected region, including failed requests.
     let cnApiKeyValue = null
     try {
       cnApiKeyValue = ctx.host.env.get("MINIMAX_CN_API_KEY")
     } catch (e) {
       ctx.host.log.warn("env read failed for MINIMAX_CN_API_KEY: " + String(e))
     }
-    if (readString(cnApiKeyValue)) return ["CN", "GLOBAL"]
-    return ["GLOBAL", "CN"]
+    if (readString(cnApiKeyValue)) return ["CN"]
+    return ["GLOBAL"]
   }
 
   function formatAuthError() {
@@ -158,11 +167,7 @@
    * @returns {object} parsed JSON response
    * @throws {string} error message
    */
-  function tryUrls(ctx, urls, apiKey) {
-    let lastStatus = null
-    let hadNetworkError = false
-    let authStatusCount = 0
-
+  function tryUrls(ctx, urls, apiKey, endpointSelection) {
     for (let i = 0; i < urls.length; i += 1) {
       const url = urls[i]
       let resp
@@ -178,20 +183,15 @@
           timeoutMs: 15000,
         })
       } catch (e) {
-        hadNetworkError = true
-        ctx.host.log.warn("request failed (" + url + "): " + String(e))
-        continue
+        throw "MiniMax request failed. Check your connection."
       }
 
       if (ctx.util.isAuthStatus(resp.status)) {
-        authStatusCount += 1
-        ctx.host.log.warn("request returned auth status " + resp.status + " (" + url + ")")
-        continue
+        throw formatAuthError()
       }
+      if (resp.status === 404 || resp.status === 405) continue
       if (resp.status < 200 || resp.status >= 300) {
-        lastStatus = resp.status
-        ctx.host.log.warn("request returned status " + resp.status + " (" + url + ")")
-        continue
+        throw "MiniMax request failed (HTTP " + resp.status + "). Try again later."
       }
 
       const parsed = ctx.util.tryParseJson(resp.bodyText)
@@ -200,14 +200,9 @@
         continue
       }
 
-      return parsed
+      const usage = parsePayloadShape(ctx, parsed, endpointSelection)
+      if (usage) return usage
     }
-
-    if (authStatusCount > 0 && lastStatus === null && !hadNetworkError) {
-      throw formatAuthError()
-    }
-    if (lastStatus !== null) throw "Request failed (HTTP " + lastStatus + "). Try again later."
-    if (hadNetworkError) throw "Request failed. Check your connection."
     throw "Could not parse usage data."
   }
 
@@ -393,7 +388,7 @@
   }
 
   function fetchUsagePayload(ctx, apiKey, endpointSelection) {
-    return tryUrls(ctx, getUsageUrls(endpointSelection), apiKey)
+    return tryUrls(ctx, getUsageUrls(endpointSelection), apiKey, endpointSelection)
   }
 
   function probe(ctx) {
@@ -407,8 +402,7 @@
       const apiKeyInfo = loadApiKey(ctx, endpoint)
       if (!apiKeyInfo) continue
       try {
-        const payload = fetchUsagePayload(ctx, apiKeyInfo.value, endpoint)
-        parsed = parsePayloadShape(ctx, payload, endpoint)
+        parsed = fetchUsagePayload(ctx, apiKeyInfo.value, endpoint)
         if (parsed) {
           successfulEndpoint = endpoint
           break
@@ -441,7 +435,7 @@
     if (parsed.resetsAt) line.resetsAt = parsed.resetsAt
     if (parsed.periodDurationMs !== null) line.periodDurationMs = parsed.periodDurationMs
 
-    const result = { lines: [ctx.line.progress(line)] }
+    const result = { source: "api", lines: [ctx.line.progress(line)] }
     if (parsed.planName) {
       const regionLabel = successfulEndpoint === "CN" ? " (CN)" : " (GLOBAL)"
       result.plan = parsed.planName + regionLabel

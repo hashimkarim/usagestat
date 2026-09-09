@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "id": "sub2api",
+  "name": "sub2api",
+  "version": "0.1.0",
+  "entry": "plugin.js",
+  "enabledByDefault": false,
+  "supportedModes": [
+    "api"
+  ],
+  "autoMode": "api",
+  "envVars": [
+    "SUB2API_API_KEY",
+    "SUB2API_BASE_URL"
+  ]
+}

@@ -1,10 +1,25 @@
 (function () {
   function apiKey(ctx) {
-    return ctx.host.env.get("ELEVENLABS_API_KEY") || ctx.host.env.get("XI_API_KEY");
+    return (ctx.provider && ctx.provider.apiKey) || ctx.host.env.get("ELEVENLABS_API_KEY") || ctx.host.env.get("XI_API_KEY");
   }
 
   function apiBase(ctx) {
     return ctx.host.env.get("ELEVENLABS_API_URL") || "https://api.elevenlabs.io";
+  }
+
+  function authError(status, json) {
+    var detail = json && json.detail;
+    var codes = detail && typeof detail === "object" ? [detail.code, detail.status] : [];
+    for (var i = 0; i < codes.length; i++) {
+      var code = typeof codes[i] === "string" ? codes[i].trim().toLowerCase() : "";
+      if (code === "invalid_api_key") return "ElevenLabs rejected the API key. Check whether it is valid or revoked.";
+      if (code === "missing_permissions" || code === "insufficient_permissions") {
+        return "ElevenLabs API key needs the user_read permission to fetch subscription usage.";
+      }
+    }
+    return status === 403
+      ? "ElevenLabs denied access. Check the API key's endpoint permissions and IP allowlist."
+      : "ElevenLabs could not authenticate the API key. Check the key and its permissions.";
   }
 
   function probe(ctx) {
@@ -17,7 +32,7 @@
       headers: { "xi-api-key": key, Accept: "application/json" },
       timeoutMs: 15000,
     });
-    if (ctx.util.isAuthStatus(result.resp.status)) throw "ElevenLabs API key invalid or expired.";
+    if (ctx.util.isAuthStatus(result.resp.status)) throw authError(result.resp.status, result.json);
     if (result.resp.status < 200 || result.resp.status >= 300) throw "ElevenLabs API error (HTTP " + result.resp.status + ").";
     if (!result.json) throw "Could not parse ElevenLabs subscription response.";
 

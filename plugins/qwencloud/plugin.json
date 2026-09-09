@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "id": "qwencloud",
+  "name": "Qwen Cloud",
+  "version": "0.1.0",
+  "entry": "plugin.js",
+  "enabledByDefault": false,
+  "supportedModes": [
+    "web"
+  ],
+  "autoMode": "web",
+  "webUrl": "https://home.qwencloud.com",
+  "usageDashboardUrl": "https://home.qwencloud.com/billing/subscription/token-plan-individual",
+  "statusPageUrl": "https://status.alibabacloud.com",
+  "links": [
+    {
+      "label": "Dashboard",
+      "url": "https://home.qwencloud.com/billing/subscription/token-plan-individual"
+    },
+    {
+      "label": "Status",
+      "url": "https://status.alibabacloud.com"
+    }
+  ],
+  "envVars": [
+    "QWEN_CLOUD_COOKIE",
+    "QWEN_CLOUD_COOKIE_HEADER"
+  ]
+}

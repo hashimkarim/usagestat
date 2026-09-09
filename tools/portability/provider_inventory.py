@@ -59,6 +59,29 @@ FIXTURES = {
     'zed': ['tests/provider-xdg-paths.test.cjs'],
 }
 
+
+# Provider sync fixtures exercise the shipped helpers and synthetic API contracts.
+SYNC_PROVIDERS = {
+    'aiand', 'clawrouter', 'clinepass', 'codebuddy', 'deepinfra', 'ibmbob',
+    'longcat', 'notion', 'qoder', 'qwencloud', 'sakana', 'sub2api', 'wayfinder',
+    'xai', 'zenmux', 'zoommate', 'claude', 'copilot', 'cursor', 'cursor-nightly',
+    'factory', 'droid', 'grok', 'kimi', 'kiro', 'ollama', 'opencode-go',
+    'openrouter', 'zai',
+}
+for ident in SYNC_PROVIDERS:
+    FIXTURES.setdefault(ident, []).extend([
+        'tests/plugin-contracts.test.cjs', 'tests/provider-updates.test.cjs',
+        'tests/quota-regressions.test.cjs',
+    ])
+for ident in ['codex', 'command-code', 'elevenlabs', 'kiro', 'minimax', 'moonshot', 'openrouter', 'poe']:
+    FIXTURES.setdefault(ident, []).append('tests/codex-auth.test.cjs' if ident == 'codex' else 'tests/inspo-sync-20260909.test.cjs')
+FIXTURES['codex'] = list(dict.fromkeys(FIXTURES['codex']))
+FIXTURES.setdefault('kimi', []).append('tests/kimi-updates.test.cjs')
+NOTES['factory'] = 'Configured API keys and manual web credentials are implemented; legacy file/keychain paths remain. V2 encrypted files still require absent AES-GCM host methods; real auth formats/account selection are unverified.'
+NOTES['droid'] = 'Aliases Factory API/manual-web and legacy auth code; v2 encrypted files still require absent AES-GCM host methods. Live credentials remain unverified.'
+NOTES['kimi'] = 'Configured Code API key and isolated CLI-home OAuth refresh plus optional membership/web metadata fixtures; real CLI/Desktop schemas and account stores remain unverified.'
+NOTES['kiro'] = 'Native app-support/custom-root fixtures, included/overage credit parsing, and validated supported IDE API profile regions. CLI SQLite credential import and live app/account versions remain unverified.'
+
 def inventory():
     records=[]
     for path in sorted((ROOT/'plugins').glob('*/plugin.json')):

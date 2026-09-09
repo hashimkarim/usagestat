@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "id": "clinepass",
+  "name": "ClinePass",
+  "version": "0.1.0",
+  "entry": "plugin.js",
+  "enabledByDefault": false,
+  "supportedModes": [
+    "api"
+  ],
+  "autoMode": "api",
+  "usageDashboardUrl": "https://app.cline.bot/dashboard/subscription?personal=true",
+  "links": [
+    {
+      "label": "Dashboard",
+      "url": "https://app.cline.bot/dashboard/subscription?personal=true"
+    }
+  ],
+  "envVars": [
+    "CLINEPASS_API_KEY",
+    "CLINE_API_KEY"
+  ]
+}

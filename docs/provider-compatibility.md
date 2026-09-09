@@ -17,11 +17,12 @@ Manual web credentials and automatic browser import are separate. See
 [browser authentication](browser-authentication.md), [native paths](provider-paths.md),
 [Codex auth](codex-authentication.md), and [IDE discovery](ide-discovery.md).
 
-Inventory: 61 providers; 89 declared provider/source pairs.
+Inventory: 77 providers; 114 declared provider/source pairs.
 
 | Provider | Source | Auto selects | Mechanisms in entry | Linux | macOS | Windows |
 | --- | --- | --- | --- | --- | --- | --- |
 | [abacus-ai](../plugins/abacus-ai/plugin.js) | web | web | manual web credential | I | I | I |
+| [aiand](../plugins/aiand/plugin.js) | api | api | configured token/key | I | I | I |
 | [alibaba](../plugins/alibaba/plugin.js) | web | web | configured token/key, manual web credential | I | I | I |
 | [alibaba-token-plan](../plugins/alibaba-token-plan/plugin.js) | web | web | manual web credential | I | I | I |
 | [amp](../plugins/amp/plugin.js) | api | local | configured token/key, files | P | P | P |
@@ -40,6 +41,10 @@ Inventory: 61 providers; 89 declared provider/source pairs.
 | [claude](../plugins/claude/plugin.js) | web | oauth | configured token/key, manual web credential, files, OS store, local/export collector | I | I | I |
 | [claude](../plugins/claude/plugin.js) | local | oauth | configured token/key, manual web credential, files, OS store, local/export collector | I | I | I |
 | [claude](../plugins/claude/plugin.js) | api | oauth | configured token/key, manual web credential, files, OS store, local/export collector | I | I | I |
+| [clawrouter](../plugins/clawrouter/plugin.js) | api | api | configured token/key | I | I | I |
+| [clinepass](../plugins/clinepass/plugin.js) | api | api | configured token/key | I | I | I |
+| [codebuddy](../plugins/codebuddy/plugin.js) | web | web | manual web credential, files | I | I | I |
+| [codebuddy](../plugins/codebuddy/plugin.js) | local | web | manual web credential, files | I | I | I |
 | [codebuff](../plugins/codebuff/plugin.js) | api | local | configured token/key, files | P | P | P |
 | [codebuff](../plugins/codebuff/plugin.js) | local | local | configured token/key, files | P | P | P |
 | [codex](../plugins/codex/plugin.js) | oauth | oauth | configured token/key, files, OS store, local/export collector, native Codex auth adapter | I | I | I |
@@ -56,30 +61,39 @@ Inventory: 61 providers; 89 declared provider/source pairs.
 | [cursor-nightly](../plugins/cursor-nightly/plugin.js) | oauth | local | configured token/key, files, SQLite, OS store, local/export collector | I | I | I |
 | [cursor-nightly](../plugins/cursor-nightly/plugin.js) | local | local | configured token/key, files, SQLite, OS store, local/export collector | I | I | I |
 | [deepgram](../plugins/deepgram/plugin.js) | api | api | configured token/key | I | I | I |
+| [deepinfra](../plugins/deepinfra/plugin.js) | api | api | configured token/key | I | I | I |
 | [deepseek](../plugins/deepseek/plugin.js) | api | api | configured token/key | I | I | I |
 | [devin](../plugins/devin/plugin.js) | local | local | configured token/key, files, SQLite | I | I | I |
 | [doubao](../plugins/doubao/plugin.js) | api | api | configured token/key | I | I | I |
-| [droid](../plugins/factory/plugin.js) | oauth | oauth | files, OS store | P | P | P |
-| [droid](../plugins/factory/plugin.js) | local | oauth | files, OS store | P | P | P |
+| [droid](../plugins/factory/plugin.js) | api | oauth | configured token/key, manual web credential, files, OS store | P | P | P |
+| [droid](../plugins/factory/plugin.js) | oauth | oauth | configured token/key, manual web credential, files, OS store | P | P | P |
+| [droid](../plugins/factory/plugin.js) | local | oauth | configured token/key, manual web credential, files, OS store | P | P | P |
+| [droid](../plugins/factory/plugin.js) | web | oauth | configured token/key, manual web credential, files, OS store | P | P | P |
 | [elevenlabs](../plugins/elevenlabs/plugin.js) | api | api | configured token/key | I | I | I |
-| [factory](../plugins/factory/plugin.js) | oauth | oauth | files, OS store | P | P | P |
-| [factory](../plugins/factory/plugin.js) | local | oauth | files, OS store | P | P | P |
+| [factory](../plugins/factory/plugin.js) | api | oauth | configured token/key, manual web credential, files, OS store | P | P | P |
+| [factory](../plugins/factory/plugin.js) | oauth | oauth | configured token/key, manual web credential, files, OS store | P | P | P |
+| [factory](../plugins/factory/plugin.js) | local | oauth | configured token/key, manual web credential, files, OS store | P | P | P |
+| [factory](../plugins/factory/plugin.js) | web | oauth | configured token/key, manual web credential, files, OS store | P | P | P |
 | [fireworks-ai](../plugins/fireworks-ai/plugin.js) | api | api | configured token/key | I | I | I |
 | [gemini](../plugins/gemini/plugin.js) | oauth | oauth | files | P | P | P |
 | [gemini](../plugins/gemini/plugin.js) | local | oauth | files | P | P | P |
 | [grok](../plugins/grok/plugin.js) | cli | cli | files | I | I | I |
 | [grok](../plugins/grok/plugin.js) | local | cli | files | I | I | I |
 | [groqcloud](../plugins/groqcloud/plugin.js) | api | api | configured token/key | I | I | I |
+| [ibmbob](../plugins/ibmbob/plugin.js) | api | api | configured token/key | I | I | I |
 | [jetbrains-ai-assistant](../plugins/jetbrains-ai-assistant/plugin.js) | local | local | files | I | I | I |
 | [kilo](../plugins/kilo/plugin.js) | api | local | configured token/key, files | P | P | P |
 | [kilo](../plugins/kilo/plugin.js) | local | local | configured token/key, files | P | P | P |
-| [kimi](../plugins/kimi/plugin.js) | oauth | oauth | files | I | I | I |
-| [kimi](../plugins/kimi/plugin.js) | local | oauth | files | I | I | I |
+| [kimi](../plugins/kimi/plugin.js) | api | oauth | configured token/key, manual web credential, files | I | I | I |
+| [kimi](../plugins/kimi/plugin.js) | oauth | oauth | configured token/key, manual web credential, files | I | I | I |
+| [kimi](../plugins/kimi/plugin.js) | cli | oauth | configured token/key, manual web credential, files | I | I | I |
+| [kimi](../plugins/kimi/plugin.js) | web | oauth | configured token/key, manual web credential, files | I | I | I |
 | [kimi-k2](../plugins/kimi-k2/plugin.js) | api | api | configured token/key | I | I | I |
 | [kiro](../plugins/kiro/plugin.js) | oauth | local | files, SQLite | I | I | I |
 | [kiro](../plugins/kiro/plugin.js) | local | local | files, SQLite | I | I | I |
 | [litellm](../plugins/litellm/plugin.js) | api | api | configured token/key | I | I | I |
 | [llm-proxy](../plugins/llm-proxy/plugin.js) | api | api | configured token/key | I | I | I |
+| [longcat](../plugins/longcat/plugin.js) | web | web | manual web credential | I | I | I |
 | [manus](../plugins/manus/plugin.js) | web | web | manual web credential | I | I | I |
 | [mimo](../plugins/mimo/plugin.js) | web | web | manual web credential | I | I | I |
 | [minimax](../plugins/minimax/plugin.js) | api | api | configured token/key | I | I | I |
@@ -87,17 +101,24 @@ Inventory: 61 providers; 89 declared provider/source pairs.
 | [moonshot](../plugins/moonshot/plugin.js) | api | api | configured token/key | I | I | I |
 | [nanogpt](../plugins/nanogpt/plugin.js) | api | api | configured token/key | I | I | I |
 | [neuralwatt](../plugins/neuralwatt/plugin.js) | api | api | configured token/key | I | I | I |
-| [ollama](../plugins/ollama/plugin.js) | web | web | manual web credential | I | I | I |
+| [notion](../plugins/notion/plugin.js) | web | web | manual web credential | I | I | I |
+| [ollama](../plugins/ollama/plugin.js) | api | web | configured token/key, manual web credential | I | I | I |
+| [ollama](../plugins/ollama/plugin.js) | web | web | configured token/key, manual web credential | I | I | I |
 | [openai-api](../plugins/openai-api/plugin.js) | api | api | configured token/key | I | I | I |
 | [opencode](../plugins/opencode/plugin.js) | web | web | manual web credential | I | I | I |
-| [opencode-go](../plugins/opencode-go/plugin.js) | local | local | manual web credential, files, SQLite | I | I | I |
-| [opencode-go](../plugins/opencode-go/plugin.js) | web | local | manual web credential, files, SQLite | I | I | I |
+| [opencode-go](../plugins/opencode-go/plugin.js) | api | api | configured token/key, manual web credential, files, SQLite | I | I | I |
+| [opencode-go](../plugins/opencode-go/plugin.js) | local | api | configured token/key, manual web credential, files, SQLite | I | I | I |
+| [opencode-go](../plugins/opencode-go/plugin.js) | web | api | configured token/key, manual web credential, files, SQLite | I | I | I |
 | [openrouter](../plugins/openrouter/plugin.js) | api | api | configured token/key | I | I | I |
 | [perplexity](../plugins/perplexity/plugin.js) | oauth | web | files, SQLite | U-cache | P | U-cache |
 | [perplexity](../plugins/perplexity/plugin.js) | local | web | files, SQLite | U-cache | P | U-cache |
 | [perplexity](../plugins/perplexity/plugin.js) | web | web | files, SQLite | U-cache | P | U-cache |
 | [poe](../plugins/poe/plugin.js) | api | api | configured token/key | I | I | I |
+| [qoder](../plugins/qoder/plugin.js) | web | web | manual web credential | I | I | I |
+| [qwencloud](../plugins/qwencloud/plugin.js) | web | web | manual web credential | I | I | I |
+| [sakana](../plugins/sakana/plugin.js) | web | web | manual web credential | I | I | I |
 | [stepfun](../plugins/stepfun/plugin.js) | web | web | configured token/key, manual web credential | I | I | I |
+| [sub2api](../plugins/sub2api/plugin.js) | api | api | configured token/key | I | I | I |
 | [synthetic](../plugins/synthetic/plugin.js) | api | local | configured token/key, files | P | P | P |
 | [synthetic](../plugins/synthetic/plugin.js) | local | local | configured token/key, files | P | P | P |
 | [t3chat](../plugins/t3chat/plugin.js) | web | web | manual web credential | I | I | I |
@@ -105,11 +126,15 @@ Inventory: 61 providers; 89 declared provider/source pairs.
 | [vertex-ai](../plugins/vertex-ai/plugin.js) | oauth | oauth | configured token/key, files, CLI helper | I | I | I |
 | [vertex-ai](../plugins/vertex-ai/plugin.js) | local | oauth | configured token/key, files, CLI helper | I | I | I |
 | [warp](../plugins/warp/plugin.js) | api | api | configured token/key | I | I | I |
+| [wayfinder](../plugins/wayfinder/plugin.js) | local | local | provider-specific settings/HTTPS | I | I | I |
 | [windsurf](../plugins/windsurf/plugin.js) | oauth | local | configured token/key, files, SQLite | I | I | I |
 | [windsurf](../plugins/windsurf/plugin.js) | local | local | configured token/key, files, SQLite | I | I | I |
+| [xai](../plugins/xai/plugin.js) | api | api | configured token/key | I | I | I |
 | [zai](../plugins/zai/plugin.js) | api | api | configured token/key | I | I | I |
 | [zed](../plugins/zed/plugin.js) | api | api | configured token/key, files | I | I | I |
 | [zed](../plugins/zed/plugin.js) | local | api | configured token/key, files | I | I | I |
+| [zenmux](../plugins/zenmux/plugin.js) | api | api | configured token/key | I | I | I |
+| [zoommate](../plugins/zoommate/plugin.js) | web | web | manual web credential | I | I | I |
 
 ## Inspected method gaps and fixture coverage
 
@@ -120,6 +145,7 @@ The same entry is audited once when several manifest modes share it.
 | Provider | Audit finding | Relevant fixtures |
 | --- | --- | --- |
 | [abacus-ai](../plugins/abacus-ai/plugin.js) | Configured credentials and HTTP request code inspected; real credentials, API responses and provider/account behavior remain unverified on each OS. | Shared native host primitives only; provider fixture pending |
+| [aiand](../plugins/aiand/plugin.js) | Configured credentials and HTTP request code inspected; real credentials, API responses and provider/account behavior remain unverified on each OS. | [plugin-contracts.test.cjs](../tests/plugin-contracts.test.cjs), [provider-updates.test.cjs](../tests/provider-updates.test.cjs), [quota-regressions.test.cjs](../tests/quota-regressions.test.cjs) |
 | [alibaba](../plugins/alibaba/plugin.js) | Configured credentials and HTTP request code inspected; real credentials, API responses and provider/account behavior remain unverified on each OS. | Shared native host primitives only; provider fixture pending |
 | [alibaba-token-plan](../plugins/alibaba-token-plan/plugin.js) | Configured credentials and HTTP request code inspected; real credentials, API responses and provider/account behavior remain unverified on each OS. | Shared native host primitives only; provider fixture pending |
 | [amp](../plugins/amp/plugin.js) | Home-relative CLI secrets layout carried from baseline; native upstream directories and overrides need verification. | Shared native host primitives only; provider fixture pending |
@@ -130,56 +156,71 @@ The same entry is audited once when several manifest modes share it.
 | [aws-bedrock](../plugins/aws-bedrock/plugin.js) | Configured credentials and HTTP request code inspected; real credentials, API responses and provider/account behavior remain unverified on each OS. | Shared native host primitives only; provider fixture pending |
 | [azure-openai](../plugins/azure-openai/plugin.js) | Configured credentials and HTTP request code inspected; real credentials, API responses and provider/account behavior remain unverified on each OS. | Shared native host primitives only; provider fixture pending |
 | [chutes](../plugins/chutes/plugin.js) | Configured credentials and HTTP request code inspected; real credentials, API responses and provider/account behavior remain unverified on each OS. | Shared native host primitives only; provider fixture pending |
-| [claude](../plugins/claude/plugin.js) | Native local collectors and macOS profile/account isolation fixtures. OAuth/web/API credentials and real app versions unverified. | [provider-account-isolation.test.cjs](../tests/provider-account-isolation.test.cjs), [local_usage.py](../tools/portability/local_usage.py) |
+| [claude](../plugins/claude/plugin.js) | Native local collectors and macOS profile/account isolation fixtures. OAuth/web/API credentials and real app versions unverified. | [provider-account-isolation.test.cjs](../tests/provider-account-isolation.test.cjs), [local_usage.py](../tools/portability/local_usage.py), [plugin-contracts.test.cjs](../tests/plugin-contracts.test.cjs), [provider-updates.test.cjs](../tests/provider-updates.test.cjs), [quota-regressions.test.cjs](../tests/quota-regressions.test.cjs) |
+| [clawrouter](../plugins/clawrouter/plugin.js) | Configured credentials and HTTP request code inspected; real credentials, API responses and provider/account behavior remain unverified on each OS. | [plugin-contracts.test.cjs](../tests/plugin-contracts.test.cjs), [provider-updates.test.cjs](../tests/provider-updates.test.cjs), [quota-regressions.test.cjs](../tests/quota-regressions.test.cjs) |
+| [clinepass](../plugins/clinepass/plugin.js) | Configured credentials and HTTP request code inspected; real credentials, API responses and provider/account behavior remain unverified on each OS. | [plugin-contracts.test.cjs](../tests/plugin-contracts.test.cjs), [provider-updates.test.cjs](../tests/provider-updates.test.cjs), [quota-regressions.test.cjs](../tests/quota-regressions.test.cjs) |
+| [codebuddy](../plugins/codebuddy/plugin.js) | Configured credentials and HTTP request code inspected; real credentials, API responses and provider/account behavior remain unverified on each OS. | [plugin-contracts.test.cjs](../tests/plugin-contracts.test.cjs), [provider-updates.test.cjs](../tests/provider-updates.test.cjs), [quota-regressions.test.cjs](../tests/quota-regressions.test.cjs) |
 | [codebuff](../plugins/codebuff/plugin.js) | Home-relative manicode credential path; XDG/native override behavior unverified. | Shared native host primitives only; provider fixture pending |
 | [codex](../plugins/codex/plugin.js) | Native file/direct-keyring/age auth, canonical profile/revision/account guards and collectors. Encrypted store is read-only; config layers and non-OAuth auth modes are not interpreted. | [codex-auth.test.cjs](../tests/codex-auth.test.cjs), [codex_auth.py](../tools/portability/codex_auth.py), [local_usage.py](../tools/portability/local_usage.py) |
-| [command-code](../plugins/command-code/plugin.js) | Configured credentials and HTTP request code inspected; real credentials, API responses and provider/account behavior remain unverified on each OS. | Shared native host primitives only; provider fixture pending |
-| [copilot](../plugins/copilot/plugin.js) | Bounded CLI helper host and native home expansion; real gh/Copilot auth stores, CLI versions and account mappings unverified. | Shared native host primitives only; provider fixture pending |
+| [command-code](../plugins/command-code/plugin.js) | Configured credentials and HTTP request code inspected; real credentials, API responses and provider/account behavior remain unverified on each OS. | [inspo-sync-20260909.test.cjs](../tests/inspo-sync-20260909.test.cjs) |
+| [copilot](../plugins/copilot/plugin.js) | Bounded CLI helper host and native home expansion; real gh/Copilot auth stores, CLI versions and account mappings unverified. | [plugin-contracts.test.cjs](../tests/plugin-contracts.test.cjs), [provider-updates.test.cjs](../tests/provider-updates.test.cjs), [quota-regressions.test.cjs](../tests/quota-regressions.test.cjs) |
 | [crof](../plugins/crof/plugin.js) | Configured credentials and HTTP request code inspected; real credentials, API responses and provider/account behavior remain unverified on each OS. | Shared native host primitives only; provider fixture pending |
 | [crofai](../plugins/crofai/plugin.js) | Configured credentials and HTTP request code inspected; real credentials, API responses and provider/account behavior remain unverified on each OS. | Shared native host primitives only; provider fixture pending |
-| [cursor](../plugins/cursor/plugin.js) | Native DB resolver and stable/custom-profile isolation. Shared CLI fallback only for default stable profile; SQLite refresh writeback capability needs audit. | [provider-account-isolation.test.cjs](../tests/provider-account-isolation.test.cjs) |
-| [cursor-nightly](../plugins/cursor-nightly/plugin.js) | Separate native DB and override; shared stable CLI auth/history excluded. SQLite refresh writeback capability needs audit. | [provider-account-isolation.test.cjs](../tests/provider-account-isolation.test.cjs) |
+| [cursor](../plugins/cursor/plugin.js) | Native DB resolver and stable/custom-profile isolation. Shared CLI fallback only for default stable profile; SQLite refresh writeback capability needs audit. | [provider-account-isolation.test.cjs](../tests/provider-account-isolation.test.cjs), [plugin-contracts.test.cjs](../tests/plugin-contracts.test.cjs), [provider-updates.test.cjs](../tests/provider-updates.test.cjs), [quota-regressions.test.cjs](../tests/quota-regressions.test.cjs) |
+| [cursor-nightly](../plugins/cursor-nightly/plugin.js) | Separate native DB and override; shared stable CLI auth/history excluded. SQLite refresh writeback capability needs audit. | [provider-account-isolation.test.cjs](../tests/provider-account-isolation.test.cjs), [plugin-contracts.test.cjs](../tests/plugin-contracts.test.cjs), [provider-updates.test.cjs](../tests/provider-updates.test.cjs), [quota-regressions.test.cjs](../tests/quota-regressions.test.cjs) |
 | [deepgram](../plugins/deepgram/plugin.js) | Configured credentials and HTTP request code inspected; real credentials, API responses and provider/account behavior remain unverified on each OS. | Shared native host primitives only; provider fixture pending |
+| [deepinfra](../plugins/deepinfra/plugin.js) | Configured credentials and HTTP request code inspected; real credentials, API responses and provider/account behavior remain unverified on each OS. | [plugin-contracts.test.cjs](../tests/plugin-contracts.test.cjs), [provider-updates.test.cjs](../tests/provider-updates.test.cjs), [quota-regressions.test.cjs](../tests/quota-regressions.test.cjs) |
 | [deepseek](../plugins/deepseek/plugin.js) | Configured credentials and HTTP request code inspected; real credentials, API responses and provider/account behavior remain unverified on each OS. | Shared native host primitives only; provider fixture pending |
 | [devin](../plugins/devin/plugin.js) | Native IDE and Windows local-data primitives, explicit account selection. Current CLI credential-file location/schema and preview variants unverified. | [provider-remaining-paths.test.cjs](../tests/provider-remaining-paths.test.cjs) |
 | [doubao](../plugins/doubao/plugin.js) | Configured credentials and HTTP request code inspected; real credentials, API responses and provider/account behavior remain unverified on each OS. | Shared native host primitives only; provider fixture pending |
-| [droid](../plugins/factory/plugin.js) | Aliases Factory code: v2 encrypted files require absent AES-GCM host methods; legacy methods and current auth formats remain unverified. | Shared native host primitives only; provider fixture pending |
-| [elevenlabs](../plugins/elevenlabs/plugin.js) | Configured credentials and HTTP request code inspected; real credentials, API responses and provider/account behavior remain unverified on each OS. | Shared native host primitives only; provider fixture pending |
-| [factory](../plugins/factory/plugin.js) | Legacy file/keychain paths exist, but v2 encrypted files require AES-GCM host methods that are absent; formats/account selection need implementation and native evidence. | Shared native host primitives only; provider fixture pending |
+| [droid](../plugins/factory/plugin.js) | Aliases Factory API/manual-web and legacy auth code; v2 encrypted files still require absent AES-GCM host methods. Live credentials remain unverified. | [plugin-contracts.test.cjs](../tests/plugin-contracts.test.cjs), [provider-updates.test.cjs](../tests/provider-updates.test.cjs), [quota-regressions.test.cjs](../tests/quota-regressions.test.cjs) |
+| [elevenlabs](../plugins/elevenlabs/plugin.js) | Configured credentials and HTTP request code inspected; real credentials, API responses and provider/account behavior remain unverified on each OS. | [inspo-sync-20260909.test.cjs](../tests/inspo-sync-20260909.test.cjs) |
+| [factory](../plugins/factory/plugin.js) | Configured API keys and manual web credentials are implemented; legacy file/keychain paths remain. V2 encrypted files still require absent AES-GCM host methods; real auth formats/account selection are unverified. | [plugin-contracts.test.cjs](../tests/plugin-contracts.test.cjs), [provider-updates.test.cjs](../tests/provider-updates.test.cjs), [quota-regressions.test.cjs](../tests/quota-regressions.test.cjs) |
 | [fireworks-ai](../plugins/fireworks-ai/plugin.js) | Configured credentials and HTTP request code inspected; real credentials, API responses and provider/account behavior remain unverified on each OS. | Shared native host primitives only; provider fixture pending |
 | [gemini](../plugins/gemini/plugin.js) | Home OAuth files exist; OAuth-client extraction searches Unix/macOS package layouts. Windows/global-node installation discovery and current schemas remain to port. | Shared native host primitives only; provider fixture pending |
-| [grok](../plugins/grok/plugin.js) | Home credential-file method carried; CLI auth schema and declared cli/local equivalence need verification. | Shared native host primitives only; provider fixture pending |
+| [grok](../plugins/grok/plugin.js) | Home credential-file method carried; CLI auth schema and declared cli/local equivalence need verification. | [plugin-contracts.test.cjs](../tests/plugin-contracts.test.cjs), [provider-updates.test.cjs](../tests/provider-updates.test.cjs), [quota-regressions.test.cjs](../tests/quota-regressions.test.cjs) |
 | [groqcloud](../plugins/groqcloud/plugin.js) | Configured credentials and HTTP request code inspected; real credentials, API responses and provider/account behavior remain unverified on each OS. | Shared native host primitives only; provider fixture pending |
+| [ibmbob](../plugins/ibmbob/plugin.js) | Configured credentials and HTTP request code inspected; real credentials, API responses and provider/account behavior remain unverified on each OS. | [plugin-contracts.test.cjs](../tests/plugin-contracts.test.cjs), [provider-updates.test.cjs](../tests/provider-updates.test.cjs), [quota-regressions.test.cjs](../tests/quota-regressions.test.cjs) |
 | [jetbrains-ai-assistant](../plugins/jetbrains-ai-assistant/plugin.js) | Native settings roots and explicit IDE selection fixtures; XML cache schema, actual IDE versions and account permissions pending. | [provider-paths.test.cjs](../tests/provider-paths.test.cjs) |
 | [kilo](../plugins/kilo/plugin.js) | Configured API credentials plus home-relative CLI auth path; native upstream data roots/overrides unverified. | Shared native host primitives only; provider fixture pending |
-| [kimi](../plugins/kimi/plugin.js) | Home credential-file reader/refresh carried; current CLI schema and store behavior unverified. | Shared native host primitives only; provider fixture pending |
+| [kimi](../plugins/kimi/plugin.js) | Configured Code API key and isolated CLI-home OAuth refresh plus optional membership/web metadata fixtures; real CLI/Desktop schemas and account stores remain unverified. | [plugin-contracts.test.cjs](../tests/plugin-contracts.test.cjs), [provider-updates.test.cjs](../tests/provider-updates.test.cjs), [quota-regressions.test.cjs](../tests/quota-regressions.test.cjs), [kimi-updates.test.cjs](../tests/kimi-updates.test.cjs) |
 | [kimi-k2](../plugins/kimi-k2/plugin.js) | Configured credentials and HTTP request code inspected; real credentials, API responses and provider/account behavior remain unverified on each OS. | Shared native host primitives only; provider fixture pending |
-| [kiro](../plugins/kiro/plugin.js) | Native app-support/custom-root fixtures for carried cached usage layouts; current Kiro auth/usage schema and app version unverified. | [provider-paths.test.cjs](../tests/provider-paths.test.cjs) |
+| [kiro](../plugins/kiro/plugin.js) | Native app-support/custom-root fixtures, included/overage credit parsing, and validated supported IDE API profile regions. CLI SQLite credential import and live app/account versions remain unverified. | [provider-paths.test.cjs](../tests/provider-paths.test.cjs), [plugin-contracts.test.cjs](../tests/plugin-contracts.test.cjs), [provider-updates.test.cjs](../tests/provider-updates.test.cjs), [quota-regressions.test.cjs](../tests/quota-regressions.test.cjs), [inspo-sync-20260909.test.cjs](../tests/inspo-sync-20260909.test.cjs) |
 | [litellm](../plugins/litellm/plugin.js) | Configured credentials and HTTP request code inspected; real credentials, API responses and provider/account behavior remain unverified on each OS. | Shared native host primitives only; provider fixture pending |
 | [llm-proxy](../plugins/llm-proxy/plugin.js) | Configured credentials and HTTP request code inspected; real credentials, API responses and provider/account behavior remain unverified on each OS. | Shared native host primitives only; provider fixture pending |
+| [longcat](../plugins/longcat/plugin.js) | Configured credentials and HTTP request code inspected; real credentials, API responses and provider/account behavior remain unverified on each OS. | [plugin-contracts.test.cjs](../tests/plugin-contracts.test.cjs), [provider-updates.test.cjs](../tests/provider-updates.test.cjs), [quota-regressions.test.cjs](../tests/quota-regressions.test.cjs) |
 | [manus](../plugins/manus/plugin.js) | Configured credentials and HTTP request code inspected; real credentials, API responses and provider/account behavior remain unverified on each OS. | Shared native host primitives only; provider fixture pending |
 | [mimo](../plugins/mimo/plugin.js) | Configured credentials and HTTP request code inspected; real credentials, API responses and provider/account behavior remain unverified on each OS. | Shared native host primitives only; provider fixture pending |
-| [minimax](../plugins/minimax/plugin.js) | Configured credentials and HTTP request code inspected; real credentials, API responses and provider/account behavior remain unverified on each OS. | Shared native host primitives only; provider fixture pending |
+| [minimax](../plugins/minimax/plugin.js) | Configured credentials and HTTP request code inspected; real credentials, API responses and provider/account behavior remain unverified on each OS. | [inspo-sync-20260909.test.cjs](../tests/inspo-sync-20260909.test.cjs) |
 | [mistral](../plugins/mistral/plugin.js) | Configured credentials and HTTP request code inspected; real credentials, API responses and provider/account behavior remain unverified on each OS. | Shared native host primitives only; provider fixture pending |
-| [moonshot](../plugins/moonshot/plugin.js) | Configured credentials and HTTP request code inspected; real credentials, API responses and provider/account behavior remain unverified on each OS. | Shared native host primitives only; provider fixture pending |
+| [moonshot](../plugins/moonshot/plugin.js) | Configured credentials and HTTP request code inspected; real credentials, API responses and provider/account behavior remain unverified on each OS. | [inspo-sync-20260909.test.cjs](../tests/inspo-sync-20260909.test.cjs) |
 | [nanogpt](../plugins/nanogpt/plugin.js) | Configured credentials and HTTP request code inspected; real credentials, API responses and provider/account behavior remain unverified on each OS. | Shared native host primitives only; provider fixture pending |
 | [neuralwatt](../plugins/neuralwatt/plugin.js) | Configured credentials and HTTP request code inspected; real credentials, API responses and provider/account behavior remain unverified on each OS. | Shared native host primitives only; provider fixture pending |
-| [ollama](../plugins/ollama/plugin.js) | Configured credentials and HTTP request code inspected; real credentials, API responses and provider/account behavior remain unverified on each OS. | Shared native host primitives only; provider fixture pending |
+| [notion](../plugins/notion/plugin.js) | Configured credentials and HTTP request code inspected; real credentials, API responses and provider/account behavior remain unverified on each OS. | [plugin-contracts.test.cjs](../tests/plugin-contracts.test.cjs), [provider-updates.test.cjs](../tests/provider-updates.test.cjs), [quota-regressions.test.cjs](../tests/quota-regressions.test.cjs) |
+| [ollama](../plugins/ollama/plugin.js) | Configured credentials and HTTP request code inspected; real credentials, API responses and provider/account behavior remain unverified on each OS. | [plugin-contracts.test.cjs](../tests/plugin-contracts.test.cjs), [provider-updates.test.cjs](../tests/provider-updates.test.cjs), [quota-regressions.test.cjs](../tests/quota-regressions.test.cjs) |
 | [openai-api](../plugins/openai-api/plugin.js) | Configured credentials and HTTP request code inspected; real credentials, API responses and provider/account behavior remain unverified on each OS. | Shared native host primitives only; provider fixture pending |
 | [opencode](../plugins/opencode/plugin.js) | Configured credentials and HTTP request code inspected; real credentials, API responses and provider/account behavior remain unverified on each OS. | Shared native host primitives only; provider fixture pending |
-| [opencode-go](../plugins/opencode-go/plugin.js) | Upstream XDG roots on all OSes, explicit data/database and inline auth overrides covered by fixtures. Preview channels require databasePath/OPENCODE_DB; current database schema, API, and account versions unverified. | [provider-xdg-paths.test.cjs](../tests/provider-xdg-paths.test.cjs) |
-| [openrouter](../plugins/openrouter/plugin.js) | Configured credentials and HTTP request code inspected; real credentials, API responses and provider/account behavior remain unverified on each OS. | Shared native host primitives only; provider fixture pending |
+| [opencode-go](../plugins/opencode-go/plugin.js) | Upstream XDG roots on all OSes, explicit data/database and inline auth overrides covered by fixtures. Preview channels require databasePath/OPENCODE_DB; current database schema, API, and account versions unverified. | [provider-xdg-paths.test.cjs](../tests/provider-xdg-paths.test.cjs), [plugin-contracts.test.cjs](../tests/plugin-contracts.test.cjs), [provider-updates.test.cjs](../tests/provider-updates.test.cjs), [quota-regressions.test.cjs](../tests/quota-regressions.test.cjs) |
+| [openrouter](../plugins/openrouter/plugin.js) | Configured credentials and HTTP request code inspected; real credentials, API responses and provider/account behavior remain unverified on each OS. | [plugin-contracts.test.cjs](../tests/plugin-contracts.test.cjs), [provider-updates.test.cjs](../tests/provider-updates.test.cjs), [quota-regressions.test.cjs](../tests/quota-regressions.test.cjs), [inspo-sync-20260909.test.cjs](../tests/inspo-sync-20260909.test.cjs) |
 | [perplexity](../plugins/perplexity/plugin.js) | Entry always uses legacy macOS CFNetwork cache, including declared web/oauth modes. Linux/Windows cache method explicitly unsupported; manual web-cookie implementation is absent. | [provider-remaining-paths.test.cjs](../tests/provider-remaining-paths.test.cjs) |
-| [poe](../plugins/poe/plugin.js) | Configured credentials and HTTP request code inspected; real credentials, API responses and provider/account behavior remain unverified on each OS. | Shared native host primitives only; provider fixture pending |
+| [poe](../plugins/poe/plugin.js) | Configured credentials and HTTP request code inspected; real credentials, API responses and provider/account behavior remain unverified on each OS. | [inspo-sync-20260909.test.cjs](../tests/inspo-sync-20260909.test.cjs) |
+| [qoder](../plugins/qoder/plugin.js) | Configured credentials and HTTP request code inspected; real credentials, API responses and provider/account behavior remain unverified on each OS. | [plugin-contracts.test.cjs](../tests/plugin-contracts.test.cjs), [provider-updates.test.cjs](../tests/provider-updates.test.cjs), [quota-regressions.test.cjs](../tests/quota-regressions.test.cjs) |
+| [qwencloud](../plugins/qwencloud/plugin.js) | Configured credentials and HTTP request code inspected; real credentials, API responses and provider/account behavior remain unverified on each OS. | [plugin-contracts.test.cjs](../tests/plugin-contracts.test.cjs), [provider-updates.test.cjs](../tests/provider-updates.test.cjs), [quota-regressions.test.cjs](../tests/quota-regressions.test.cjs) |
+| [sakana](../plugins/sakana/plugin.js) | Configured credentials and HTTP request code inspected; real credentials, API responses and provider/account behavior remain unverified on each OS. | [plugin-contracts.test.cjs](../tests/plugin-contracts.test.cjs), [provider-updates.test.cjs](../tests/provider-updates.test.cjs), [quota-regressions.test.cjs](../tests/quota-regressions.test.cjs) |
 | [stepfun](../plugins/stepfun/plugin.js) | Configured credentials and HTTP request code inspected; real credentials, API responses and provider/account behavior remain unverified on each OS. | Shared native host primitives only; provider fixture pending |
+| [sub2api](../plugins/sub2api/plugin.js) | Configured credentials and HTTP request code inspected; real credentials, API responses and provider/account behavior remain unverified on each OS. | [plugin-contracts.test.cjs](../tests/plugin-contracts.test.cjs), [provider-updates.test.cjs](../tests/provider-updates.test.cjs), [quota-regressions.test.cjs](../tests/quota-regressions.test.cjs) |
 | [synthetic](../plugins/synthetic/plugin.js) | Configured API credentials plus several CLI fallback files; account ambiguity and upstream data roots/overrides need audit. | Shared native host primitives only; provider fixture pending |
 | [t3chat](../plugins/t3chat/plugin.js) | Manual cookies/full-cURL capture fixtures on all OS conventions. Challenge preserves credentials and gives full-cURL guidance. Real browser/device-bound sessions unverified. | [browser-manual-auth.test.cjs](../tests/browser-manual-auth.test.cjs) |
 | [venice](../plugins/venice/plugin.js) | Configured credentials and HTTP request code inspected; real credentials, API responses and provider/account behavior remain unverified on each OS. | Shared native host primitives only; provider fixture pending |
 | [vertex-ai](../plugins/vertex-ai/plugin.js) | Bounded gcloud helper and explicit/application credentials; actual native SDK installs and account selection unverified. | Shared native host primitives only; provider fixture pending |
 | [warp](../plugins/warp/plugin.js) | Configured credentials and HTTP request code inspected; real credentials, API responses and provider/account behavior remain unverified on each OS. | Shared native host primitives only; provider fixture pending |
+| [wayfinder](../plugins/wayfinder/plugin.js) | Configured credentials and HTTP request code inspected; real credentials, API responses and provider/account behavior remain unverified on each OS. | [plugin-contracts.test.cjs](../tests/plugin-contracts.test.cjs), [provider-updates.test.cjs](../tests/provider-updates.test.cjs), [quota-regressions.test.cjs](../tests/quota-regressions.test.cjs) |
 | [windsurf](../plugins/windsurf/plugin.js) | Native stable/Next/Devin profile selection fixtures; carried auth schemas and current application versions unverified. | [provider-paths.test.cjs](../tests/provider-paths.test.cjs) |
-| [zai](../plugins/zai/plugin.js) | Configured credentials and HTTP request code inspected; real credentials, API responses and provider/account behavior remain unverified on each OS. | Shared native host primitives only; provider fixture pending |
+| [xai](../plugins/xai/plugin.js) | Configured credentials and HTTP request code inspected; real credentials, API responses and provider/account behavior remain unverified on each OS. | [plugin-contracts.test.cjs](../tests/plugin-contracts.test.cjs), [provider-updates.test.cjs](../tests/provider-updates.test.cjs), [quota-regressions.test.cjs](../tests/quota-regressions.test.cjs) |
+| [zai](../plugins/zai/plugin.js) | Configured credentials and HTTP request code inspected; real credentials, API responses and provider/account behavior remain unverified on each OS. | [plugin-contracts.test.cjs](../tests/plugin-contracts.test.cjs), [provider-updates.test.cjs](../tests/provider-updates.test.cjs), [quota-regressions.test.cjs](../tests/quota-regressions.test.cjs) |
 | [zed](../plugins/zed/plugin.js) | Upstream native/Flatpak/custom data settings paths and JSONC fixtures. Explicit credentials available; real app versions and OS credential mappings unverified. | [provider-xdg-paths.test.cjs](../tests/provider-xdg-paths.test.cjs) |
+| [zenmux](../plugins/zenmux/plugin.js) | Configured credentials and HTTP request code inspected; real credentials, API responses and provider/account behavior remain unverified on each OS. | [plugin-contracts.test.cjs](../tests/plugin-contracts.test.cjs), [provider-updates.test.cjs](../tests/provider-updates.test.cjs), [quota-regressions.test.cjs](../tests/quota-regressions.test.cjs) |
+| [zoommate](../plugins/zoommate/plugin.js) | Configured credentials and HTTP request code inspected; real credentials, API responses and provider/account behavior remain unverified on each OS. | [plugin-contracts.test.cjs](../tests/plugin-contracts.test.cjs), [provider-updates.test.cjs](../tests/provider-updates.test.cjs), [quota-regressions.test.cjs](../tests/quota-regressions.test.cjs) |
 
 Real-credential acceptance requires dated OS, architecture, app/CLI/browser version,
 authentication method, selected account/profile and expected-versus-observed normalized
