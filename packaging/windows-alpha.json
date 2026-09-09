@@ -1,0 +1,13 @@
+{
+  "repo": "hashimkarim/usagestat",
+  "name": "usagestat-alpha",
+  "publisher": "Hashim Karim",
+  "description": "Alpha CLI, daemon and local dashboard for AI provider usage. Desktop acceptance and signing are pending.",
+  "homepage": "https://github.com/hashimkarim/usagestat",
+  "license": "MIT",
+  "channels": {
+    "scoop": {"name": "usagestat-alpha", "bucket": "hashimkarim/scoop-bucket", "branch": "main"},
+    "winget": {"id": "HashimKarim.UsageStat.Alpha", "fork": "hashimkarim/winget-pkgs"},
+    "chocolatey": {"id": "usagestat-alpha", "source": "https://push.chocolatey.org/"}
+  }
+}

@@ -20,6 +20,12 @@ on:
         required: false
       PPA_GPG_PASSPHRASE:
         required: false
+      WINDOWS_SCOOP_TOKEN:
+        required: false
+      WINDOWS_WINGET_TOKEN:
+        required: false
+      WINDOWS_CHOCO_API_KEY:
+        required: false
   workflow_dispatch:
     inputs:
       tag:
@@ -35,7 +41,7 @@ on:
         description: Repository to publish or retry
         type: choice
         default: all
-        options: [all, aur, homebrew, copr, ppa]
+        options: [all, aur, homebrew, copr, ppa, scoop, winget, chocolatey]
       dry_run:
         description: Validate packages without publishing or using credentials
         type: boolean
@@ -50,6 +56,7 @@ jobs:
     runs-on: ubuntu-24.04
     outputs:
       platforms: ${{ steps.platforms.outputs.value }}
+      windows: ${{ steps.platforms.outputs.windows }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -69,15 +76,18 @@ jobs:
           tag = os.environ['RELEASE_TAG']
           check(tag, os.environ['PACKAGE_CHANNEL'])
           platforms = ['aur', 'homebrew', 'copr', 'ppa']
+          windows = ['scoop', 'winget', 'chocolatey'] if os.environ['PACKAGE_CHANNEL'] == 'alpha' else []
           selected = os.environ['PLATFORM']
-          assert selected == 'all' or selected in platforms
+          assert selected == 'all' or selected in platforms + windows
           with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
-              output.write('value=' + json.dumps(platforms if selected == 'all' else [selected]) + '\n')
+              output.write('value=' + json.dumps(platforms if selected == 'all' else [p for p in platforms if p == selected]) + '\n')
+              output.write('windows=' + json.dumps(windows if selected == 'all' else [p for p in windows if p == selected]) + '\n')
           PY
 
   publish:
     name: ${{ matrix.platform }}
     needs: validate
+    if: needs.validate.outputs.platforms != '[]'
     runs-on: ubuntu-24.04
     timeout-minutes: 75
     strategy:
@@ -196,3 +206,69 @@ jobs:
             prepared/*.orig.tar.gz
             prepared/*.debian.tar.xz
             prepared/*.deb
+
+  windows:
+    name: Windows alpha ${{ matrix.channel }}
+    needs: validate
+    if: needs.validate.outputs.windows != '[]'
+    runs-on: windows-2025
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        channel: ${{ fromJSON(needs.validate.outputs.windows) }}
+    concurrency:
+      group: package-alpha-${{ matrix.channel }}
+      cancel-in-progress: false
+    env:
+      RELEASE_TAG: ${{ inputs.tag }}
+      FEED_CHANNEL: ${{ matrix.channel }}
+      PYTHONUTF8: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify existing release and prepare Windows feed recipes
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download $env:RELEASE_TAG --repo $env:GITHUB_REPOSITORY --dir assets
+          if ($LASTEXITCODE -ne 0) { throw 'Release download failed' }
+          python tools/publish/scripts/release_guard.py assets --require-existing --tag $env:RELEASE_TAG
+          if ($LASTEXITCODE -ne 0) { throw 'Release verification failed' }
+          python tools/publish/scripts/windows_alpha.py --artifacts assets --tag $env:RELEASE_TAG --channel $env:FEED_CHANNEL --output "prepared/$env:FEED_CHANNEL"
+          if ($LASTEXITCODE -ne 0) { throw 'Recipe preparation failed' }
+      - name: Install and remove the real Windows package
+        run: |
+          ./tools/publish/scripts/test-windows-feed.ps1 -Channel $env:FEED_CHANNEL -RecipeDirectory "prepared/$env:FEED_CHANNEL" -UpstreamVersion ($env:RELEASE_TAG.Substring(1))
+      - name: Publish tested Scoop or submit tested WinGet manifests
+        if: inputs.dry_run != true && matrix.channel != 'chocolatey'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          WINDOWS_SCOOP_TOKEN: ${{ secrets.WINDOWS_SCOOP_TOKEN }}
+          WINDOWS_WINGET_TOKEN: ${{ secrets.WINDOWS_WINGET_TOKEN }}
+        run: |
+          python tools/publish/scripts/windows_alpha.py --artifacts assets --tag $env:RELEASE_TAG --channel $env:FEED_CHANNEL --output "prepared/$env:FEED_CHANNEL" --publish
+          if ($LASTEXITCODE -ne 0) { throw 'Windows feed publication failed' }
+      - name: Submit tested Chocolatey package
+        if: inputs.dry_run != true && matrix.channel == 'chocolatey'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          WINDOWS_CHOCO_API_KEY: ${{ secrets.WINDOWS_CHOCO_API_KEY }}
+        run: |
+          if (-not $env:WINDOWS_CHOCO_API_KEY) { throw 'Chocolatey publishing key is not configured' }
+          $package = Get-ChildItem prepared/chocolatey/packed/*.nupkg | Select-Object -First 1
+          python tools/publish/scripts/windows_alpha.py --artifacts assets --tag $env:RELEASE_TAG --channel chocolatey --output prepared/chocolatey --check-chocolatey-package $package.FullName
+          if ($LASTEXITCODE -ne 0) { throw 'Chocolatey publication preflight failed' }
+          choco push $package.FullName --source https://push.chocolatey.org/ --api-key $env:WINDOWS_CHOCO_API_KEY --no-progress
+          if ($LASTEXITCODE -ne 0) { throw 'Chocolatey submission failed; inspect feed/moderation before retrying' }
+      - name: Save Windows recipes and installation evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-alpha-${{ matrix.channel }}-${{ github.run_attempt }}
+          path: prepared
+          if-no-files-found: warn
