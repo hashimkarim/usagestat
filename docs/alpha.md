@@ -21,16 +21,18 @@ was checked on September 9, 2026; pending channels are explicitly marked below.
 | Channel | Alpha destination | Package / formula | Target |
 | --- | --- | --- | --- |
 | Fedora | [COPR](https://copr.fedorainfracloud.org/coprs/hashimkarim/usagestat-alpha/) | `usagestat` | Fedora 43, 44, 45, Rawhide; x86-64 |
-| Ubuntu | [Launchpad PPA](https://launchpad.net/~hashimkarim/+archive/ubuntu/usagestat-alpha) | `usagestat` | Ubuntu 24.04 Noble; amd64 |
+| Ubuntu | [Launchpad PPA](https://launchpad.net/~hashimkarim/+archive/ubuntu/usagestat-alpha) | `usagestat` | Ubuntu 24.04 Noble; amd64; build finished, repository publication pending |
 | Arch Linux | [AUR](https://aur.archlinux.org/packages/usagestat-alpha-bin) | `usagestat-alpha-bin` | x86-64; glibc 2.39+ |
 | Linux / macOS | [Homebrew](https://github.com/hashimkarim/homebrew-tap/blob/main/Formula/usagestat-alpha.rb) | `hashimkarim/tap/usagestat-alpha` | Linux x86-64/ARM64; macOS Intel/Apple Silicon |
 | Windows | [Scoop bucket](https://github.com/hashimkarim/scoop-bucket/blob/main/bucket/usagestat-alpha.json) | `usagestat-alpha` | Windows x64; published and installation tested |
-| Windows | [Chocolatey submission](https://community.chocolatey.org/packages/usagestat-alpha/2.0.0-alpha000001) | `usagestat-alpha` | Windows x64; submitted, awaiting community review |
-| Windows | [WinGet submission](https://github.com/microsoft/winget-pkgs/pull/431692) | `HashimKarim.UsageStat.Alpha` | Windows x64; tests passed, awaiting owner's CLA and upstream review |
-| All five native targets | npm | `@hashimkarim/usagestat@alpha` | Installation tests passed; main package publication awaits account login |
+| Windows | [Chocolatey submission](https://community.chocolatey.org/packages/usagestat/2.0.0-alpha000001) | `usagestat --pre` | Windows x64; submitted, awaiting community review |
+| Windows | [WinGet submission](https://github.com/microsoft/winget-pkgs/pull/431692) | `HashimKarim.UsageStat.Alpha` | Windows x64; native tests and CLA passed, upstream validation/review pending |
+| All five native targets | npm | `@hashimkarim/usagestat@alpha` | Installation rehearsals passed; main package publication awaits npm's publishing approval |
 
-Ubuntu's signed source upload has been accepted; its build is still being
-published. The Ubuntu commands below become usable after that completes.
+Ubuntu's signed source upload was accepted and the
+[Noble build](https://launchpad.net/~hashimkarim/+archive/ubuntu/usagestat-alpha/+build/33580662)
+finished successfully. Launchpad remains at “Uploading build”; no binary package
+is published yet. The Ubuntu commands below become usable after that completes.
 
 Alpha packages install the same `usagestat` and `usagestatd` commands as stable.
 Switching channels replaces the package; these are not separate daemon profiles.
@@ -119,20 +121,24 @@ upgrades still need acceptance testing.
 Before removal, run `usagestat daemon unregister`, then
 `scoop uninstall usagestat-alpha`. User settings and history are retained.
 
-Chocolatey uses `2.0.0-alpha000001` because its community feed requires SemVer 1
-prerelease syntax; the binaries still report `2.0.0-alpha.1`. After community
-review, installation will be `choco install usagestat-alpha --pre` in an elevated
-shell. Updates use `choco upgrade usagestat-alpha --pre`; release Windows file
+Chocolatey's [package naming rule](https://docs.chocolatey.org/en-us/community-repository/moderation/package-validator/rules/cpmr0024/)
+requires the ID `usagestat`, with alpha selected through `--pre`. It uses
+`2.0.0-alpha000001` because its community feed requires SemVer 1 prerelease
+syntax; the binaries still report `2.0.0-alpha.1`. After community review,
+installation will be `choco install usagestat --pre` in an elevated shell.
+Updates use `choco upgrade usagestat --pre`; release Windows file
 locks with `daemon disable` first and restore the saved daemon state afterward.
-Removal uses `daemon unregister`, then `choco uninstall usagestat-alpha`.
+Removal uses `daemon unregister`, then `choco uninstall usagestat`.
 Run backend setup commands from the regular user's shell so startup belongs to
-the intended user. Chocolatey installation/removal was tested on Windows CI;
-review approval is a separate step.
+the intended user. Chocolatey's community metadata validator, installation,
+removal and upload passed in
+[run 34305309448](https://github.com/hashimkarim/usagestat/actions/runs/34305309448);
+community review approval is a separate step.
 
 WinGet's native installation, resource and removal tests passed in
 [run 34298557248](https://github.com/hashimkarim/usagestat/actions/runs/34298557248).
-The submission requires the repository owner's response to Microsoft's CLA bot
-before upstream review can finish. WinGet commands will be added once accepted. These packages
+The owner's CLA response was accepted. Upstream installer validation and review
+are still pending. WinGet commands will be added once accepted. These packages
 contain the unsigned backend; package-manager availability does not qualify
 desktop login, provider authentication, signing, or the bar frontend.
 
@@ -241,5 +247,5 @@ npm remains a planned distribution channel with passing native installation
 rehearsals. `@hashimkarim/usagestat` has not yet been published; use these GitHub
 downloads while public npm publication is pending. Stable AUR/Homebrew/COPR/PPA
 destinations are preserved alongside their separate alpha channels. Windows feed
-publication is being prepared; desktop stores and signed desktop bundles require
+availability is listed above; desktop stores and signed desktop bundles require
 separate product/signing work.

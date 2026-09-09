@@ -34,7 +34,7 @@ The alpha Homebrew formula explicitly includes the unsigned macOS candidates;
 the stable formula retains its existing qualification gate.
 
 Windows alpha destinations are in [windows-alpha.json](../packaging/windows-alpha.json):
-Scoop `hashimkarim/scoop-bucket`, Chocolatey `usagestat-alpha`, and WinGet
+Scoop `hashimkarim/scoop-bucket`, Chocolatey `usagestat --pre`, and WinGet
 `HashimKarim.UsageStat.Alpha`. The same workflow supports `platform=scoop`,
 `chocolatey`, or `winget`. It validates the actual Windows ZIP/PE files and runs
 native package-manager install/resource/removal checks before publication.
@@ -44,10 +44,15 @@ completes. Duplicate Chocolatey versions and existing WinGet submissions stop
 for reconciliation instead of being overwritten or submitted twice.
 
 Chocolatey maps `2.0.0-alpha.1` to `2.0.0-alpha000001` for its SemVer 1 community
-feed, retaining numeric prerelease order. CI uses the existing account credentials
+feed, retaining numeric prerelease order. Its
+[mandatory naming rule](https://docs.chocolatey.org/en-us/community-repository/moderation/package-validator/rules/cpmr0024/)
+requires `usagestat` as the package ID and `--pre` to select an alpha version.
+CI runs the official community metadata validator before packing, then tests
+installation/removal and uploads the exact tested nupkg with `choco push`.
+[Run 34305309448](https://github.com/hashimkarim/usagestat/actions/runs/34305309448)
+passed those checks and submitted `usagestat 2.0.0-alpha000001`; community review
+remains pending. CI uses the existing account credentials
 under `WINDOWS_SCOOP_TOKEN`, `WINDOWS_WINGET_TOKEN`, and `WINDOWS_CHOCO_API_KEY`.
-The first Chocolatey upload used the exact Windows-tested nupkg through NuGet's
-standard push protocol and verified account access before installing the CI key.
 The generic Windows toolkit doctor targets stable installer templates; this
 project's existing Rust/native-archive pipeline instead uses the native evidence
 above. Store submissions and Apple signing require separate product/signing

@@ -5,8 +5,9 @@ Issue: #21. The selected name is `@hashimkarim/usagestat`, with five
 the alpha installation rehearsal passed on all five native targets in
 [run 34297460188](https://github.com/hashimkarim/usagestat/actions/runs/34297460188).
 First publication created the Linux x64 payload. The main package is not yet
-published: npm rejects the saved token for dist-tag cleanup and trusted-publisher
-configuration (HTTP 403), so a fresh account login is pending.
+published. The owner's fresh npm login is verified; npm's separate two-factor
+publishing approval is pending for tag cleanup, the remaining packages and
+trusted-publisher configuration.
 `npm/distribution.json` keeps automated `publicationEnabled` false.
 
 The [package README](../npm/README.md) covers requirements, explicit service
@@ -35,6 +36,15 @@ a disposable registry on five native runners, including scripts-disabled global
 installation, command shims, resources/doctor, daemon health and shutdown,
 literal arguments, exit codes, local npm exec, omitted dependencies and retained
 data after removal. All real providers are disabled before daemon startup.
+
+The manual `npm-rehearsal.yml` workflow also accepts `public_registry: true`
+with an existing `release_tag`. Before installation it verifies the public
+dist-tag, package metadata, downloaded tarball integrity and every file's bytes
+against staged release contents. Tar metadata may differ between filesystems;
+payload differences, links and duplicate paths fail verification. Public npm
+installation uses an isolated config, cache and prefix, without account tokens.
+This mode can run once all six packages are published; passing the isolated
+registry rehearsal alone does not establish public registry availability.
 
 The [five-target npm installation rehearsal](https://github.com/hashimkarim/usagestat/actions/runs/34079566610)
 passed on September 7, 2026 using the exact staged packages from
@@ -82,8 +92,8 @@ Configure each npm package's trusted publisher with owner `hashimkarim`, repo
 `usagestat`, workflow `release.yml`, environment `npm`, and direct publish
 permission. The job grants `id-token: write` and requests provenance. Initial
 package creation may require an authorized first publication before these
-settings exist. Bootstrap login uses a separate private local npm config, preserving
-the existing credential configuration.
+settings exist. Local bootstrap uses the owner's existing npm login, preserving
+the credential configuration. No npm account token is copied into GitHub Actions.
 
 Sources: [npm metadata](https://docs.npmjs.com/cli/v11/configuring-npm/package-json/),
 [trusted publishers](https://docs.npmjs.com/trusted-publishers/),
