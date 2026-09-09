@@ -89,6 +89,17 @@ def wait_for_publication(registry, package, version, tag):
         time.sleep(5)
     raise ValueError('Published package was not visible; retain these exact inputs and inspect before retrying')
 
+def check_default_tag(previous, current, version, tag):
+    if tag == 'latest': return
+    old = (previous or {}).get('dist-tags', {}).get('latest')
+    new = current.get('dist-tags', {}).get('latest')
+    if new == old: return
+    # npm can assign a new package's only version as its default even when
+    # publish explicitly requested alpha. Preserve every existing default.
+    if previous is None and new == version and set(current['versions']) == {version}:
+        return
+    raise ValueError('Prerelease publication changed an existing npm default tag')
+
 def run(manifest: Path, publish: bool, bootstrap: bool = False) -> None:
     settings = json.loads((ROOT / 'npm/distribution.json').read_text())
     plan = json.loads(manifest.read_text())
@@ -107,7 +118,8 @@ def run(manifest: Path, publish: bool, bootstrap: bool = False) -> None:
         raise ValueError('Production publication only supports the configured public npm registry')
     # Inspect every existing version before changing anything. A conflicting
     # partial publication must fail before uploading another package.
-    states = {p['name']: publication_state(p, registry_package(registry, p['name']), plan['version'], plan['distTag']) for p in packages}
+    before = {p['name']: registry_package(registry, p['name']) for p in packages}
+    states = {p['name']: publication_state(p, before[p['name']], plan['version'], plan['distTag']) for p in packages}
     if not publish:
         print(json.dumps({'version': plan['version'], 'distTag': plan['distTag'], 'publicationEnabled': settings['publicationEnabled'],
             'packages': [{'name': p['name'], 'state': 'identical' if states[p['name']] else 'missing'} for p in packages]}, indent=2))
@@ -121,10 +133,7 @@ def run(manifest: Path, publish: bool, bootstrap: bool = False) -> None:
                 '--access', 'public', '--tag', plan['distTag'], '--ignore-scripts',
                 *([] if bootstrap else ['--provenance']), '--registry', registry], check=True)
         document = wait_for_publication(registry, package, plan['version'], plan['distTag'])
-        if bootstrap and document.get('dist-tags', {}).get('latest') == plan['version']:
-            # The registry may assign latest automatically on first publication,
-            # even when publish requested alpha. Remove only that exact alpha tag.
-            subprocess.run([*npm_command(), 'dist-tag', 'rm', package['name'], 'latest', '--registry', registry], check=True)
+        check_default_tag(before[package['name']], document, plan['version'], plan['distTag'])
     print('Verified all exact-version native payloads and published platform packages before the main package.')
 
 if __name__ == '__main__':

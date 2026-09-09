@@ -8,10 +8,24 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT / 'tools/publish/scripts'))
-from npm_publish import validate, existing_matches, publication_state, version_order
+from npm_publish import validate, existing_matches, publication_state, version_order, check_default_tag
 from npm_packages import dist_tag
 
 class NpmPublicationTests(unittest.TestCase):
+    def test_first_alpha_default_is_allowed_but_existing_defaults_are_preserved(self):
+        version = '2.0.0-alpha.1'
+        first = {'dist-tags': {'alpha': version, 'latest': version}, 'versions': {version: {}}}
+        check_default_tag(None, first, version, 'alpha')
+        check_default_tag(first, first, version, 'alpha')
+        stable = {'dist-tags': {'latest': '1.0.0'}, 'versions': {'1.0.0': {}}}
+        published = {'dist-tags': {'latest': '1.0.0', 'alpha': version},
+                     'versions': {'1.0.0': {}, version: {}}}
+        check_default_tag(stable, published, version, 'alpha')
+        with self.assertRaises(ValueError):
+            check_default_tag(stable, first, version, 'alpha')
+        with self.assertRaises(ValueError):
+            check_default_tag(None, published, version, 'alpha')
+
     def test_alpha_has_an_explicit_dist_tag(self):
         self.assertEqual(dist_tag('2.0.0-alpha.1', 'prerelease'), 'alpha')
         self.assertEqual(dist_tag('2.0.0-beta.1', 'prerelease'), 'next')

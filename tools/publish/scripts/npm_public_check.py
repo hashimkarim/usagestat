@@ -34,8 +34,9 @@ def check(manifest):
         document = registry_package('https://registry.npmjs.org/', package['name'])
         if not document or document.get('dist-tags', {}).get(plan['distTag']) != plan['version']:
             raise ValueError('Public npm channel/version does not match the release')
-        if plan['distTag'] == 'alpha' and document.get('dist-tags', {}).get('latest') == plan['version']:
-            raise ValueError('The alpha version must not remain tagged latest')
+        if (plan['distTag'] == 'alpha' and document.get('dist-tags', {}).get('latest') == plan['version']
+                and set(document['versions']) != {plan['version']}):
+            raise ValueError('Only a new package with a single alpha version may default to that alpha')
         remote = document['versions'][plan['version']]
         for field in ['name', 'version', 'optionalDependencies', 'os', 'cpu', 'libc', 'bin']:
             if remote.get(field) != package['packageJson'].get(field):

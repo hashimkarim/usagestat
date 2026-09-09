@@ -5,9 +5,10 @@ Issue: #21. The selected name is `@hashimkarim/usagestat`, with five
 the alpha installation rehearsal passed on all five native targets in
 [run 34297460188](https://github.com/hashimkarim/usagestat/actions/runs/34297460188).
 First publication created the Linux x64 payload. The main package is not yet
-published. The owner's fresh npm login is verified; npm's separate two-factor
-publishing approval is pending for tag cleanup, the remaining packages and
-trusted-publisher configuration.
+published. The owner's npm login and separate two-factor approval succeeded.
+The registry rejected removal of the first package's default tag; first-publication
+handling now accepts that initial default and preserves existing defaults.
+The remaining packages and trusted-publisher configuration are still pending.
 `npm/distribution.json` keeps automated `publicationEnabled` false.
 
 The [package README](../npm/README.md) covers requirements, explicit service
@@ -83,8 +84,12 @@ authenticated promotion needed; it never rewrites an existing release version.
 The explicit local `--publish --bootstrap` mode uses the authenticated namespace
 owner for the first alpha packages, without claiming CI provenance. It keeps
 the exact staged tarballs for partial-publication recovery, waits for registry
-read replicas, and removes an automatically assigned `latest` tag only when
-that tag names the same first alpha. Tag removal requires account authentication.
+read replicas, and checks that prereleases preserve each existing `latest` tag.
+npm may assign a new package's only version to `latest` even with `--tag alpha`.
+That initial default is allowed; there is no stable npm release yet. Installation
+instructions explicitly select `@alpha`. Public verification permits this default
+only while the alpha is the package's sole version. Future alphas must preserve
+the prior default, and a stable publication will intentionally set `latest`.
 
 First publication completion and trust setup remain pending. CI publication requires both
 `publicationEnabled: true` and repository variable `NPM_PUBLISH_ENABLED=true`.
