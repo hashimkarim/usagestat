@@ -98,7 +98,7 @@ def existing_matches(package: dict, remote) -> bool:
 
 def wait_for_publication(registry, package, version, tag):
     # New npm packages can remain absent from read replicas after a successful PUT.
-    for attempt in range(36):
+    for attempt in range(120):
         document = registry_package(registry, package['name'], version)
         if publication_state(package, document, version, tag): return document
         if attempt == 0: print(f"Waiting for {package['name']} to become visible in the public registry", flush=True)
