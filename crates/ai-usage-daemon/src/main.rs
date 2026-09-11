@@ -21,6 +21,7 @@ use std::time::{Duration, Instant};
 use usagestat_plugins::{discover_providers, probe_provider};
 
 mod cliproxy;
+mod codex_usage;
 mod control;
 mod http_request;
 
@@ -817,64 +818,7 @@ fn scan_codex_file(path: &Path, events: &mut Vec<LocalUsageEvent>) -> Result<()>
         .unwrap_or("unknown")
         .trim_start_matches("rollout-")
         .to_string();
-    let mut session_id = fallback_session;
-    let mut model = "unknown".to_string();
-    let mut project = "unknown".to_string();
-    for line in std::io::BufReader::new(file).lines().map_while(Result::ok) {
-        let Ok(v) = serde_json::from_str::<JsonValue>(&line) else {
-            continue;
-        };
-        if let Some(id) = v.pointer("/payload/id").and_then(JsonValue::as_str) {
-            session_id = id.to_string();
-        }
-        if let Some(m) = v
-            .pointer("/payload/model")
-            .or_else(|| v.pointer("/payload/model_slug"))
-            .and_then(JsonValue::as_str)
-        {
-            model = m.to_string();
-        }
-        if let Some(cwd) = v.pointer("/payload/cwd").and_then(JsonValue::as_str) {
-            project = project_label(cwd);
-        }
-        let usage = v
-            .pointer("/payload/info/last_token_usage")
-            .or_else(|| v.pointer("/payload/last_token_usage"));
-        let Some(usage) = usage else {
-            continue;
-        };
-        let Some(ts) = parse_ts(v.get("timestamp")) else {
-            continue;
-        };
-        let input = json_u64_value(usage, &["input_tokens", "inputTokens"]);
-        let output = json_u64_value(usage, &["output_tokens", "outputTokens"]);
-        let cache_read = json_u64_value(
-            usage,
-            &[
-                "cached_input_tokens",
-                "cachedInputTokens",
-                "cache_read_input_tokens",
-            ],
-        );
-        let reasoning =
-            json_u64_value(usage, &["reasoning_output_tokens", "reasoningOutputTokens"]);
-        if input + output + cache_read + reasoning == 0 {
-            continue;
-        }
-        let cost = estimate_cost_usd(&model, input, output, 0, cache_read);
-        events.push(LocalUsageEvent {
-            ts,
-            session_id: session_id.clone(),
-            project: project.clone(),
-            model: model.clone(),
-            input_tokens: input,
-            output_tokens: output,
-            cache_read_tokens: cache_read,
-            cache_creation_tokens: 0,
-            reasoning_output_tokens: reasoning,
-            cost_usd: cost,
-        });
-    }
+    codex_usage::scan(std::io::BufReader::new(file), fallback_session, events);
     Ok(())
 }
 

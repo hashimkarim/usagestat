@@ -80,6 +80,24 @@ test("Kimi optional membership failures preserve Code API quotas and cookie-sour
   assert.equal(off.requests.length, 1);
 });
 
+test("Kimi exhausted membership is primary even after Code windows reset", () => {
+  for (const ratio of [1, 1.1, 0.99, 0, null, false, "invalid"]) {
+    const app = load("kimi", { provider: { apiKey: "key", cookieHeader: "kimi-auth=web-token" }, request: (req) => req.method === "GET"
+      ? response({ ...usage, usage: { used: 0, limit: 100 } })
+      : response({ subscriptionBalance: { amountUsedRatio: ratio, feature: "FEATURE_OMNI", type: "SUBSCRIPTION", expireTime: "2026-10-01T00:00:00Z" } }) });
+    const result = app.probe();
+    const exhausted = typeof ratio === "number" && ratio >= 1;
+    assert.equal(result.lines[0].label, exhausted ? "Monthly" : "Session");
+    if (exhausted) {
+      assert.equal(result.lines[0].used, 100);
+      assert.equal(result.lines[0].resetsAt, "2026-10-01T00:00:00.000Z");
+      assert.equal(metric(result, "Session").used, 1);
+      assert.equal(metric(result, "Weekly").used, 0);
+    }
+    if ([null, false, "invalid"].includes(ratio)) assert.equal(metric(result, "Monthly"), undefined);
+  }
+});
+
 test("Kimi never substitutes Open Platform keys or missing counters for Code quotas", () => {
   const platform = load("kimi", { env: { KIMI_API_KEY: "platform-key" } });
   assert.throws(platform.probe, /KIMI_CODE_API_KEY/);

@@ -586,7 +586,8 @@
       "fixtures": [
         "tests/codex-auth.test.cjs",
         "tools/portability/codex_auth.py",
-        "tools/portability/local_usage.py"
+        "tools/portability/local_usage.py",
+        "crates/ai-usage-daemon/src/codex_usage.rs"
       ],
       "auditNote": "Native file/direct-keyring/age auth, canonical profile/revision/account guards and collectors. Encrypted store is read-only; config layers and non-OAuth auth modes are not interpreted."
     },
@@ -900,9 +901,10 @@
       "id": "devin",
       "manifest": "plugins/devin/plugin.json",
       "entry": "plugins/devin/plugin.js",
-      "entrySha256": "3436a73013c332a97cfa7ac358c15f99ce2007ccdd71443545dae64f56bbe4d9",
+      "entrySha256": "ea9e7667e157d0ca7ed0d7e0680a1d6b2bd2ff21548befc81b3fbe29b0190209",
       "declaredModes": [
-        "local"
+        "local",
+        "web"
       ],
       "autoMode": "local",
       "osStatus": {
@@ -913,10 +915,12 @@
       "liveCredentialQualification": "unverified",
       "methods": [
         "configured token/key",
+        "manual web credential",
         "files",
         "SQLite"
       ],
       "hostCalls": [
+        "env.get",
         "fs.appSupportPath",
         "fs.exists",
         "fs.firstExisting",
@@ -929,11 +933,12 @@
         "~/.local/share/cognition/credentials.toml",
         "~/.local/share/devin/credentials.toml"
       ],
-      "branchesOnSourceMode": false,
+      "branchesOnSourceMode": true,
       "fixtures": [
-        "tests/provider-remaining-paths.test.cjs"
+        "tests/provider-remaining-paths.test.cjs",
+        "tests/devin-manual-auth.test.cjs"
       ],
-      "auditNote": "Native IDE and Windows local-data primitives, explicit account selection. Current CLI credential-file location/schema and preview variants unverified."
+      "auditNote": "Explicit manual web bearer/organization routing plus native CLI/IDE account selection. Synthetic fixtures cover precedence, rejected credentials and quota shapes; live web sessions, CLI schemas and preview variants remain unverified."
     },
     {
       "id": "doubao",
@@ -1313,7 +1318,7 @@
       "id": "kimi",
       "manifest": "plugins/kimi/plugin.json",
       "entry": "plugins/kimi/plugin.js",
-      "entrySha256": "f4a03347dd64cf005630d529e15a426b2c82b0fb726606827b1efa6bab9944f3",
+      "entrySha256": "f15ee9b8e7f1e4fafee8208953c220fe622a0200e3924d217dd177817e1386a9",
       "declaredModes": [
         "api",
         "oauth",
@@ -1349,7 +1354,7 @@
         "tests/quota-regressions.test.cjs",
         "tests/kimi-updates.test.cjs"
       ],
-      "auditNote": "Configured Code API key and isolated CLI-home OAuth refresh plus optional membership/web metadata fixtures; real CLI/Desktop schemas and account stores remain unverified."
+      "auditNote": "Configured Code API key, read-only isolated CLI-home OAuth and optional web membership enrichment. Exhausted monthly quota is primary. Real CLI/Desktop schemas and account stores remain unverified."
     },
     {
       "id": "kimi-k2",

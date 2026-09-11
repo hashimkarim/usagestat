@@ -2380,9 +2380,12 @@ function chartColor(c){
 }
 function fmtNum(n){return n>=10000?n.toLocaleString():String(+(n).toFixed(n%1?1:0))}
 function fmtTok(n){
-  if(n>=1e9) return (n/1e9).toFixed(2)+'B';
-  if(n>=1e6) return (n/1e6).toFixed(1)+'M';
-  if(n>=1e3) return (n/1e3).toFixed(1)+'K';
+  if(!Number.isFinite(n)) return '—';
+  const magnitude=Math.abs(n);
+  // Promote when rounding the smaller unit would display 1000.0.
+  if(magnitude>=999950000) return (n/1e9).toFixed(2)+'B';
+  if(magnitude>=999950) return (n/1e6).toFixed(1)+'M';
+  if(magnitude>=1e3) return (n/1e3).toFixed(1)+'K';
   return String(n);
 }
 function fmtReset(iso){

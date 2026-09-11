@@ -211,3 +211,32 @@ test('large history charts combine buckets without dropping usage totals', () =>
   assert.equal(totals.length, 122);
   assert.equal(totals.reduce((a,b) => a+b, 0), 365);
 });
+
+test('token displays promote rounded units and preserve ordinary precision and signs', () => {
+  const ui = dashboard();
+  for (const [value, expected] of [
+    [0, '0'], [999, '999'], [1234, '1.2K'], [999949, '999.9K'],
+    [999950, '1.0M'], [999999, '1.0M'], [1234567, '1.2M'],
+    [999949999, '999.9M'], [999950000, '1.00B'], [999999999, '1.00B'],
+    [1234567890, '1.23B'], [Number.MAX_SAFE_INTEGER, '9007199.25B'],
+  ]) {
+    ui.context.tokenValue = value;
+    assert.equal(ui.run('fmtTok(tokenValue)'), expected);
+    if (value) assert.equal(ui.run('fmtTok(-tokenValue)'), '-' + expected);
+  }
+  for (const value of [NaN, Infinity, -Infinity, null, undefined]) {
+    ui.context.tokenValue = value;
+    assert.equal(ui.run('fmtTok(tokenValue)'), '—');
+  }
+});
+
+test('Kimi exhausted monthly pool reaches the overview primary percentage', () => {
+  const { load, response } = require('../../../tests/provider-sync-harness.cjs');
+  const provider = load('kimi', { provider: { apiKey: 'fixture', cookieHeader: 'fixture' },
+    request: req => req.method === 'GET'
+      ? response({ usage: { used: 0, limit: 100 }, limits: [{ window: { duration: 300, timeUnit: 'TIME_UNIT_MINUTE' }, detail: { used: 1, limit: 100 } }] })
+      : response({ subscriptionBalance: { amountUsedRatio: 1, expireTime: '2026-10-01T00:00:00Z' } }) });
+  const ui = dashboard();
+  ui.context.snapshot = { providerId: 'kimi', metrics: provider.probe().lines };
+  assert.equal(ui.run('primaryPercentOf(snapshot)'), 100);
+});

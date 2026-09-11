@@ -153,6 +153,10 @@ const ENV_ALLOWLIST: &[&str] = &[
     "KIMI_CODE_OAUTH_HOST",
     "KIMI_OAUTH_HOST",
     "KIMI_AUTH_TOKEN",
+    "DEVIN_BEARER_TOKEN",
+    "DEVIN_AUTHORIZATION",
+    "DEVIN_ORGANIZATION",
+    "DEVIN_ORG",
     "LONGCAT_COOKIE",
     "NOTION_COOKIE",
     "NOTION_SPACE_ID",
@@ -443,7 +447,11 @@ fn inject_env<'js>(ctx: &Ctx<'js>, host: &Object<'js>) -> rquickjs::Result<()> {
             if !ENV_ALLOWLIST.contains(&name.as_str()) {
                 return None;
             }
-            std::env::var(name).ok().filter(|value| !value.is_empty())
+            // An explicitly empty Devin override must not select a configured
+            // token or organization belonging to another account.
+            std::env::var(&name)
+                .ok()
+                .filter(|value| !value.is_empty() || name.starts_with("DEVIN_"))
         })?,
     )?;
     host.set("env", env_obj)?;
@@ -2539,6 +2547,40 @@ mod tests {
 #[cfg(test)]
 mod provider_sync_tests {
     use super::*;
+
+    #[test]
+    fn devin_environment_precedence_survives_the_native_javascript_bridge() {
+        const CHILD: &str = "USAGESTAT_DEVIN_ENV_FIXTURE";
+        if std::env::var(CHILD).as_deref() != Ok("child") {
+            let output = std::process::Command::new(std::env::current_exe().unwrap())
+                .args(["--exact", "host_api::provider_sync_tests::devin_environment_precedence_survives_the_native_javascript_bridge"])
+                .env(CHILD, "child")
+                .env("DEVIN_BEARER_TOKEN", "")
+                .env("DEVIN_AUTHORIZATION", "Bearer synthetic-fixture")
+                .env("DEVIN_ORGANIZATION", "  ")
+                .env_remove("DEVIN_ORG")
+                .env("DEVIN_NOT_ALLOWLISTED", "synthetic-private")
+                .env("OPENAI_API_KEY", "")
+                .output().unwrap();
+            assert!(output.status.success(), "{}", String::from_utf8_lossy(&output.stdout));
+            return;
+        }
+        let runtime = rquickjs::Runtime::new().unwrap();
+        let context = rquickjs::Context::full(&runtime).unwrap();
+        context.with(|ctx| {
+            let host = Object::new(ctx.clone()).unwrap();
+            inject_env(&ctx, &host).unwrap();
+            ctx.globals().set("host", host).unwrap();
+            assert!(ctx.eval::<bool, _>(r#"
+                host.env.get('DEVIN_BEARER_TOKEN') === '' &&
+                host.env.get('DEVIN_AUTHORIZATION') === 'Bearer synthetic-fixture' &&
+                host.env.get('DEVIN_ORGANIZATION') === '  ' &&
+                host.env.get('DEVIN_ORG') == null &&
+                host.env.get('DEVIN_NOT_ALLOWLISTED') == null &&
+                host.env.get('OPENAI_API_KEY') == null
+            "#).unwrap());
+        });
+    }
 
     #[test]
     fn base_urls_allow_https_and_only_explicit_loopback_http() {

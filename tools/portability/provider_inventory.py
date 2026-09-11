@@ -24,7 +24,7 @@ NOTES = {
     'copilot': 'Bounded CLI helper host and native home expansion; real gh/Copilot auth stores, CLI versions and account mappings unverified.',
     'cursor': 'Native DB resolver and stable/custom-profile isolation. Shared CLI fallback only for default stable profile; SQLite refresh writeback capability needs audit.',
     'cursor-nightly': 'Separate native DB and override; shared stable CLI auth/history excluded. SQLite refresh writeback capability needs audit.',
-    'devin': 'Native IDE and Windows local-data primitives, explicit account selection. Current CLI credential-file location/schema and preview variants unverified.',
+    'devin': 'Explicit manual web bearer/organization routing plus native CLI/IDE account selection. Synthetic fixtures cover precedence, rejected credentials and quota shapes; live web sessions, CLI schemas and preview variants remain unverified.',
     'factory': 'Legacy file/keychain paths exist, but v2 encrypted files require AES-GCM host methods that are absent; formats/account selection need implementation and native evidence.',
     'droid': 'Aliases Factory code: v2 encrypted files require absent AES-GCM host methods; legacy methods and current auth formats remain unverified.',
     'gemini': 'Home OAuth files exist; OAuth-client extraction searches Unix/macOS package layouts. Windows/global-node installation discovery and current schemas remain to port.',
@@ -49,7 +49,7 @@ FIXTURES = {
     'cursor-nightly': ['tests/provider-account-isolation.test.cjs'],
     'antigravity': ['tests/provider-remaining-paths.test.cjs','tools/portability/ide_discovery.py'],
     'antigravity-ide': ['tools/portability/ide_discovery.py'],
-    'devin': ['tests/provider-remaining-paths.test.cjs'],
+    'devin': ['tests/provider-remaining-paths.test.cjs', 'tests/devin-manual-auth.test.cjs'],
     'perplexity': ['tests/provider-remaining-paths.test.cjs'],
     'kiro': ['tests/provider-paths.test.cjs'],
     'windsurf': ['tests/provider-paths.test.cjs'],
@@ -75,11 +75,11 @@ for ident in SYNC_PROVIDERS:
     ])
 for ident in ['codex', 'command-code', 'elevenlabs', 'kiro', 'minimax', 'moonshot', 'openrouter', 'poe']:
     FIXTURES.setdefault(ident, []).append('tests/codex-auth.test.cjs' if ident == 'codex' else 'tests/inspo-sync-20260909.test.cjs')
-FIXTURES['codex'] = list(dict.fromkeys(FIXTURES['codex']))
+FIXTURES['codex'] = list(dict.fromkeys(FIXTURES['codex'] + ['crates/ai-usage-daemon/src/codex_usage.rs']))
 FIXTURES.setdefault('kimi', []).append('tests/kimi-updates.test.cjs')
 NOTES['factory'] = 'Configured API keys and manual web credentials are implemented; legacy file/keychain paths remain. V2 encrypted files still require absent AES-GCM host methods; real auth formats/account selection are unverified.'
 NOTES['droid'] = 'Aliases Factory API/manual-web and legacy auth code; v2 encrypted files still require absent AES-GCM host methods. Live credentials remain unverified.'
-NOTES['kimi'] = 'Configured Code API key and isolated CLI-home OAuth refresh plus optional membership/web metadata fixtures; real CLI/Desktop schemas and account stores remain unverified.'
+NOTES['kimi'] = 'Configured Code API key, read-only isolated CLI-home OAuth and optional web membership enrichment. Exhausted monthly quota is primary. Real CLI/Desktop schemas and account stores remain unverified.'
 NOTES['kiro'] = 'Native app-support/custom-root fixtures, included/overage credit parsing, and validated supported IDE API profile regions. CLI SQLite credential import and live app/account versions remain unverified.'
 
 def inventory():

@@ -99,7 +99,7 @@ reads only the exact `gemini` / `antigravity` account, with no service-only retr
 These carried credential formats still need qualification with current app
 versions; root portability does not verify a private schema.
 
-The Devin provider supports `settings.authSource` (`auto`, `cli`, `ide`),
+The Devin provider supports `settings.authSource` (`auto`, `cli`, `ide`, `manual`),
 `settings.credentialsPath`, and `settings.ideVariant` (`devin`, `devin-next`,
 `windsurf`, `windsurf-next`). A custom `settings.userDataDir` requires an IDE
 variant. Different accounts found in CLI/IDE installations require selection;
@@ -110,6 +110,29 @@ local app data, honoring absolute `LOCALAPPDATA` and otherwise Known Folders,
 without guessed home-relative AppData. That CLI file location/schema remains
 unverified for current versions; `credentialsPath` selects the actual file.
 [Devin's FAQ documents its native IDE roots and migration](https://docs.devin.ai/desktop/devin-desktop-faq).
+
+Devin web quotas also accept an explicit bearer token and organization on Linux,
+macOS and Windows:
+
+```toml
+[[providers]]
+id = "devin"
+enabled = true
+source = "web"
+workspace_id = "org_YOUR_ORGANIZATION"
+cookie_header = "Bearer YOUR_DEVIN_WEB_TOKEN"
+```
+
+`settings.authSource = "manual"` selects this path in auto mode too. The
+organization can be an internal ID, slug, or `https://app.devin.ai/org/...` URL.
+`DEVIN_BEARER_TOKEN` then `DEVIN_AUTHORIZATION` override the configured token;
+`DEVIN_ORGANIZATION` then `DEVIN_ORG` override the configured organization.
+An explicitly empty override stops authentication instead of selecting the
+configured value. Environment credentials alone do not select web authentication;
+choose `source = "web"` or manual auth explicitly. `settings.cookieSource = "off"`
+disables this path. Use CLI/IDE selection separately from manual web credentials.
+Web token rejection stops the request without trying another account. These
+web tokens are distinct from the existing CLI/IDE Codeium credentials.
 
 OpenCode Go uses `$XDG_DATA_HOME/opencode`, defaulting to the native home's
 `.local/share/opencode`, on **all three OSes**. `settings.dataDir` selects the

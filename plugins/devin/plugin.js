@@ -305,8 +305,119 @@
     return auth.apiKey + "\n" + effectiveApiServerUrl(auth)
   }
 
+  function firstPresent(values) {
+    for (var i = 0; i < values.length; i++) if (values[i] !== null && values[i] !== undefined) return values[i]
+    return null
+  }
+
+  function manualOrganization(raw) {
+    if (typeof raw !== "string") throw {code: "missing-auth", message: "Set Devin workspace_id or DEVIN_ORGANIZATION to the intended organization."}
+    var value = raw.trim().replace(/^\/+|\/+$/g, "")
+    if (/^https:\/\//i.test(value)) {
+      var url = /^https:\/\/(?:[a-z0-9-]+\.)*devin\.ai\/(org|organizations)\/([^/?#]+)(?:[/?#].*)?$/i.exec(value)
+      if (!url) throw {code: "failed", message: "Use an app.devin.ai organization URL, organization ID, or slug."}
+      value = url[1].toLowerCase() + "/" + url[2]
+    }
+    var parts = value.split("/")
+    var id = parts.length === 1 ? parts[0] : parts[1]
+    if (parts.length > 2 || (parts.length === 2 && !/^(org|organizations)$/.test(parts[0])) || !/^[a-z0-9][a-z0-9_.-]*$/i.test(id)) {
+      throw {code: "failed", message: "Invalid Devin organization; use an organization ID, slug, or app.devin.ai organization URL."}
+    }
+    var internal = parts.length === 2 ? parts[0] === "organizations" : /^org[-_]/.test(id)
+    return { id: id, internal: internal, path: (internal ? "organizations/" : "org/") + id }
+  }
+
+  function manualQuotaPercent(value) {
+    var number = readFiniteNumber(value)
+    if (number !== null) return number <= 1 ? number * 100 : number
+    if (!value || typeof value !== "object") return null
+    var usedPercent = firstPresent([value.used_percent, value.usedPercent, value.usage_percent, value.usagePercent, value.percent_used, value.percentUsed, value.percent])
+    if (usedPercent !== null) return manualQuotaPercent(usedPercent)
+    var remainingPercent = firstPresent([value.remaining_percent, value.remainingPercent, value.percent_remaining, value.percentRemaining])
+    if (remainingPercent !== null) {
+      var remaining = manualQuotaPercent(remainingPercent)
+      return remaining === null ? null : 100 - remaining
+    }
+    var limit = readFiniteNumber(firstPresent([value.limit, value.quota, value.total, value.max]))
+    var used = readFiniteNumber(firstPresent([value.used, value.usage, value.used_count, value.usedCount, value.consumed]))
+    if (limit !== null && limit > 0 && used !== null) return used / limit * 100
+    remaining = readFiniteNumber(firstPresent([value.remaining, value.left]))
+    return limit !== null && limit > 0 && remaining !== null ? (limit - remaining) / limit * 100 : null
+  }
+
+  function manualWindow(ctx, data, cadence, depth) {
+    if (!data || typeof data !== "object" || depth > 8) return null
+    var current = readFiniteNumber(data[cadence + "_percentage"])
+    if (current !== null) {
+      var currentPercent = current < 1 ? current * 100 : current
+      if (Number.isFinite(currentPercent)) return {used: currentPercent, reset: ctx.util.toIso(data[cadence + "_reset_at"])}
+    }
+    var singular = cadence === "daily" ? "day" : "week"
+    var window = firstPresent([data[cadence], data[singular], data[cadence + "_quota"], data[cadence + "Quota"], data[cadence + "_usage"], data[cadence + "Usage"]])
+    var percent = manualQuotaPercent(window)
+    if (percent !== null && Number.isFinite(percent)) {
+      return {used: percent, reset: ctx.util.toIso(window && typeof window === "object" ? firstPresent([window.resetsAt, window.reset_at, window.resetAt, window.reset_time]) : null)}
+    }
+    var keys = Object.keys(data)
+    for (var i = 0; i < keys.length; i++) {
+      var nested = manualWindow(ctx, data[keys[i]], cadence, depth + 1)
+      if (nested) return nested
+    }
+    return null
+  }
+
+  function manualOutput(ctx, data) {
+    var daily = manualWindow(ctx, data, "daily", 0)
+    var weekly = manualWindow(ctx, data, "weekly", 0)
+    var lines = []
+    if (daily) lines.push(buildUsedQuotaLine(ctx, "Daily quota", daily.used, daily.reset, DAY_MS))
+    if (weekly) lines.push(buildUsedQuotaLine(ctx, "Weekly quota", weekly.used, weekly.reset, WEEK_MS))
+    if (!lines.length) throw {code: "no-data", message: "Devin web response did not contain measurable daily or weekly quotas."}
+    var balance = readFiniteNumber(data.overage_balance)
+    if (balance === null) {
+      var cents = readFiniteNumber(data.overage_balance_cents)
+      if (cents !== null) balance = cents / 100
+    }
+    if (balance !== null && balance >= 0) lines.push(ctx.line.text({label: "Extra usage balance", value: "$" + balance.toFixed(2)}))
+    var plan = firstPresent([data.plan_name, data.planName, data.plan, data.tier, data.subscription_tier])
+    return {source: "web", plan: typeof plan === "string" && plan.trim() ? plan.trim() : null, lines: lines}
+  }
+
+  function probeManual(ctx, opts) {
+    if (opts.cookieSource === "off") throw {code: "missing-auth", message: "Devin web authentication is disabled in settings.cookieSource."}
+    if (opts.credentialsPath || opts.ideVariant || opts.userDataDir || (opts.authSource && ["auto", "manual"].indexOf(opts.authSource) < 0)) {
+      throw {code: "failed", message: "Select either Devin manual web authentication or a CLI/IDE credential source."}
+    }
+    var raw = firstPresent([ctx.host.env.get("DEVIN_BEARER_TOKEN"), ctx.host.env.get("DEVIN_AUTHORIZATION"), ctx.provider.cookieHeader, opts.bearerToken])
+    var token = typeof raw === "string" ? raw.trim().replace(/^Authorization:\s*/i, "").replace(/^Bearer(?:\s+|$)/i, "").trim() : ""
+    if (!token || /[^\x21-\x7e]/.test(token)) throw {code: "missing-auth", message: "Set a valid Devin bearer token in cookie_header or DEVIN_BEARER_TOKEN."}
+    var org = manualOrganization(firstPresent([ctx.host.env.get("DEVIN_ORGANIZATION"), ctx.host.env.get("DEVIN_ORG"), ctx.provider.workspaceId, opts.organization]))
+    var paths = org.internal ? [org.id, org.path] : [org.path, org.id]
+    for (var i = 0; i < paths.length; i++) {
+      var headers = {Authorization: "Bearer " + token, Accept: "application/json", "Accept-Language": "en-US,en;q=0.9", "User-Agent": "usagestat/" + ctx.app.version}
+      if (org.internal) headers["x-cog-org-id"] = org.id
+      var response = ctx.util.request({method: "GET", url: "https://app.devin.ai/api/" + paths[i] + "/billing/quota/usage", headers: headers, timeoutMs: 10000})
+      if (response.status === 401 || response.status === 403) throw {code: "credential-denied", message: "Devin web token was rejected. Reauthenticate the selected organization."}
+      // Alternate routes refer to the same organization; only missing routes
+      // permit retry. A rejected token never selects a CLI or IDE account.
+      if (response.status === 404 || response.status === 405) continue
+      if (response.status !== 200) throw {code: "failed", message: "Devin quota request failed (HTTP " + response.status + ")."}
+      var data = ctx.util.tryParseJson(response.bodyText)
+      if (!data || typeof data !== "object") throw {code: "no-data", message: "Invalid Devin quota response."}
+      return manualOutput(ctx, data)
+    }
+    throw {code: "no-data", message: "Devin quota endpoint was not found for the selected organization."}
+  }
+
   function probe(ctx) {
     var opts = settings(ctx)
+    var mode = ctx.sourceMode || "auto"
+    var manual = mode === "web" || opts.authSource === "manual" || opts.cookieSource === "manual" ||
+      (mode === "auto" && !opts.authSource && opts.cookieSource == null && (ctx.provider.cookieHeader != null || opts.bearerToken != null))
+    if (manual) {
+      if (mode === "local") throw {code: "failed", message: "Select web or auto mode to use Devin manual web authentication."}
+      return probeManual(ctx, opts)
+    }
     var source = opts.authSource || (opts.credentialsPath ? "cli" : opts.ideVariant || opts.userDataDir ? "ide" : "auto")
     if (["auto", "cli", "ide"].indexOf(source) < 0) throw {code: "failed", message: "Set Devin settings.authSource to auto, cli or ide."}
     if ((opts.credentialsPath && source !== "cli") || ((opts.ideVariant || opts.userDataDir) && source !== "ide")) {

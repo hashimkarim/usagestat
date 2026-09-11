@@ -112,8 +112,12 @@
       const ratio = pool && readNumber(pool.amountUsedRatio)
       if (Number.isFinite(ratio) && pool && (!pool.feature || pool.feature === "FEATURE_OMNI") && (!pool.type || pool.type === "SUBSCRIPTION")) {
         const reset = ctx.util.toIso(pool.expireTime)
-        result.lines.push(ctx.line.progress({ label: "Monthly", used: Math.max(0, Math.min(100, ratio * 100)), limit: 100,
-          format: { kind: "percent" }, resetsAt: reset, periodDurationMs: ctx.util.calendarMonthDuration(reset) }))
+        const monthly = ctx.line.progress({ label: "Monthly", used: Math.max(0, Math.min(100, ratio * 100)), limit: 100,
+          format: { kind: "percent" }, resetsAt: reset, periodDurationMs: ctx.util.calendarMonthDuration(reset) })
+        // Automatic summaries use the first quota. Reset Code windows cannot
+        // make an exhausted membership pool available again.
+        if (ratio >= 1) result.lines.unshift(monthly)
+        else result.lines.push(monthly)
       }
       const weekly = data.ratelimitCode7d
       const weeklyRatio = weekly && readNumber(weekly.ratio)

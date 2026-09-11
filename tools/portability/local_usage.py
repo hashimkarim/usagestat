@@ -65,6 +65,23 @@ def check(daemon: Path) -> dict:
         original = write_history(root / "archived fixture", "codex", 50)
         archived.write_bytes(original.read_bytes())
 
+        # Child logs can contain copied parent history before any owned event.
+        # This prefix must contribute zero even with apparent delivery markers.
+        child_history = profiles["codex"] / "sessions/child.jsonl"
+        def child_tokens(ordinal, total, last):
+            return {"type": "event_msg", "ordinal": ordinal, "timestamp": "2026-08-01T12:00:00Z",
+                    "payload": {"type": "token_count", "info": {
+                        "total_token_usage": {"input_tokens": total, "output_tokens": 0},
+                        "last_token_usage": {"input_tokens": last, "output_tokens": 0}}}}
+        child_prefix = [
+            {"type": "session_meta", "ordinal": 0, "payload": {"id": "child-session", "model": "gpt-5",
+                "forked_from_id": "fixture-session", "subagent_history_start_ordinal": 210}},
+            child_tokens(2, 1000, 1000),
+            {"type": "inter_agent_communication_metadata", "ordinal": 11, "payload": {"trigger_turn": True}},
+            child_tokens(208, 1070, 70),
+        ]
+        child_history.write_text("\n".join(map(json.dumps, child_prefix)) + "\n", encoding="utf-8")
+
         with socket.socket() as held:
             held.bind(("127.0.0.1", 0))
             bind = f"127.0.0.1:{held.getsockname()[1]}"
@@ -96,6 +113,15 @@ def check(daemon: Path) -> dict:
                     assert rows[0]["costUsd"] > 0, rows
                 checks.append(provider + "-explicit-profile-and-normalized-reports")
             checks.append("codex-archived-history-and-malformed-empty-lines")
+            checks.append("codex-inherited-subagent-prefix-excluded")
+            with child_history.open("a", encoding="utf-8") as stream:
+                for row in [child_tokens(211, 1100, 30), child_tokens(212, 1100, 30)]:
+                    stream.write(json.dumps(row) + "\n")
+            for _ in range(2):
+                for report, field in [("daily", "daily"), ("weekly", "weekly"), ("monthly", "monthly"), ("session", "sessions")]:
+                    rows = request(f"/v1/local-usage/codex/{report}")[field]
+                    assert sum(row["inputTokens"] for row in rows) == 180, rows
+            checks.append("codex-child-appends-and-repeated-totals-counted-once")
             # Removing an explicit Codex directory must report its failure,
             # never select the default account or an earlier saved result.
             profiles["codex"].rename(root / "removed codex profile")
