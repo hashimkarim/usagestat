@@ -43,7 +43,7 @@ jobs:
           node-version: '24'
       - name: Verify providers before building release assets
         run: |
-          node --test tests/*.test.cjs
+          node --test tests/*.test.cjs crates/ai-usage-daemon/tests/*.test.cjs
           python tools/portability/provider_inventory.py --check
       - run: node --test npm/launcher.test.cjs
 

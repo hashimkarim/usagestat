@@ -1,22 +1,29 @@
 # Try the v2 backend alpha
 
-[v2.0.0-alpha.1 downloads](https://github.com/hashimkarim/usagestat/releases/tag/v2.0.0-alpha.1)
+[v2.0.0-alpha.2 downloads](https://github.com/hashimkarim/usagestat/releases/tag/v2.0.0-alpha.2)
 contain the CLI, daemon, local web dashboard/API and provider plugins for Windows
 x64, macOS Intel/Apple Silicon and Linux x64/ARM64. This is an early backend
 release; the Windows/macOS bar frontends are not included. Choose alpha for testing;
 existing stable Linux packages remain available separately.
 
+Alpha.2 includes all 77 plugins. The 16 newly bundled providers are disabled by
+default; enable the providers you use in settings. It also updates Kimi, Devin,
+Codex usage accounting and several other providers.
+
 Windows/macOS binaries are unsigned and the Mac binaries are not notarized.
 Use the exact repository release and matching checksums. Signing, normal desktop
 login/reboot and real provider authentication still need qualification; see the
-[release notes](releases/v2.0.0-alpha.1.md). Native CI runs on macOS 15 and Windows
+[release notes](releases/v2.0.0-alpha.2.md). Native CI runs on macOS 15 and Windows
 Server 2025. Older candidate OS floors remain unverified. Linux requires glibc
 2.39+; Windows ARM64 and musl/Alpine have no alpha payload.
 
 ## Alpha package repositories
 
-Alpha packages are published separately from the stable repositories. Availability
-was checked on September 9, 2026; pending channels are explicitly marked below.
+Alpha packages are published separately from the stable repositories. The
+destinations below were checked for alpha.1 on September 9, 2026. Each new alpha
+updates these feeds after native installation checks; builds and community review
+can finish after GitHub downloads become available. Check the installed version
+with `usagestat --version` after updating.
 
 | Channel | Alpha destination | Package / formula | Target |
 | --- | --- | --- | --- |
@@ -29,9 +36,9 @@ was checked on September 9, 2026; pending channels are explicitly marked below.
 | Windows | [WinGet submission](https://github.com/microsoft/winget-pkgs/pull/431692) | `HashimKarim.UsageStat.Alpha` | Windows x64; all upstream automated checks passed, review/merge pending |
 | All five native targets | [npm](https://www.npmjs.com/package/@hashimkarim/usagestat) | `@hashimkarim/usagestat@alpha` | Published: Linux x64/ARM64, macOS Intel/Apple Silicon, Windows x64 |
 
-Ubuntu's signed
+For alpha.1, Ubuntu's signed
 [Noble package](https://launchpad.net/~hashimkarim/+archive/ubuntu/usagestat-alpha)
-is published as `usagestat 2.0.0~alpha.1-1ppa1`. Installation from the public PPA
+was published as `usagestat 2.0.0~alpha.1-1ppa1`. Installation from the public PPA
 passed in a clean Ubuntu 24.04 container: both executables, all 61 providers/icons,
 no automatic service registration, and removal retaining user data were checked.
 
@@ -124,8 +131,8 @@ Before removal, run `usagestat daemon unregister`, then
 
 Chocolatey's [package naming rule](https://docs.chocolatey.org/en-us/community-repository/moderation/package-validator/rules/cpmr0024/)
 requires the ID `usagestat`, with alpha selected through `--pre`. It uses
-`2.0.0-alpha000001` because its community feed requires SemVer 1 prerelease
-syntax; the binaries still report `2.0.0-alpha.1`. After community review,
+`2.0.0-alpha000002` for alpha.2 because its community feed requires SemVer 1
+prerelease syntax; the binaries still report `2.0.0-alpha.2`. After community review,
 installation will be `choco install usagestat --pre` in an elevated shell.
 Updates use `choco upgrade usagestat --pre`; release Windows file
 locks with `daemon disable` first and restore the saved daemon state afterward.
@@ -259,7 +266,7 @@ usagestat --version
 usagestat doctor
 ```
 
-All six packages are public at `2.0.0-alpha.1`. The main package selects the native
+Each alpha publishes six public packages. The main package selects the native
 payload for your platform; installation needs no compiler or install scripts and
 does not register a service. Linux requires glibc 2.39+. The npm macOS candidate
 requires 13.5+ because of Node; minimum-OS and real desktop acceptance remain open.
