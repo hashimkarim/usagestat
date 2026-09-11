@@ -7,6 +7,7 @@ import subprocess
 import tempfile
 from native_smoke import isolated_env, run
 from stage_dev import stage
+from native_artifacts import verify_provider_inventory
 
 
 def check(binary_dir, target):
@@ -26,7 +27,7 @@ def check(binary_dir, target):
         caps=json.loads(run(cli,['capabilities','--json'],root,env))
         assert caps['profile']=='usagestat-dev'
         providers=json.loads(run(cli,['list','--json'],root,env))
-        assert len(providers)==61
+        verify_provider_inventory(providers, manifest)
         for p in providers:
             icon=(p.get('icon') or {}).get('path')
             if icon:

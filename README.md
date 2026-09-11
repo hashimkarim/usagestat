@@ -4,9 +4,9 @@ Track AI provider quotas, token usage, and costs through a scriptable CLI,
 a local dashboard, and an HTTP API.
 
 <p>
-  <a href="https://github.com/hashimkarim/usagestat/releases/tag/v2.0.0-alpha.2"><picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://shieldcn.dev/badge/Preview-v2.0.0--alpha.2-B45309.svg?variant=outline&amp;size=sm&amp;logo=github&amp;mode=dark">
-    <img alt="v2.0.0-alpha.2 backend preview" src="https://shieldcn.dev/badge/Preview-v2.0.0--alpha.2-B45309.svg?variant=outline&amp;size=sm&amp;logo=github&amp;mode=light">
+  <a href="https://github.com/hashimkarim/usagestat/releases/tag/v2.0.0-alpha.3"><picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://shieldcn.dev/badge/Preview-v2.0.0--alpha.3-B45309.svg?variant=outline&amp;size=sm&amp;logo=github&amp;mode=dark">
+    <img alt="v2.0.0-alpha.3 backend preview" src="https://shieldcn.dev/badge/Preview-v2.0.0--alpha.3-B45309.svg?variant=outline&amp;size=sm&amp;logo=github&amp;mode=light">
   </picture></a>
   <a href="https://github.com/Hashim-K/usagestat/releases/latest"><picture>
     <source media="(prefers-color-scheme: dark)" srcset="https://shieldcn.dev/github/Hashim-K/usagestat/release.svg?variant=outline&amp;size=sm&amp;logo=github&amp;mode=dark">
@@ -42,7 +42,7 @@ a local dashboard, and an HTTP API.
 
 ## Install
 
-**[Try v2.0.0-alpha.2 on Windows, macOS or Linux](docs/alpha.md).** The unsigned
+**[Try v2.0.0-alpha.3 on Windows, macOS or Linux](docs/alpha.md).** The unsigned
 backend alpha includes native archives and a Windows per-user installer. Native
 bar frontends, desktop acceptance and signing remain pending. Stable package-manager instructions follow below.
 
@@ -213,7 +213,7 @@ The source tree bundles **77 providers**:
 - `stepfun`, `sub2api`, `synthetic`, `t3chat`, `venice`, `vertex-ai`, `warp`
 - `wayfinder`, `windsurf`, `xai`, `zai`, `zed`, `zenmux`, `zoommate`
 
-All 77 plugins ship in `v2.0.0-alpha.2`, including the 16 additions from the
+All 77 plugins ship in `v2.0.0-alpha.3`, including the 16 additions from the
 September provider sync. Those additions are disabled by default. See the
 [provider compatibility reference](docs/provider-compatibility.md) for supported
 data sources and validation coverage.

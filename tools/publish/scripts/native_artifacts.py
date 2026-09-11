@@ -310,6 +310,17 @@ def read_checked(path: Path) -> bytes:
         raise ValueError(f"Checksum mismatch: {path.name}")
     return data
 
+def verify_provider_inventory(providers: list[dict], manifest: dict) -> None:
+    """Require every declared provider exactly once, regardless of release size."""
+    expected = [parts[1] for item in manifest['files']
+                if len(parts := item['path'].split('/')) == 3
+                and parts[0] == 'plugins' and parts[2] == 'plugin.json']
+    actual = [provider['id'] for provider in providers]
+    if not expected or len(expected) != len(set(expected)):
+        raise ValueError('Expected provider inventory is empty or contains duplicates')
+    if sorted(actual) != sorted(expected):
+        raise ValueError('Installed provider inventory does not match the release manifest')
+
 def unpack_checked(manifest: dict, archive_path: Path, destination: Path) -> None:
     archive_data = read_checked(archive_path)
     if (digest(archive_data), len(archive_data)) != (manifest["archive"]["sha256"], manifest["archive"]["size"]):
@@ -381,11 +392,9 @@ def verify(manifest_path: Path, *, smoke_temp: Path | None = None) -> dict:
         env = isolated_env(root / "profile")
         cwd = root / "outside source and installation"
         cwd.mkdir()
-        expected_ids = {json.loads(data)["id"] for name, data in resources.items() if name.endswith("/plugin.json")}
         cli = extracted / binary_names(target)[0]
         providers = json.loads(run(cli, ["--json", "list"], cwd, env))
-        if {provider["id"] for provider in providers} != expected_ids:
-            raise ValueError("Installed archive plugin discovery does not match its inventory")
+        verify_provider_inventory(providers, manifest)
         for provider in providers:
             icon = (provider.get("icon") or {}).get("path")
             if icon and (not Path(icon).is_absolute() or not Path(icon).is_file()):

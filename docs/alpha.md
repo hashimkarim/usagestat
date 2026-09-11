@@ -1,19 +1,19 @@
 # Try the v2 backend alpha
 
-[v2.0.0-alpha.2 downloads](https://github.com/hashimkarim/usagestat/releases/tag/v2.0.0-alpha.2)
+[v2.0.0-alpha.3 downloads](https://github.com/hashimkarim/usagestat/releases/tag/v2.0.0-alpha.3)
 contain the CLI, daemon, local web dashboard/API and provider plugins for Windows
 x64, macOS Intel/Apple Silicon and Linux x64/ARM64. This is an early backend
 release; the Windows/macOS bar frontends are not included. Choose alpha for testing;
 existing stable Linux packages remain available separately.
 
-Alpha.2 includes all 77 plugins. The 16 newly bundled providers are disabled by
+Alpha.3 includes all 77 plugins. The 16 newly bundled providers are disabled by
 default; enable the providers you use in settings. It also updates Kimi, Devin,
 Codex usage accounting and several other providers.
 
 Windows/macOS binaries are unsigned and the Mac binaries are not notarized.
 Use the exact repository release and matching checksums. Signing, normal desktop
 login/reboot and real provider authentication still need qualification; see the
-[release notes](releases/v2.0.0-alpha.2.md). Native CI runs on macOS 15 and Windows
+[release notes](releases/v2.0.0-alpha.3.md). Native CI runs on macOS 15 and Windows
 Server 2025. Older candidate OS floors remain unverified. Linux requires glibc
 2.39+; Windows ARM64 and musl/Alpine have no alpha payload.
 
@@ -131,8 +131,8 @@ Before removal, run `usagestat daemon unregister`, then
 
 Chocolatey's [package naming rule](https://docs.chocolatey.org/en-us/community-repository/moderation/package-validator/rules/cpmr0024/)
 requires the ID `usagestat`, with alpha selected through `--pre`. It uses
-`2.0.0-alpha000002` for alpha.2 because its community feed requires SemVer 1
-prerelease syntax; the binaries still report `2.0.0-alpha.2`. After community review,
+`2.0.0-alpha000003` for alpha.3 because its community feed requires SemVer 1
+prerelease syntax; the binaries still report `2.0.0-alpha.3`. After community review,
 installation will be `choco install usagestat --pre` in an elevated shell.
 Updates use `choco upgrade usagestat --pre`; release Windows file
 locks with `daemon disable` first and restore the saved daemon state afterward.

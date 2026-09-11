@@ -273,7 +273,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Recipe preparation failed' }
       - name: Install and remove the real Windows package
         run: |
-          ./tools/publish/scripts/test-windows-feed.ps1 -Channel $env:FEED_CHANNEL -RecipeDirectory "prepared/$env:FEED_CHANNEL" -UpstreamVersion ($env:RELEASE_TAG.Substring(1))
+          ./tools/publish/scripts/test-windows-feed.ps1 -Channel $env:FEED_CHANNEL -RecipeDirectory "prepared/$env:FEED_CHANNEL" -UpstreamVersion ($env:RELEASE_TAG.Substring(1)) -ManifestPath assets/usagestat-windows-x86_64.manifest.json
       - name: Publish tested Scoop or submit tested WinGet manifests
         if: inputs.dry_run != true && matrix.channel != 'chocolatey'
         env:

@@ -18,6 +18,35 @@ SHELL = os.environ.get('USAGESTAT_TEST_POWERSHELL') or (str(Path(os.environ['Sys
 
 @unittest.skipUnless(SHELL, 'PowerShell payload validation runs on Windows CI or with USAGESTAT_TEST_POWERSHELL')
 class WindowsInstallerPayloadTests(unittest.TestCase):
+    def test_feed_inventory_checks_all_manifest_ids_without_a_fixed_provider_count(self):
+        with tempfile.TemporaryDirectory(prefix='feed inventory ') as temporary:
+            script = Path(temporary) / 'inventory.ps1'
+            script.write_text(r'''
+param([string]$FeedScript)
+Set-StrictMode -Version Latest
+$ErrorActionPreference='Stop'
+$tokens=$null; $errors=$null
+$ast=[Management.Automation.Language.Parser]::ParseFile($FeedScript,[ref]$tokens,[ref]$errors)
+if ($errors.Count) { throw ($errors | Out-String) }
+$definition=$ast.Find({param($node) $node -is [Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq 'Check-ProviderInventory'},$false)
+if (-not $definition) { throw 'Feed provider inventory check is missing.' }
+. ([ScriptBlock]::Create($definition.Extent.Text))
+$manifest=@{files=@(1..77 | ForEach-Object { @{path="plugins/provider-$_/plugin.json"} })}
+$providers=@(1..77 | ForEach-Object { @{id="provider-$_"} })
+Check-ProviderInventory -Providers $providers -Manifest $manifest
+function Expect-Rejected($Value) {
+    $rejected=$false
+    try { Check-ProviderInventory -Providers $Value -Manifest $manifest } catch { $rejected=$true }
+    if (-not $rejected) { throw 'An incorrect installed provider inventory was accepted.' }
+}
+Expect-Rejected -Value $providers[0..60]
+Expect-Rejected -Value ($providers + $providers[0])
+Expect-Rejected -Value ($providers[0..75] + @{id='unexpected-provider'})
+''', encoding='utf-8')
+            subprocess.run([SHELL, '-NoProfile', '-NonInteractive', '-File', str(script),
+                            '-FeedScript', str(ROOT / 'tools/publish/scripts/test-windows-feed.ps1')],
+                           check=True, capture_output=True, text=True, timeout=30)
+
     def test_verified_extraction_rejects_windows_aliases_links_and_tampering(self):
         with tempfile.TemporaryDirectory(prefix='installer payload ') as temporary:
             root = Path(temporary)

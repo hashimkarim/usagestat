@@ -20,7 +20,7 @@ from native_smoke import isolated_env
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / 'tools/publish/scripts'))
-from native_artifacts import archive_bytes, digest, resource_files, version
+from native_artifacts import archive_bytes, digest, resource_files, version, read_checked, verify_provider_inventory
 
 INSTALLER = ROOT / 'tools/install/Install-Usagestat.ps1'
 
@@ -87,7 +87,6 @@ def check(binary_dir: Path | None = None, manifest: Path | None = None, installe
     if installer.read_bytes() != INSTALLER.read_bytes():
         raise ValueError('Installer bytes disagree with the checked-out release source')
     if installer != INSTALLER:
-        from native_artifacts import read_checked
         read_checked(installer)
     powershell = str(Path(os.environ['SystemRoot']) / 'System32/WindowsPowerShell/v1.0/powershell.exe')
     # Before any service changes, prove the exact per-user dev task is unused.
@@ -136,7 +135,8 @@ def check(binary_dir: Path | None = None, manifest: Path | None = None, installe
             install()
             assert not state()['registered'] and not (config_root / 'daemon.json').exists()
             providers = json.loads(command('--json', 'list'))
-            assert len(providers) >= 61 and all(Path(p['icon']['path']).is_file() for p in providers if (p.get('icon') or {}).get('path'))
+            verify_provider_inventory(providers, json.loads(read_checked(selected)))
+            assert all(Path(p['icon']['path']).is_file() for p in providers if (p.get('icon') or {}).get('path'))
             install()
             assert not state()['registered']
             result['checks'].append('install-twice-unicode-resources-no-implicit-startup')

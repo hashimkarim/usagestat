@@ -1,11 +1,14 @@
 param(
     [Parameter(Mandatory)][ValidateSet('scoop', 'winget', 'chocolatey')][string]$Channel,
     [Parameter(Mandatory)][string]$RecipeDirectory,
-    [Parameter(Mandatory)][string]$UpstreamVersion
+    [Parameter(Mandatory)][string]$UpstreamVersion,
+    [Parameter(Mandatory)][string]$ManifestPath
 )
 $ErrorActionPreference = 'Stop'
 if ($env:GITHUB_ACTIONS -ne 'true') { throw 'Feed installation tests require a disposable hosted Windows runner.' }
 $recipes = (Resolve-Path -LiteralPath $RecipeDirectory).Path
+$manifest = Get-Content -LiteralPath $ManifestPath -Raw | ConvertFrom-Json
+if ($manifest.version -ne $UpstreamVersion) { throw 'Expected provider manifest version mismatch.' }
 $profileRoot = Join-Path $env:RUNNER_TEMP ('usagestat-feed-' + [guid]::NewGuid().ToString('N'))
 $env:USAGESTAT_CONFIG_DIR = Join-Path $profileRoot 'config'
 $env:USAGESTAT_DATA_DIR = Join-Path $profileRoot 'data'
@@ -20,6 +23,20 @@ function Check-Exit([string]$Operation) {
 function Refresh-Path {
     $env:PATH = [Environment]::GetEnvironmentVariable('PATH', 'Machine') + ';' + [Environment]::GetEnvironmentVariable('PATH', 'User')
 }
+function Check-ProviderInventory($Providers, $Manifest) {
+    $expectedProviderIds = @($Manifest.files | ForEach-Object {
+        if ($_.path -cmatch '^plugins/([^/]+)/plugin\.json$') { $Matches[1] }
+    } | Sort-Object -CaseSensitive)
+    if (-not $expectedProviderIds.Count -or
+        @($expectedProviderIds | Sort-Object -Unique -CaseSensitive).Count -ne $expectedProviderIds.Count) {
+        throw 'Expected provider inventory is empty or contains duplicates.'
+    }
+    $actualProviderIds = @($Providers | ForEach-Object { $_.id } | Sort-Object -CaseSensitive)
+    if ($actualProviderIds.Count -ne $expectedProviderIds.Count -or
+        (Compare-Object -ReferenceObject $expectedProviderIds -DifferenceObject $actualProviderIds -CaseSensitive)) {
+        throw 'Installed provider inventory does not match the release manifest.'
+    }
+}
 function Check-Backend {
     Refresh-Path
     $cli = (Get-Command usagestat.exe -ErrorAction Stop).Source
@@ -30,7 +47,7 @@ function Check-Backend {
     Check-Exit 'Daemon version'
     $providers = (& $cli --json list | ConvertFrom-Json)
     Check-Exit 'Installed provider discovery'
-    if ($providers.Count -ne 61) { throw 'Installed provider inventory is incomplete.' }
+    Check-ProviderInventory -Providers $providers -Manifest $manifest
     foreach ($provider in $providers) {
         if ($provider.icon.path -and -not (Test-Path -LiteralPath $provider.icon.path)) { throw 'Installed provider icon is missing.' }
     }

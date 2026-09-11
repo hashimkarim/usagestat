@@ -7,12 +7,16 @@ import platform
 import subprocess
 import tempfile
 from homebrew_formula import generate
+from native_artifacts import read_checked, verify_provider_inventory
 
 
 def check(artifacts):
     if platform.system() != 'Darwin' or os.environ.get('GITHUB_ACTIONS') != 'true':
         raise ValueError('Public formula installation requires a disposable macOS CI runner')
     formula = 'hashimkarim/tap/usagestat-alpha'
+    release = json.loads(read_checked(artifacts / 'usagestat-artifacts.json'))
+    manifest = next(m for m in release['targets'] if m['os'] == 'darwin'
+                    and m['arch'] == ('arm64' if platform.machine() == 'arm64' else 'x64'))
     with tempfile.TemporaryDirectory(prefix='usagestat-alpha-feed-') as temporary:
         profile = Path(temporary)
         env = dict(os.environ, HOMEBREW_NO_AUTO_UPDATE='1', HOMEBREW_NO_INSTALL_CLEANUP='1',
@@ -43,7 +47,7 @@ def check(artifacts):
             version = json.loads((artifacts / 'usagestat-artifacts.json').read_text())['version']
             assert backend('--version').strip() == 'usagestat ' + version
             providers = json.loads(backend('--json', 'list'))
-            assert len(providers) == 61
+            verify_provider_inventory(providers, manifest)
             assert all(Path(p['icon']['path']).is_file() for p in providers if (p.get('icon') or {}).get('path'))
             status = json.loads(backend('daemon', 'status', '--json'))
             assert not status['configured'] and not status['registered'] and not status['running']

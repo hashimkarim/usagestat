@@ -15,6 +15,23 @@ guard_spec.loader.exec_module(guard)
 
 
 class NativeArtifactTests(unittest.TestCase):
+    def test_installed_provider_inventory_follows_manifest_including_new_providers(self):
+        for count in (61, 77, 78):
+            with self.subTest(count=count):
+                providers = [{'id': f'provider-{i}'} for i in range(count)]
+                manifest = {'files': [{'path': f"plugins/{p['id']}/plugin.json"} for p in providers]}
+                artifacts.verify_provider_inventory(list(reversed(providers)), manifest)
+                for incomplete in (providers[:-1], providers[:61] if count > 61 else [],
+                                   providers + [providers[0]],
+                                   providers[:-1] + [{'id': 'unexpected-provider'}]):
+                    with self.assertRaisesRegex(ValueError, 'does not match'):
+                        artifacts.verify_provider_inventory(incomplete, manifest)
+
+    def test_installed_provider_inventory_rejects_empty_or_duplicate_expectations(self):
+        for files in ([], [{'path': 'plugins/fixture/plugin.json'}] * 2):
+            with self.assertRaisesRegex(ValueError, 'empty or contains duplicates'):
+                artifacts.verify_provider_inventory([], {'files': files})
+
     def test_resource_allowlist_excludes_provider_tests_and_development_files(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

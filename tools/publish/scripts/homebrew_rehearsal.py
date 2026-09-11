@@ -13,6 +13,7 @@ import tempfile
 import time
 import uuid
 from homebrew_formula import generate
+from native_artifacts import read_checked, verify_provider_inventory
 
 
 def check(directory):
@@ -37,6 +38,9 @@ def check(directory):
     name = 'usagestat-fixture-' + suffix
     formula_id = tap + '/' + name
     formula = generate(directory, rehearsal=True, formula_name=name)
+    release = json.loads(read_checked(directory / 'usagestat-artifacts.json'))
+    manifest = next(m for m in release['targets'] if m['os'] == 'darwin'
+                    and m['arch'] == ('arm64' if platform.machine() == 'arm64' else 'x64'))
     created = False
     service_owned = False
     installed = None
@@ -89,7 +93,7 @@ def check(directory):
                 result = subprocess.check_output([str(installed / 'bin/usagestat'), '--json', 'list'],
                     env=runtime_env, cwd=profile, text=True, timeout=30)
                 providers = json.loads(result)
-                assert len(providers) == 61
+                verify_provider_inventory(providers, manifest)
                 assert all(Path(p['icon']['path']).is_file() for p in providers if (p.get('icon') or {}).get('path'))
                 assert (installed / 'share/usagestat/LICENSE').is_file()
                 report = json.loads(subprocess.check_output([str(installed / 'bin/usagestat'), 'daemon', 'status', '--json'],
