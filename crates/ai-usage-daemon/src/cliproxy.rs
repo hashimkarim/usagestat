@@ -710,7 +710,7 @@ mod tests {
             );
             let server = std::thread::spawn(move || {
                 let (stream, _) = listener.accept().unwrap();
-                crate::handle_connection(stream, state, flag, management);
+                crate::handle_connection(stream, state, flag, management, None);
             });
             let mut client = TcpStream::connect(address).unwrap();
             client

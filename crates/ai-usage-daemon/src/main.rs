@@ -14,7 +14,7 @@ use std::collections::HashMap;
 use std::io::Write;
 use std::net::{TcpListener, TcpStream};
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
@@ -29,6 +29,7 @@ mod local_usage;
 mod local_usage_cache;
 mod pricing;
 mod prometheus;
+mod run_usage;
 use usagestat_core::usage_daily::UsageModelDaily as ModelAggregate;
 
 #[derive(Debug, Parser)]
@@ -59,6 +60,14 @@ struct Cli {
     /// Separate credential for authenticated lifecycle control.
     #[arg(long, value_name = "PATH")]
     control_key_file: Option<PathBuf>,
+
+    /// Enable authenticated SDK run ingestion using a private JSON configuration.
+    #[arg(long, value_name = "PATH")]
+    run_usage_config: Option<PathBuf>,
+
+    /// Ingestion-only mode: do not discover or probe provider credentials.
+    #[arg(long)]
+    no_poll: bool,
 }
 
 #[derive(Debug, Default)]
@@ -103,6 +112,12 @@ fn main() -> Result<()> {
     let shutdown = usagestat_core::signals::register()?;
     let control = control::ControlApi::load(cli.control_key_file.as_deref(), shutdown.clone())?;
     let management = cliproxy::ManagementApi::load(cli.management_key_file.as_deref())?;
+    let run_usage = cli
+        .run_usage_config
+        .as_deref()
+        .map(run_usage::RunUsageApi::load)
+        .transpose()?
+        .map(Arc::new);
     let config_path = match cli.config.clone() {
         Some(path) => path,
         None => paths::config_file()?,
@@ -136,35 +151,55 @@ fn main() -> Result<()> {
     // A conflicting listener must fail before any provider is started.
     let listener =
         TcpListener::bind(&cli.bind).with_context(|| format!("bind daemon at {}", cli.bind))?;
-    let poller = start_poller(
-        Arc::clone(&state),
-        Arc::clone(&refresh_flag),
-        config,
-        plugin_dirs,
-        cache_path,
-        history_path,
-        refresh_sec,
-        Arc::clone(&shutdown),
-    );
+    if run_usage.is_some() && !listener.local_addr()?.ip().is_loopback() {
+        anyhow::bail!(
+            "run usage ingestion requires a loopback listener; use a verified HTTPS reverse proxy for remote access"
+        );
+    }
+    let ingestion_worker = run_usage
+        .as_ref()
+        .map(|api| api.start(Arc::clone(&shutdown)));
+    let poller = (!cli.no_poll).then(|| {
+        start_poller(
+            Arc::clone(&state),
+            Arc::clone(&refresh_flag),
+            config,
+            plugin_dirs,
+            cache_path,
+            history_path,
+            refresh_sec,
+            Arc::clone(&shutdown),
+        )
+    });
     // Build daily model history away from the HTTP/UI path. Per-file caches
     // survive restarts; subsequent passes only parse changed transcripts.
-    start_usage_summarizer(Arc::clone(&state), Arc::clone(&shutdown));
+    // Ingestion-only services (--no-poll) never read provider logs.
+    if !cli.no_poll {
+        start_usage_summarizer(Arc::clone(&state), Arc::clone(&shutdown));
+    }
     let result = serve(
         listener,
         state,
         refresh_flag,
         Arc::new(management),
+        run_usage,
         Arc::clone(&shutdown),
     );
     shutdown.store(true, Ordering::SeqCst);
+    // Bound service cleanup, not agent execution. A forward attempt interrupted
+    // at process exit remains pending and is deduplicated on restart.
     let deadline = Instant::now() + Duration::from_secs(3);
-    while !poller.is_finished() && Instant::now() < deadline {
-        thread::sleep(Duration::from_millis(10));
-    }
-    if poller.is_finished() {
-        let _ = poller.join();
-    } else {
-        log::warn!("provider transport did not finish within the shutdown deadline");
+    for (name, worker) in [("provider", poller), ("run usage", ingestion_worker)] {
+        if let Some(worker) = worker {
+            while !worker.is_finished() && Instant::now() < deadline {
+                thread::sleep(Duration::from_millis(10));
+            }
+            if worker.is_finished() {
+                let _ = worker.join();
+            } else {
+                log::warn!("{name} transport did not finish within the shutdown deadline");
+            }
+        }
     }
     result
 }
@@ -272,18 +307,41 @@ fn serve(
     state: Arc<Mutex<AppState>>,
     refresh_flag: Arc<AtomicBool>,
     management: Arc<cliproxy::ManagementApi>,
+    run_usage: Option<Arc<run_usage::RunUsageApi>>,
     shutdown: Arc<AtomicBool>,
 ) -> Result<()> {
     listener.set_nonblocking(true)?;
     log::info!("listening on http://{}", listener.local_addr()?);
+    let connections = Arc::new(AtomicUsize::new(0));
 
     while !shutdown.load(Ordering::SeqCst) {
         let state = Arc::clone(&state);
         let flag = Arc::clone(&refresh_flag);
         let management = Arc::clone(&management);
+        let run_usage = run_usage.clone();
         match listener.accept() {
-            Ok((stream, _)) => {
-                thread::spawn(move || handle_connection(stream, state, flag, management));
+            Ok((mut stream, _)) => {
+                let lease = if run_usage.is_some() {
+                    if connections
+                        .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |value| {
+                            (value < 128).then_some(value + 1)
+                        })
+                        .is_err()
+                    {
+                        let _ = stream.set_nonblocking(false);
+                        let _ = stream.set_write_timeout(Some(Duration::from_secs(1)));
+                        let _ = stream
+                            .write_all(run_usage::error(503, "CONNECTION_CAPACITY").as_bytes());
+                        continue;
+                    }
+                    Some(ConnectionLease(Arc::clone(&connections)))
+                } else {
+                    None
+                };
+                thread::spawn(move || {
+                    let _lease = lease;
+                    handle_connection(stream, state, flag, management, run_usage)
+                });
             }
             Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {
                 thread::sleep(Duration::from_millis(20))
@@ -295,11 +353,19 @@ fn serve(
     Ok(())
 }
 
+struct ConnectionLease(Arc<AtomicUsize>);
+impl Drop for ConnectionLease {
+    fn drop(&mut self) {
+        self.0.fetch_sub(1, Ordering::Relaxed);
+    }
+}
+
 fn handle_connection(
     mut stream: TcpStream,
     state: Arc<Mutex<AppState>>,
     refresh_flag: Arc<AtomicBool>,
     management: Arc<cliproxy::ManagementApi>,
+    run_usage: Option<Arc<run_usage::RunUsageApi>>,
 ) {
     // Winsock accept inherits the listener's nonblocking mode. A request can
     // arrive in several packets; keep this bounded handler blocking so partial
@@ -311,6 +377,12 @@ fn handle_connection(
     let _ = stream.set_write_timeout(Some(Duration::from_secs(5)));
     let mut shutdown_after_response = None;
     let response = match http_request::read_request(&mut stream) {
+        Ok(request) if run_usage::RunUsageApi::handles(&request.path) => {
+            run_usage.as_ref().map_or_else(
+                || run_usage::error(404, "INGESTION_DISABLED"),
+                |api| api.route(&request),
+            )
+        }
         Ok(request) => {
             let controlled = state
                 .lock()

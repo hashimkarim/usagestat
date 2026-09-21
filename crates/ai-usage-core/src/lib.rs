@@ -9,6 +9,7 @@ pub mod normalized;
 pub mod paths;
 pub mod process;
 pub mod provider_paths;
+pub mod run_usage;
 pub mod signals;
 pub mod storage;
 pub mod usage_daily;

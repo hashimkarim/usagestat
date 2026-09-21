@@ -1,8 +1,9 @@
-//! Read complete, bounded HTTP headers before routing or authenticating a request.
+//! Read one bounded HTTP request; every response closes its connection.
 use std::io::{self, BufRead, BufReader, Read};
 
 const MAX_HEADER_BYTES: u64 = 16 * 1024;
-const MAX_BODY_BYTES: u64 = 16 * 1024;
+// Run-usage records are the largest bodies accepted by any route.
+const MAX_BODY_BYTES: u64 = usagestat_core::run_usage::MAX_EVENT_BYTES as u64;
 
 pub struct Request {
     pub method: String,
@@ -78,7 +79,14 @@ pub fn read_request(reader: impl Read) -> io::Result<Request> {
         .iter()
         .filter(|(key, _)| key == "content-length")
         .collect();
-    if lengths.len() > 1 || headers.iter().any(|(key, _)| key == "transfer-encoding") {
+    if lengths.len() > 1
+        || headers.iter().any(|(key, _)| {
+            matches!(
+                key.as_str(),
+                "transfer-encoding" | "expect" | "content-encoding"
+            )
+        })
+    {
         return Err(invalid());
     }
     let length = match lengths.first() {
@@ -159,13 +167,31 @@ mod tests {
         for headers in [
             "Content-Length: 2\r\nContent-Length: 2\r\n",
             "Transfer-Encoding: chunked\r\n",
-            "Content-Length: 16385\r\n",
+            "Content-Length: 65537\r\n",
             "Content-Length: +2\r\n",
             "Content-Length: 3\r\n",
         ] {
             assert!(
                 read_request(format!("POST / HTTP/1.1\r\n{headers}\r\n{{}}").as_bytes()).is_err()
             );
+        }
+    }
+
+    #[test]
+    fn retains_body_read_ahead_and_rejects_ambiguous_framing() {
+        let bytes = b"POST /v1/run-usage HTTP/1.1\r\nContent-Length: 7\r\n\r\n{\"a\":1}";
+        assert_eq!(read_request(&bytes[..]).unwrap().body, b"{\"a\":1}");
+        assert_eq!(read_request(Fragmented(bytes)).unwrap().body, b"{\"a\":1}");
+        for headers in [
+            "Content-Length: 7\r\nContent-Length: 7",
+            "Content-Length: +7",
+            "Transfer-Encoding: chunked",
+            "Content-Length: 65537",
+            "Expect: 100-continue",
+            "Content-Length: 9",
+        ] {
+            let input = format!("POST /v1/run-usage HTTP/1.1\r\n{headers}\r\n\r\n{{\"a\":1}}");
+            assert!(read_request(input.as_bytes()).is_err(), "{headers}");
         }
     }
 }
