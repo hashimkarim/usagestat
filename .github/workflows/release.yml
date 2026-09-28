@@ -37,8 +37,8 @@ jobs:
           python-version: '3.12'
       - run: rustup default 1.89.0
       - run: cargo test --locked --workspace
-      - name: Build daemon for HTTP integration tests
-        run: cargo build --locked -p usagestat-daemon
+      - name: Build CLI and daemon for native integration tests
+        run: cargo build --locked -p usagestat-cli -p usagestat-daemon
       - run: python -m unittest discover -s tools/publish/tests
       - uses: actions/setup-node@v4
         with:

@@ -9,10 +9,14 @@ permissions:
 
 jobs:
   providers:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
+      - name: Select qualified Rust toolchain
+        run: rustup default 1.89.0
+      - name: Build CLI for native provider integration tests
+        run: cargo build --locked -p usagestat-cli
       - run: node --test tests/*.test.cjs
