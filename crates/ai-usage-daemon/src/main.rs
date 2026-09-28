@@ -605,12 +605,6 @@ fn serve_local_usage_report(rest: &str, query: &str) -> String {
         }
         limit
     };
-    if matches!(report, "daily" | "weekly" | "monthly") {
-        if let Some(response) = saved_usage_report_response(provider_id, report) {
-            return response;
-        }
-    }
-
     let provider = match provider_id {
         "claude" | "anthropic" => "claude",
         "codex" | "openai" | "chatgpt" => "codex",
@@ -618,6 +612,20 @@ fn serve_local_usage_report(rest: &str, query: &str) -> String {
             return serve_saved_usage_report(provider_id, report);
         }
     };
+    // An explicitly selected missing profile must not return a saved reading
+    // from an earlier account. This only validates roots; it does not scan logs.
+    let roots = match provider {
+        "codex" => usagestat_core::provider_paths::codex_usage_roots(),
+        _ => usagestat_core::provider_paths::claude_usage_roots(),
+    };
+    if roots.is_err() {
+        return provider_path_error_response();
+    }
+    if matches!(report, "daily" | "weekly" | "monthly") {
+        if let Some(response) = saved_usage_report_response(provider_id, report) {
+            return response;
+        }
+    }
     if !matches!(
         report,
         "daily" | "weekly" | "monthly" | "session" | "blocks" | "models"

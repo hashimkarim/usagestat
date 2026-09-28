@@ -35,18 +35,21 @@ def check(daemon: Path) -> dict:
         control = root / "control-key"
         control.write_text("synthetic-local-usage-control", encoding="utf-8")
 
-        def write_history(profile, provider, tokens):
+        def write_history(profile, provider, tokens, session_id="fixture-session"):
             if provider == "claude":
                 path = profile / "projects/fixture/session.jsonl"
-                rows = [{"timestamp": "2026-08-01T12:00:00Z", "sessionId": "fixture-session",
+                rows = [{"timestamp": "2026-08-01T12:00:00Z", "sessionId": session_id,
                          "cwd": str(root / "project 使用"),
                          "message": {"model": "claude-sonnet-4", "usage": {
                              "input_tokens": tokens, "output_tokens": 20,
                              "cache_read_input_tokens": 3, "cache_creation_input_tokens": 4}}}]
             else:
                 path = profile / "sessions/2026/08/01/rollout-fixture.jsonl"
-                rows = [{"timestamp": "2026-08-01T12:00:00Z", "payload": {
-                    "id": "fixture-session", "cwd": str(root / "project 使用"), "model": "gpt-5",
+                rows = [{"type": "session_meta", "payload": {
+                    "id": session_id, "cwd": str(root / "project 使用")}},
+                    {"type": "turn_context", "payload": {"model": "gpt-5"}},
+                    {"type": "event_msg", "timestamp": "2026-08-01T12:00:00Z", "payload": {
+                    "type": "token_count",
                     "info": {"last_token_usage": {"input_tokens": tokens, "output_tokens": 20,
                              "cached_input_tokens": 3, "reasoning_output_tokens": 4}}}}]
             path.parent.mkdir(parents=True, exist_ok=True)
@@ -62,7 +65,7 @@ def check(daemon: Path) -> dict:
         write_history(native_home / "Library/Developer/Xcode/CodingAssistant/ClaudeAgentConfig", "claude", 9000)
         archived = profiles["codex"] / "archived_sessions/archived.jsonl"
         archived.parent.mkdir()
-        original = write_history(root / "archived fixture", "codex", 50)
+        original = write_history(root / "archived fixture", "codex", 50, "archived-session")
         archived.write_bytes(original.read_bytes())
 
         # Child logs can contain copied parent history before any owned event.
@@ -106,21 +109,36 @@ def check(daemon: Path) -> dict:
                     time.sleep(0.03)
             else:
                 raise AssertionError("Disposable daemon readiness timed out")
-            for provider, expected in [("claude", 100), ("codex", 150)]:
+            for provider, expected, expected_total in [("claude", 100, 127), ("codex", 144, 190)]:
                 for report, field in [("daily", "daily"), ("weekly", "weekly"), ("monthly", "monthly"), ("session", "sessions")]:
                     rows = request(f"/v1/local-usage/{provider}/{report}")[field]
-                    assert len(rows) == 1 and rows[0]["inputTokens"] == expected, rows
-                    assert rows[0]["costUsd"] > 0, rows
+                    expected_rows = 2 if provider == "codex" and report == "session" else 1
+                    assert len(rows) == expected_rows and sum(row["inputTokens"] for row in rows) == expected, rows
+                    assert sum(row["totalTokens"] for row in rows) == expected_total, rows
+                    for row in rows:
+                        assert row["costUsd"] > 0, rows
+                        assert row["totalTokens"] == sum(row[key] for key in
+                            ["inputTokens", "cacheReadTokens", "cacheCreationTokens", "outputTokens"]), row
                 checks.append(provider + "-explicit-profile-and-normalized-reports")
             checks.append("codex-archived-history-and-malformed-empty-lines")
             checks.append("codex-inherited-subagent-prefix-excluded")
             with child_history.open("a", encoding="utf-8") as stream:
                 for row in [child_tokens(211, 1100, 30), child_tokens(212, 1100, 30)]:
                     stream.write(json.dumps(row) + "\n")
+            # Session reports refresh the bounded scan cache and persist daily
+            # rows. Daily/weekly/monthly reads then serve those saved summaries.
+            deadline = time.monotonic() + 40
+            while True:
+                rows = request("/v1/local-usage/codex/session")["sessions"]
+                if sum(row["inputTokens"] for row in rows) == 174:
+                    break
+                assert time.monotonic() < deadline, rows
+                time.sleep(0.2)
             for _ in range(2):
                 for report, field in [("daily", "daily"), ("weekly", "weekly"), ("monthly", "monthly"), ("session", "sessions")]:
                     rows = request(f"/v1/local-usage/codex/{report}")[field]
-                    assert sum(row["inputTokens"] for row in rows) == 180, rows
+                    assert sum(row["inputTokens"] for row in rows) == 174, rows
+                    assert sum(row["totalTokens"] for row in rows) == 220, rows
             checks.append("codex-child-appends-and-repeated-totals-counted-once")
             # Removing an explicit Codex directory must report its failure,
             # never select the default account or an earlier saved result.

@@ -8,6 +8,7 @@
 - Cache local usage scans and serve compact, bounded history responses to keep large histories responsive.
 - Add standalone Claude quota observations and a bounded no-prompt CLI fallback that respects account isolation and throttling.
 - Fix Antigravity access-token selection, refresh, account-specific caches, and personal-account quota fallback.
+- Preserve actionable credential states in native JavaScript errors and reject local reports for missing explicitly selected profiles.
 - Add Prometheus health/quota metrics and update the T3 hub adapter for current cached-usage contracts.
 - Build the daemon before HTTP integration tests and verify provider inventories and shared icons before release packaging.
 

@@ -154,6 +154,14 @@ fn extract_error_string(ctx: &Ctx<'_>) -> String {
                     return format!("{code}: {trimmed}");
                 }
             }
+            // Host exceptions carry typed provider states in their message.
+            // Prepending "Error:" would turn these actionable states into a
+            // generic failure when the snapshot classifies the diagnostic.
+            if usagestat_core::model::ProviderState::from_message(trimmed)
+                != usagestat_core::model::ProviderState::Failed
+            {
+                return trimmed.to_string();
+            }
             let name = value.get::<_, String>("name").unwrap_or_default();
             // Ordinary strings and structured provider errors retain their
             // actionable auth/state messages. Native JS errors also need their
@@ -479,6 +487,29 @@ mod provider_sync_tests {
         }
         let snapshot = probe_provider(&fixture("globalThis.__usagestat_plugin={probe(){throw 'Your session expired. Sign in again.';}}"), "auto", None);
         assert_eq!(error_text(&snapshot), "Your session expired. Sign in again.");
+    }
+
+    #[test]
+    fn native_and_async_error_wrappers_preserve_provider_states() {
+        use usagestat_core::model::ProviderState;
+        for (message, state) in [
+            ("unsupported: Select a persistent store", ProviderState::Unsupported),
+            ("missing-auth: Sign in first", ProviderState::MissingAuth),
+            ("credential-malformed: Invalid credential file", ProviderState::CredentialMalformed),
+            ("keychain read failed: credential-denied: Store locked", ProviderState::CredentialDenied),
+            ("Probe timed out after 12 seconds", ProviderState::TimedOut),
+        ] {
+            for asynchronous in [false, true] {
+                let body = if asynchronous { "async probe(){await Promise.resolve();" } else { "probe(){" };
+                let script = format!(
+                    "globalThis.__usagestat_plugin = {{{body}throw new Error({});}}}};",
+                    serde_json::to_string(message).unwrap()
+                );
+                let snapshot = probe_provider(&fixture(&script), "auto", None);
+                assert_eq!(snapshot.state, Some(state), "{snapshot:?}");
+                assert_eq!(error_text(&snapshot), message);
+            }
+        }
     }
 
     #[test]
