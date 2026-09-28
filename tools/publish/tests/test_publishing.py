@@ -94,6 +94,12 @@ class PackageTests(unittest.TestCase):
         self.assertIn('pkgver=9.8.7', (out / 'PKGBUILD').read_text())
         self.assertIn('version "9.8.7"', (out / 'usagestat.rb').read_text())
         self.assertIn('Version:        9.8.7', (out / 'usagestat.spec').read_text())
+        for recipe in ['PKGBUILD', 'usagestat.rb', 'usagestat.spec',
+                       'usagestat-9.8.7/debian/control', 'usagestat-9.8.7/debian/copyright']:
+            with self.subTest(recipe=recipe):
+                content = (out / recipe).read_text()
+                self.assertIn('https://github.com/hashimkarim/usagestat', content)
+                self.assertNotIn('github.com/Hashim-K/', content)
         self.assertEqual((out / 'usagestat_9.8.7.orig.tar.gz').read_bytes(), (self.base / 'second/usagestat_9.8.7.orig.tar.gz').read_bytes())
         with tarfile.open(out / 'usagestat_9.8.7.orig.tar.gz') as archive:
             names = archive.getnames()

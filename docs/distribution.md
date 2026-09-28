@@ -72,7 +72,7 @@ stop for reconciliation rather than being overwritten.
 
 ### One-time GitHub Actions configuration
 
-Set these **repository secrets** on `Hashim-K/usagestat`:
+Set these **repository secrets** on `hashimkarim/usagestat`:
 
 | Secret | Value |
 | --- | --- |
@@ -97,7 +97,8 @@ be exported without exposing the primary private key.
 
 COPR has one API token per account: `copr-cli new-api-token` invalidates the
 existing token. For an independent CI credential, use a separate Fedora
-account granted builder access to `hashimkarim/usagestat`. Its configuration
+account granted admin access to `hashimkarim/usagestat` to maintain project
+metadata as well as submit builds. Its configuration
 still belongs in `COPR_CONFIG`; the project owner does not change. Reusing an
 existing token does not rotate it, but should be an explicit choice.
 
@@ -124,6 +125,14 @@ existing build, or submits a new build if no successful attempt exists. The PPA
 waits for existing uploads and for the resulting binaries to be published;
 already used PPA versions cannot be uploaded again after a failed build. Retry
 that build in Launchpad, or change the Debian package revision deliberately.
+
+Production COPR runs also synchronize the homepage and description from
+`packaging/copr/project.json`, including retries of an already published version.
+Only changed metadata fields are written; project instructions, build settings,
+permissions, and existing uploads are preserved. The job uses the Python SDK
+installed with `copr-cli`, so local publishing needs both in the same Python
+environment. Dry runs leave project metadata untouched. Updated AUR, Homebrew
+and PPA package links take effect when the next version is published.
 
 Repository jobs are serialized per platform and have a 75-minute timeout.
 Remote build/publishing waits have a 45-minute timeout. A timeout reports a
@@ -263,7 +272,7 @@ its destination from the `HOMEBREW_TAP_REPOSITORY` repository variable, which th
 workflow passes into the publishing script. Set it before enabling publication:
 
 ```bash
-gh variable set HOMEBREW_TAP_REPOSITORY --repo Hashim-K/usagestat \
+gh variable set HOMEBREW_TAP_REPOSITORY --repo hashimkarim/usagestat \
   --body hashimkarim/homebrew-tap
 ```
 

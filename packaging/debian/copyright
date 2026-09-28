@@ -1,6 +1,6 @@
 Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
 Upstream-Name: usagestat
-Source: https://github.com/Hashim-K/usagestat
+Source: https://github.com/hashimkarim/usagestat
 
 Files: *
 Copyright: 2026 Hashim Karim

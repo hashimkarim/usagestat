@@ -4,7 +4,7 @@ Release:        1%{?dist}
 Summary:        Scriptable CLI for local agent usage data
 
 License:        MIT
-URL:            https://github.com/Hashim-K/usagestat
+URL:            https://github.com/hashimkarim/usagestat
 Source0:        %{url}/archive/refs/tags/v%{version}.tar.gz
 
 BuildRequires:  cargo

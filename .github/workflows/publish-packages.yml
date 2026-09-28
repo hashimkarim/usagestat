@@ -158,8 +158,12 @@ jobs:
         if: matrix.platform == 'copr'
         run: |
           sudo apt-get update
-          sudo apt-get install -y rpm
-          pipx install copr-cli
+          sudo apt-get install -y rpm python3-venv
+          if [[ "$DRY_RUN" == false ]]; then
+            python3 -m venv "$RUNNER_TEMP/copr-client"
+            "$RUNNER_TEMP/copr-client/bin/pip" install copr-cli
+            echo "$RUNNER_TEMP/copr-client/bin" >> "$GITHUB_PATH"
+          fi
       - name: Install Debian packaging tools
         if: matrix.platform == 'ppa'
         run: |

@@ -36,7 +36,7 @@ assert_latest() {
   fi
   python3 - "$RELEASE_TAG" <<'PYLATEST'
 import json, sys, urllib.request
-with urllib.request.urlopen('https://api.github.com/repos/Hashim-K/usagestat/releases/latest', timeout=30) as response:
+with urllib.request.urlopen('https://api.github.com/repos/hashimkarim/usagestat/releases/latest', timeout=30) as response:
     latest = json.load(response)['tag_name']
 if latest != sys.argv[1]:
     raise SystemExit(f'Refusing to publish {sys.argv[1]}: latest stable release is now {latest}')
@@ -130,7 +130,10 @@ PYKEYS
       printf '%s\n' "$COPR_CONFIG" > "$config_file"
       status=0
       python3 "$script_dir/publication-state.py" copr "$version" --channel "$channel" || status=$?
-      if [[ "$status" == 2 ]]; then exit 2; fi
+      if [[ "$status" != 0 && "$status" != 1 ]]; then exit "$status"; fi
+      assert_latest
+      timeout 300 python3 "$script_dir/sync-copr-metadata.py" "$config_file" \
+        "hashimkarim/$project" "$script_dir/../../../packaging/copr/project.json"
       if [[ "$status" == 1 ]]; then
         copr-cli --config "$config_file" build "hashimkarim/$project" --enable-net on "$package_dir/usagestat.spec"
       fi

@@ -4,7 +4,7 @@ Priority: optional
 Maintainer: Hashim Karim <hashimkarim168@gmail.com>
 Build-Depends: debhelper-compat (= 13)
 Standards-Version: 4.6.2
-Homepage: https://github.com/Hashim-K/usagestat
+Homepage: https://github.com/hashimkarim/usagestat
 Rules-Requires-Root: no
 
 Package: usagestat

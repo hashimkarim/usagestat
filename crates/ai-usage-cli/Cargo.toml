@@ -4,8 +4,8 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 description = "Scriptable CLI for local agent usage data"
-repository = "https://github.com/Hashim-K/usagestat"
-homepage = "https://github.com/Hashim-K/usagestat"
+repository = "https://github.com/hashimkarim/usagestat"
+homepage = "https://github.com/hashimkarim/usagestat"
 readme = "../../README.md"
 
 [[bin]]
