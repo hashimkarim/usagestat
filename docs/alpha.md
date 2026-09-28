@@ -6,9 +6,9 @@ x64, macOS Intel/Apple Silicon and Linux x64/ARM64. This is an early backend
 release; the Windows/macOS bar frontends are not included. Choose alpha for testing;
 existing stable Linux packages remain available separately.
 
-Alpha.3 includes all 77 plugins. The 16 newly bundled providers are disabled by
-default; enable the providers you use in settings. It also updates Kimi, Devin,
-Codex usage accounting and several other providers.
+Alpha.4 includes all 97 plugins. The 20 newly bundled providers are disabled by
+default; enable the providers you use in settings. It also adds the richer
+dashboard, cached model and usage history, and Claude and Antigravity fixes.
 
 Windows/macOS binaries are unsigned and the Mac binaries are not notarized.
 Use the exact repository release and matching checksums. Signing, normal desktop
@@ -20,10 +20,12 @@ Server 2025. Older candidate OS floors remain unverified. Linux requires glibc
 ## Alpha package repositories
 
 Alpha packages are published separately from the stable repositories. The
-destinations below were checked for alpha.1 on September 9, 2026. Each new alpha
-updates these feeds after native installation checks; builds and community review
-can finish after GitHub downloads become available. Check the installed version
-with `usagestat --version` after updating.
+destinations below were checked for alpha.4 on September 28, 2026. Fedora, AUR,
+Homebrew, Scoop, and npm have published alpha.4. Ubuntu's build succeeded and is
+awaiting Launchpad publication; WinGet and Chocolatey await upstream
+validation/review. See the [publication record](releases/v2.0.0-alpha.4-publication.md)
+for verification and recovery details. Check the installed version with
+`usagestat --version` after updating.
 
 | Channel | Alpha destination | Package / formula | Target |
 | --- | --- | --- | --- |
@@ -32,8 +34,8 @@ with `usagestat --version` after updating.
 | Arch Linux | [AUR](https://aur.archlinux.org/packages/usagestat-alpha-bin) | `usagestat-alpha-bin` | x86-64; glibc 2.39+ |
 | Linux / macOS | [Homebrew](https://github.com/hashimkarim/homebrew-tap/blob/main/Formula/usagestat-alpha.rb) | `hashimkarim/tap/usagestat-alpha` | Linux x86-64/ARM64; macOS Intel/Apple Silicon |
 | Windows | [Scoop bucket](https://github.com/hashimkarim/scoop-bucket/blob/main/bucket/usagestat-alpha.json) | `usagestat-alpha` | Windows x64; published and installation tested |
-| Windows | [Chocolatey submission](https://community.chocolatey.org/packages/usagestat/2.0.0-alpha000001) | `usagestat --pre` | Windows x64; submitted, awaiting community review |
-| Windows | [WinGet submission](https://github.com/microsoft/winget-pkgs/pull/431692) | `HashimKarim.UsageStat.Alpha` | Windows x64; all upstream automated checks passed, review/merge pending |
+| Windows | [Chocolatey submission](https://community.chocolatey.org/packages/usagestat/2.0.0-alpha000004) | `usagestat --pre` | Windows x64; alpha.4 submitted, awaiting community validation/review |
+| Windows | [WinGet submission](https://github.com/microsoft/winget-pkgs/pull/442668) | `HashimKarim.UsageStat.Alpha` | Windows x64; alpha.4 submitted, upstream validation/review pending |
 | All five native targets | [npm](https://www.npmjs.com/package/@hashimkarim/usagestat) | `@hashimkarim/usagestat@alpha` | Published: Linux x64/ARM64, macOS Intel/Apple Silicon, Windows x64 |
 
 For alpha.1, Ubuntu's signed
