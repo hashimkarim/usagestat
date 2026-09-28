@@ -22,8 +22,10 @@ Server 2025. Older candidate OS floors remain unverified. Linux requires glibc
 Alpha packages are published separately from the stable repositories. The
 destinations below were checked for alpha.4 on September 28, 2026. Fedora, AUR,
 Homebrew, Scoop, and npm have published alpha.4. Ubuntu's build succeeded and is
-awaiting Launchpad publication; WinGet and Chocolatey await upstream
-validation/review. See the [publication record](releases/v2.0.0-alpha.4-publication.md)
+awaiting Launchpad publication. WinGet passed upstream validation and awaits
+review/merge; Chocolatey's package validation is passing, with community
+installation tests/review pending. See the
+[publication record](releases/v2.0.0-alpha.4-publication.md)
 for verification and recovery details. Check the installed version with
 `usagestat --version` after updating.
 
@@ -34,8 +36,8 @@ for verification and recovery details. Check the installed version with
 | Arch Linux | [AUR](https://aur.archlinux.org/packages/usagestat-alpha-bin) | `usagestat-alpha-bin` | x86-64; glibc 2.39+ |
 | Linux / macOS | [Homebrew](https://github.com/hashimkarim/homebrew-tap/blob/main/Formula/usagestat-alpha.rb) | `hashimkarim/tap/usagestat-alpha` | Linux x86-64/ARM64; macOS Intel/Apple Silicon |
 | Windows | [Scoop bucket](https://github.com/hashimkarim/scoop-bucket/blob/main/bucket/usagestat-alpha.json) | `usagestat-alpha` | Windows x64; published and installation tested |
-| Windows | [Chocolatey submission](https://community.chocolatey.org/packages/usagestat/2.0.0-alpha000004) | `usagestat --pre` | Windows x64; alpha.4 submitted, awaiting community validation/review |
-| Windows | [WinGet submission](https://github.com/microsoft/winget-pkgs/pull/442668) | `HashimKarim.UsageStat.Alpha` | Windows x64; alpha.4 submitted, upstream validation/review pending |
+| Windows | [Chocolatey submission](https://community.chocolatey.org/packages/usagestat/2.0.0-alpha000004) | `usagestat --pre` | Windows x64; alpha.4 validation passing, community installation tests/review pending |
+| Windows | [WinGet submission](https://github.com/microsoft/winget-pkgs/pull/442668) | `HashimKarim.UsageStat.Alpha` | Windows x64; alpha.4 passed all upstream automated checks, review/merge pending |
 | All five native targets | [npm](https://www.npmjs.com/package/@hashimkarim/usagestat) | `@hashimkarim/usagestat@alpha` | Published: Linux x64/ARM64, macOS Intel/Apple Silicon, Windows x64 |
 
 For alpha.1, Ubuntu's signed
