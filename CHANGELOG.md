@@ -1,5 +1,18 @@
 # Changelog
 
+## 2.0.0-alpha.4 - 2026-09-28
+
+- Bundle 97 providers with 20 new opt-in integrations, updated quota and account handling, and shared provider icons with their license notices.
+- Refresh the dashboard with cost and token breakdowns, cache savings, model history, source comparisons, smooth quota charts, stacked cost charts, and responsive views.
+- Persist daily model usage with pricing and source provenance; prefer billing, then deduplicated local transcripts, then ccusage. Keep missing prices and partial data explicit.
+- Cache local usage scans and serve compact, bounded history responses to keep large histories responsive.
+- Add standalone Claude quota observations and a bounded no-prompt CLI fallback that respects account isolation and throttling.
+- Fix Antigravity access-token selection, refresh, account-specific caches, and personal-account quota fallback.
+- Add Prometheus health/quota metrics and update the T3 hub adapter for current cached-usage contracts.
+- Build the daemon before HTTP integration tests and verify provider inventories and shared icons before release packaging.
+
+See [release notes](docs/releases/v2.0.0-alpha.4.md) for downloads and qualification limits.
+
 ## 2.0.0-alpha.1 - 2026-09-07
 
 - Introduce the Windows/macOS backend alpha with native archives, per-user services, portable paths, credential/helper adapters, provider discovery and capability diagnostics.

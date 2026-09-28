@@ -146,9 +146,11 @@
     }
 
     var lines = [];
-    if (creditsRemaining !== null && monthlyUsed !== null) {
-      var totalPlan = monthlyUsed + Math.max(0, creditsRemaining);
-      var usedPercent = totalPlan > 0 ? (monthlyUsed / totalPlan) * 100 : 100;
+    var grants = { 'individual-go':10, 'individual-goat':70, 'individual-pro':30, 'individual-pro-v1':80, 'individual-max':150, 'individual-ultra':300 };
+    var totalPlan = readNumber(creditsResp && creditsResp.credits && creditsResp.credits.monthlyCreditsGranted);
+    if (!(totalPlan > 0)) totalPlan = subResp && subResp.success && subResp.data ? grants[subResp.data.planId] : null;
+    if (creditsRemaining !== null && totalPlan > 0) {
+      var usedPercent = Math.max(0, totalPlan - creditsRemaining) / totalPlan * 100;
       lines.push(ctx.line.progress({
         label: "Monthly credits",
         used: Math.max(0, Math.min(100, Math.round(usedPercent * 10) / 10)),
@@ -156,6 +158,8 @@
         format: { kind: "percent" },
         periodDurationMs: 30 * 24 * 60 * 60 * 1000,
       }));
+    } else if (creditsRemaining !== null) {
+      lines.push(ctx.line.text({label:'Monthly credits',value:'$'+Math.max(0,creditsRemaining).toFixed(2)+' remaining'}));
     }
 
     if (totalCost !== null && totalCost > 0) {

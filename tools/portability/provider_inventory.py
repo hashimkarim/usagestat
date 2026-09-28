@@ -82,6 +82,22 @@ NOTES['droid'] = 'Aliases Factory API/manual-web and legacy auth code; v2 encryp
 NOTES['kimi'] = 'Configured Code API key, read-only isolated CLI-home OAuth and optional web membership enrichment. Exhausted monthly quota is primary. Real CLI/Desktop schemas and account stores remain unverified.'
 NOTES['kiro'] = 'Native app-support/custom-root fixtures, included/overage credit parsing, and validated supported IDE API profile regions. CLI SQLite credential import and live app/account versions remain unverified.'
 
+SEPTEMBER_27_BUNDLED = {
+    'aixy', 'atlascloud', 'bifrost', 'devpass', 'gitkraken', 'helmcode',
+    'huggingface', 'hyper', 'llmman', 'muse', 'nous', 'raycast', 'replicate',
+    'typesafe', 'v0', 'vercel', 'xkiro',
+}
+for ident in SEPTEMBER_27_BUNDLED:
+    FIXTURES.setdefault(ident, []).append('tests/bundled-providers.test.cjs')
+    NOTES[ident] = ('Vendored CodexBar provider with a bounded native asynchronous host adapter and explicit credential/endpoint routing. '
+                    'Disabled by default. Adapter fixtures do not qualify real credentials, browser import, or every optional upstream workflow; cache TTL is not persisted.')
+for ident in ['claude', 'codex', 'deepseek', 'devin', 'clinepass', 'command-code', 'litellm', 'mistral', 'venice', 'pi', 'coderabbit', 'gemini-apps']:
+    FIXTURES.setdefault(ident, []).append('tests/inspo-sync-20260927.test.cjs')
+NOTES['pi'] = 'Bounded local Pi/OMP transcript collection, profile isolation and partial/unpriced history fixtures. Only explicitly recognized historical model prices are estimated; full model coverage and process discovery are pending.'
+NOTES['coderabbit'] = 'Bounded read-only coderabbit usage CLI helper and JSON fixtures. Installed CLI versions/authentication remain unverified.'
+NOTES['gemini-apps'] = 'Explicit web-session SAPISID hash authentication and HTTP/1 RPC fixtures. Browser-bound live sessions and current RPC schema remain unverified.'
+NOTES['deepseek'] = 'API balance plus explicitly selected Platform wallet and bounded daily/monthly detail collection. Non-USD spend is never stored as USD. Synthetic fixtures only; live Platform schemas remain unverified.'
+
 def inventory():
     records=[]
     for path in sorted((ROOT/'plugins').glob('*/plugin.json')):
@@ -102,6 +118,7 @@ def inventory():
         if 'command.run' in calls:methods.append('CLI helper')
         if any(call.startswith(('ccusage.','cursorLogs.','cursorUsageExport.')) for call in calls):methods.append('local/export collector')
         if ident=='codex':methods.append('native Codex auth adapter')
+        if ident in SEPTEMBER_27_BUNDLED:methods.append('native bundled-provider adapter')
         if not methods:methods.append('provider-specific settings/HTTPS')
         note=NOTES.get(ident,'Configured credentials and HTTP request code inspected; real credentials, API responses and provider/account behavior remain unverified on each OS.')
         states={os:('P' if ident in PARTIAL else 'I') for os in ['linux','macos','windows']}

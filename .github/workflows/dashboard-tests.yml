@@ -4,13 +4,15 @@ on:
   push:
     branches: [main]
     paths:
-      - 'crates/ai-usage-daemon/src/dashboard*'
-      - 'crates/ai-usage-daemon/tests/**'
+      - 'crates/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
       - '.github/workflows/dashboard-tests.yml'
   pull_request:
     paths:
-      - 'crates/ai-usage-daemon/src/dashboard*'
-      - 'crates/ai-usage-daemon/tests/**'
+      - 'crates/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
       - '.github/workflows/dashboard-tests.yml'
 
 permissions:
@@ -24,4 +26,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
+      - name: Select qualified Rust toolchain
+        run: rustup default 1.89.0
+      - name: Build daemon for HTTP integration tests
+        run: cargo build --locked -p usagestat-daemon
       - run: node --test crates/ai-usage-daemon/tests/*.test.cjs

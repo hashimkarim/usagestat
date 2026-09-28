@@ -5,8 +5,12 @@ The provider implementations adapt endpoint contracts and parsers from
 [OpenUsage](https://github.com/robinebers/openusage),
 [Win-CodexBar](https://github.com/Finesssee/Win-CodexBar), and
 [CrossUsage](https://github.com/barramee27/crossusage).
-The new provider icons, except CodeBuddy, are from CodexBar's
-`Sources/CodexBar/Resources/ProviderIcon-*.svg` assets. Provider names and logos
+Shared provider icons are vendored from `@agenticdriver/provider-icons`
+`0.1.0-alpha.1`. Its [license](./_provider-icons/LICENSE),
+[upstream notices](./_provider-icons/NOTICE), and per-asset licenses/provenance
+are distributed with the plugins. `tools/provider-icons.mjs` maps the catalogue
+to native icon variants. Uncovered providers retain their existing CodexBar
+assets or custom icons. Provider names and logos
 belong to their respective owners; their inclusion does not imply endorsement.
 
 The upstream MIT notices below apply to the adapted code and assets.

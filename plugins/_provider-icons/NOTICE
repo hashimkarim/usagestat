@@ -1,0 +1,12 @@
+This collection began with the 262 SVGs maintained in hashimkarim/usagestat-bar.
+provenance.json records that source revision and the original file hashes.
+Its history credits LobeHub lobe-icons and steipete/CodexBar alongside local
+UsageStat-Bar additions. Their MIT notices are retained in licenses/.
+
+Names and logos are trademarks of their respective owners. The library does
+not imply endorsement or transfer trademark rights. Product alternatives and
+aliases select artwork only; they do not select a runtime, account or billing.
+
+The generated inline module removes presentation styles, accessibility labels
+and titles and namespaces SVG fragment identifiers. Original SVG files remain
+unchanged. Consumers supply their own accessible label or mark icons decorative.

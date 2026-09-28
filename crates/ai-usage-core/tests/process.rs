@@ -236,6 +236,77 @@ fn cancelled_scope_never_starts_a_child_and_restores_the_previous_scope() {
     assert!(process::current_cancellation().is_none());
 }
 
+#[cfg(unix)]
+#[test]
+fn control_dialogue_waits_for_initialization_and_finishes_without_stdin_eof() {
+    let mut output = Vec::new();
+    let mut initialized = false;
+    let start = Instant::now();
+    let status = process::control_dialogue(
+        fixture("dialogue"),
+        b"initialize\n",
+        Duration::from_secs(3),
+        4096,
+        |bytes| {
+            output.extend_from_slice(bytes);
+            if output.ends_with(b"quota\n") {
+                return Ok(process::StreamControl::Finish);
+            }
+            if !initialized && output.ends_with(b"initialized\n") {
+                initialized = true;
+                return Ok(process::StreamControl::Reply(b"get_usage\n".to_vec()));
+            }
+            Ok(process::StreamControl::Continue)
+        },
+    )
+    .unwrap();
+    assert!(status.is_none());
+    assert_eq!(output, b"initialized\nquota\n");
+    assert!(start.elapsed() < Duration::from_secs(3));
+}
+
+#[cfg(unix)]
+#[test]
+fn control_dialogue_caps_output_and_honors_cancellation() {
+    let error =
+        process::control_dialogue(fixture("output"), b"", Duration::from_secs(3), 4096, |_| {
+            Ok(process::StreamControl::Continue)
+        })
+        .unwrap_err();
+    assert_eq!(error.kind(), io::ErrorKind::InvalidData);
+    let token = CancellationToken::default();
+    token.cancel();
+    process::with_cancellation(token, || {
+        assert_eq!(
+            process::control_dialogue(
+                fixture("ignore-input"),
+                b"init",
+                Duration::from_secs(30),
+                4096,
+                |_| Ok(process::StreamControl::Continue)
+            )
+            .unwrap_err()
+            .kind(),
+            io::ErrorKind::Interrupted
+        );
+    });
+}
+
+#[cfg(unix)]
+#[test]
+fn control_dialogue_timeout_terminates_descendants() {
+    let directory = TestDir::new();
+    let ready = directory.0.join("dialogue-ready");
+    let mut command = fixture("tree");
+    command.arg(&ready);
+    let error = process::control_dialogue(command, b"init", Duration::from_secs(2), 4096, |_| {
+        Ok(process::StreamControl::Continue)
+    })
+    .unwrap_err();
+    assert_eq!(error.kind(), io::ErrorKind::TimedOut);
+    assert_stopped(wait_ready(&ready));
+}
+
 #[cfg(windows)]
 #[test]
 fn npm_shims_use_node_and_preserve_quotes_and_metacharacters() {

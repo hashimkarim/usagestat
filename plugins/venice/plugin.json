@@ -8,7 +8,8 @@
   "links": [
     { "label": "API Keys", "url": "https://venice.ai/settings/api" }
   ],
-  "supportedModes": ["api"],
+  "supportedModes": ["api", "web"],
+  "webUrl": "https://venice.ai",
   "autoMode": "api",
   "lines": [
     { "type": "text", "label": "Balance", "scope": "overview" }

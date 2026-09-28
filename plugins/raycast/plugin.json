@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "id": "raycast",
+  "name": "Raycast",
+  "version": "0.1.0",
+  "entry": "plugin.js",
+  "enabledByDefault": false,
+  "supportedModes": [
+    "web"
+  ],
+  "autoMode": "web",
+  "usageDashboardUrl": "https://www.raycast.com/settings",
+  "webUrl": "https://raycast.com",
+  "envVars": [
+    "RAYCAST_COOKIE"
+  ],
+  "upstream": {
+    "repository": "https://github.com/steipete/CodexBar",
+    "revision": "78ba5a1e65e6859da59a21b799df95ab91bc0b89",
+    "path": "Sources/CodexBarCore/Resources/Plugins/raycast.js",
+    "sha256": "1f93bd240923c8427615b2de3a40d46f167b907864c01475754b115b804c3ee4",
+    "license": "MIT"
+  }
+}

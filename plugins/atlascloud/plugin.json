@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "id": "atlascloud",
+  "name": "Atlas Cloud",
+  "version": "0.1.0",
+  "entry": "plugin.js",
+  "enabledByDefault": false,
+  "supportedModes": [
+    "api"
+  ],
+  "autoMode": "api",
+  "usageDashboardUrl": "https://www.atlascloud.ai/console",
+  "envVars": [
+    "ATLASCLOUD_API_KEY"
+  ],
+  "upstream": {
+    "repository": "https://github.com/steipete/CodexBar",
+    "revision": "78ba5a1e65e6859da59a21b799df95ab91bc0b89",
+    "path": "Sources/CodexBarCore/Resources/Plugins/atlascloud.js",
+    "sha256": "852fb78abaf4fcdbbfbfeac0b60d6b82a9ca9b1d1d2f9014f6e5299b41ac47fa",
+    "license": "MIT"
+  }
+}

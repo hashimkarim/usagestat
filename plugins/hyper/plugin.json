@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "id": "hyper",
+  "name": "Charm Hyper",
+  "version": "0.1.0",
+  "entry": "plugin.js",
+  "enabledByDefault": false,
+  "supportedModes": [
+    "api",
+    "web"
+  ],
+  "autoMode": "api",
+  "usageDashboardUrl": "https://hyper.charm.land",
+  "webUrl": "https://hyper.charm.land",
+  "envVars": [
+    "HYPER_API_KEY",
+    "HYPER_COOKIE"
+  ],
+  "upstream": {
+    "repository": "https://github.com/steipete/CodexBar",
+    "revision": "78ba5a1e65e6859da59a21b799df95ab91bc0b89",
+    "path": "Sources/CodexBarCore/Resources/Plugins/hyper.js",
+    "sha256": "893e1a9a91e7af57522bcc39791d77d6fe3b8ae0d61384aee1768f5f419636cd",
+    "license": "MIT"
+  }
+}

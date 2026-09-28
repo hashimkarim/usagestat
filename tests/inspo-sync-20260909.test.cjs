@@ -132,17 +132,17 @@ test("OpenRouter rejects row, daily and cross-day token overflow while keeping v
   }
 });
 
-test("Command Code monthly usage survives optional subscription failure", () => {
+test("Command Code unknown grant retains remaining credits after subscription failure", () => {
   const app = load("command-code", { provider: { apiKey: "key" }, request: (req) => {
     if (req.url.endsWith("/subscriptions")) return response({}, 503);
     if (req.url.endsWith("/credits")) return response({ credits: { monthlyCredits: 60 } });
     if (req.url.endsWith("/summary")) return response({ totalMonthlyCredits: 20 });
     return response({ id: "account" });
   } });
-  assert.equal(metric(app.probe(), "Monthly credits").used, 25);
+  assert.equal(metric(app.probe(), "Monthly credits").value, '$60.00 remaining');
 });
 
-test("Command Code never treats an unknown monthly used amount as zero", () => {
+test("Command Code uses the current grant instead of a missing lifetime usage counter", () => {
   const app = load("command-code", { provider: { apiKey: "key" }, request: (req) => {
     if (req.url.endsWith("/subscriptions")) return response({ success: true, data: { planId: "individual-pro-v1" } });
     if (req.url.endsWith("/credits")) return response({ credits: { monthlyCredits: 60 } });
@@ -150,6 +150,6 @@ test("Command Code never treats an unknown monthly used amount as zero", () => {
     return response({ id: "account" });
   } });
   const result = app.probe();
-  assert.equal(metric(result, "Monthly credits"), undefined);
+  assert.equal(metric(result, "Monthly credits").used, 25);
   assert.equal(result.plan, "Pro");
 });

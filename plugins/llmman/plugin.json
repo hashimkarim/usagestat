@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "id": "llmman",
+  "name": "llmman",
+  "version": "0.1.0",
+  "entry": "plugin.js",
+  "enabledByDefault": false,
+  "supportedModes": [
+    "api"
+  ],
+  "autoMode": "api",
+  "envVars": [
+    "LLMMAN_API_KEY",
+    "LLMMAN_HOST"
+  ],
+  "upstream": {
+    "repository": "https://github.com/steipete/CodexBar",
+    "revision": "78ba5a1e65e6859da59a21b799df95ab91bc0b89",
+    "path": "Sources/CodexBarCore/Resources/Plugins/llmman.js",
+    "sha256": "eb48d35bb101fda0e3bf122eea358c6e16ea937ac72376e6e4ede52e7828d209",
+    "license": "MIT"
+  }
+}

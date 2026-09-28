@@ -1,0 +1,21 @@
+{
+  "name": "@agenticdriver/provider-icons",
+  "version": "0.1.0-alpha.1",
+  "description": "Shared AI provider and product marks for web and native applications",
+  "type": "module",
+  "license": "MIT",
+  "repository": { "type": "git", "url": "https://github.com/agenticdriver/provider-icons.git" },
+  "exports": {
+    ".": { "types": "./index.d.ts", "default": "./index.js" },
+    "./svg": { "types": "./svg.d.ts", "default": "./svg.js" },
+    "./manifest.json": "./manifest.json",
+    "./assets/*": "./assets/*"
+  },
+  "files": ["assets", "manifest.json", "manifest.js", "index.js", "index.d.ts", "svg.js", "svg.d.ts", "licenses", "LICENSE", "NOTICE", "provenance.json", "scripts/vendor.py"],
+  "scripts": {
+    "build": "python3 scripts/build.py",
+    "test": "python3 scripts/build.py --check && node --test tests/*.test.mjs",
+    "prepack": "npm test"
+  },
+  "publishConfig": { "access": "public", "tag": "alpha" }
+}

@@ -215,6 +215,9 @@ enum Command {
         /// Number of days of history to return (JSON mode only; default 30).
         #[arg(long, default_value_t = 30)]
         days: u32,
+        /// Calendar reporting range (JSON mode). Days remain UTC-aligned.
+        #[arg(long, value_parser = ["month", "all"], conflicts_with = "days")]
+        period: Option<String>,
     },
     /// Export usage as JSON or CSV (live probe, or read prior JSONL history)
     Export {
@@ -578,6 +581,7 @@ fn run_cli() -> Result<()> {
             from_file,
             refresh,
             days,
+            period,
         } => {
             let selection = provider_selection(provider_ids, provider);
             if refresh && !json {
@@ -586,8 +590,11 @@ fn run_cli() -> Result<()> {
                 );
             }
             let json_output = json || matches!(format, CostFormat::Json);
+            if period.is_some() && (!json_output || from_file.is_some()) {
+                anyhow::bail!("--period requires --format json and cannot be used with --from-file");
+            }
             if json_output && from_file.is_none() {
-                run_cost_historical(&selection.ids, days)
+                run_cost_historical(&selection.ids, period.as_deref().unwrap_or(&days.to_string()))
             } else {
                 run_cost(
                     &providers,
@@ -1219,14 +1226,45 @@ fn unsupported_cost_response() -> CostUnsupportedResponse {
     }
 }
 
-fn run_cost_historical(provider_ids: &[String], days: u32) -> Result<()> {
-    let targets = cost_provider_targets(provider_ids);
+fn run_cost_historical(provider_ids: &[String], period: &str) -> Result<()> {
+    let mut targets = cost_provider_targets(provider_ids);
+    if provider_ids.is_empty() {
+        for row in usagestat_core::usage_daily::all_selected_daily_rows()? {
+            if !targets.contains(&row.provider_id) { targets.push(row.provider_id); }
+        }
+    }
 
-    let cutoff = chrono::Utc::now().date_naive() - chrono::Duration::days(days as i64);
-    let since = cutoff.format("%Y%m%d").to_string();
+    let today = chrono::Utc::now().date_naive();
+    let cutoff = usagestat_core::usage_daily::period_start(period, today).map_err(|error| anyhow::anyhow!(error))?;
+    let since = cutoff.map(|date| date.format("%Y%m%d").to_string());
 
     let mut results: Vec<serde_json::Value> = Vec::new();
     for target in &targets {
+        let mut saved = usagestat_core::usage_daily::selected_daily_rows(target)?;
+        if !saved.is_empty() {
+            usagestat_core::usage_daily::filter_period(&mut saved, period, today).map_err(|error| anyhow::anyhow!(error))?;
+            let daily: Vec<_> = saved.iter().map(|row| serde_json::json!({
+                "date": row.date, "inputTokens": row.input_tokens, "outputTokens": row.output_tokens,
+                "cacheReadTokens": row.cache_read_tokens, "cacheCreationTokens": row.cache_creation_tokens,
+                "reasoningOutputTokens": row.reasoning_output_tokens, "modelBreakdowns": [],
+                "totalTokens": row.total_tokens, "totalCost": row.cost_usd,
+                "tokensKnown": row.tokens_known, "costKnown": row.cost_known, "requests": row.requests,
+            })).collect();
+            let cost: f64 = saved.iter().map(|row| row.cost_usd).sum();
+            let total = saved.iter().try_fold(0u64, |sum, row| sum.checked_add(row.total_tokens));
+            let sum = |field: fn(&usagestat_core::usage_daily::UsageDailyRow) -> u64| {
+                saved.iter().try_fold(0u64, |sum, row| sum.checked_add(field(row)))
+            };
+            results.push(serde_json::json!({"provider":target,"currency":"USD","period":period,"timeZone":"UTC","daily":daily,
+                "periodDays":cutoff.map(|start| (today - start).num_days() as u32 + 1).unwrap_or(0),
+                "totals":{"totalTokens":total,"totalCost":cost.is_finite().then_some(cost),
+                    "inputTokens":sum(|r| r.input_tokens),"outputTokens":sum(|r| r.output_tokens),
+                    "cacheReadTokens":sum(|r| r.cache_read_tokens),"cacheCreationTokens":sum(|r| r.cache_creation_tokens),
+                    "reasoningOutputTokens":sum(|r| r.reasoning_output_tokens),
+                    "tokensKnown":total.is_some() && saved.iter().all(|r|r.tokens_known),
+                    "costKnown":cost.is_finite() && saved.iter().all(|r|r.cost_known)}}));
+            continue;
+        }
         let provider = match ccusage::parse_provider(target) {
             Some(provider) => provider,
             _ => {
@@ -1239,7 +1277,7 @@ fn run_cost_historical(provider_ids: &[String], days: u32) -> Result<()> {
         let raw = match ccusage::query_daily(
             &CcusageQueryOpts {
                 provider: Some(canonical.to_string()),
-                since: Some(since.clone()),
+                since: since.clone(),
                 ..Default::default()
             },
             canonical,
@@ -1258,11 +1296,8 @@ fn run_cost_historical(provider_ids: &[String], days: u32) -> Result<()> {
                     .filter_map(|d| {
                         let date = d.get("date")?.as_str()?.to_string();
                         // Filter to requested window
-                        if let Ok(parsed) = date.parse::<chrono::NaiveDate>() {
-                            if parsed <= cutoff {
-                                return None;
-                            }
-                        }
+                        let parsed = date.parse::<chrono::NaiveDate>().ok()?;
+                        if parsed > today || cutoff.is_some_and(|start| parsed < start) { return None; }
                         let input_tokens = json_u64(d, &["inputTokens", "input_tokens"]);
                         let output_tokens = json_u64(d, &["outputTokens", "output_tokens"]);
                         let cache_read_tokens =
@@ -1332,7 +1367,7 @@ fn run_cost_historical(provider_ids: &[String], days: u32) -> Result<()> {
             currency: "USD",
             daily,
             totals,
-            period_days: days,
+            period_days: cutoff.map(|start| (today - start).num_days() as u32 + 1).unwrap_or(0),
         })?);
     }
 

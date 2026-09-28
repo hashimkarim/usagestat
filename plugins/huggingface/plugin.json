@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "id": "huggingface",
+  "name": "Hugging Face",
+  "version": "0.1.0",
+  "entry": "plugin.js",
+  "enabledByDefault": false,
+  "supportedModes": [
+    "api"
+  ],
+  "autoMode": "api",
+  "usageDashboardUrl": "https://huggingface.co/settings/billing",
+  "webUrl": "https://huggingface.co",
+  "envVars": [
+    "HF_TOKEN",
+    "HUGGINGFACE_COOKIE"
+  ],
+  "upstream": {
+    "repository": "https://github.com/steipete/CodexBar",
+    "revision": "78ba5a1e65e6859da59a21b799df95ab91bc0b89",
+    "path": "Sources/CodexBarCore/Resources/Plugins/huggingface.js",
+    "sha256": "78cb1bb09535c71f7cb9d1a6336efb4ead44b36a1d4716602c1f7a1e35821291",
+    "license": "MIT"
+  }
+}

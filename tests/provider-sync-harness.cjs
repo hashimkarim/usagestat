@@ -31,6 +31,17 @@ function load(id, options = {}) {
       env: { get: (name) => options.env && options.env[name] || null },
       log: Object.fromEntries(["info", "warn", "error"].map((name) => [name, (text) => logs.push(text)])),
       http: {
+        validateProviderUrl: (raw, serialized) => {
+          const url = new URL(raw);
+          if (/[\\\s]/.test(raw) || url.username || url.password || url.hash) throw new Error('Invalid provider URL');
+          const allowed = JSON.parse(serialized).some(endpoint => {
+            if (!endpoint.url) return false;
+            const base = new URL(endpoint.url), prefix = base.pathname.replace(/\/+$/, '');
+            return base.origin === url.origin && (!prefix || url.pathname === prefix || url.pathname.startsWith(prefix + '/'));
+          });
+          if (!allowed) throw new Error('Provider request is outside its declared endpoints');
+          return url.href;
+        },
         request: (req) => {
           requests.push(req);
           if (!options.request) return response({}, 404);
@@ -54,24 +65,30 @@ function load(id, options = {}) {
           return files.get(name);
         },
         writeText: (name, value) => files.set(name, value),
-        listDir: (name) => [...files.keys()].filter((file) => file.startsWith(name + "/")).map((file) => file.slice(name.length + 1)),
+        readTextLimited: (name, limit) => { const text = files.get(name); if (text == null || text.length > limit) throw new Error('Unreadable'); return text; },
+        listDir: (name) => [...new Set([...files.keys()].filter((file) => file.startsWith(name + "/")).map((file) => file.slice(name.length + 1).split('/')[0]))],
         firstExisting: (names) => names.find((name) => files.has(name)) || null,
         firstExistingAppSupport: () => null,
       },
       keychain: { readGenericPassword: () => null, readGenericPasswordForCurrentUser: () => null, listGenericPasswords: () => [] },
       sqlite: { query: options.sqlite || (() => "[]") },
-      command: { run: () => ({ status: 1, stdout: "", stderr: "" }) },
+      command: { run: options.command || (() => ({ status: 1, stdout: "", stderr: "" })) },
+      claude: options.claude,
       ccusage: { query: options.ccusage || (() => ({ status: "no_runner" })) },
       usageDaily: { ingest: (payload) => ingested.push(payload) },
-      crypto: { sha256: (value) => createHash("sha256").update(value).digest("hex") },
+      crypto: { sha256: (value) => createHash("sha256").update(value).digest("hex"), sha1Hex: (value) => createHash("sha1").update(value).digest("hex") },
     },
   };
   const sandbox = vm.createContext({ __usagestat_ctx: ctx, __OPENUSAGE_PLUGIN_REGISTRATION_ID__: id, Date: Clock });
   vm.runInContext(utilityScript, sandbox);
+  vm.runInContext(fs.readFileSync(path.join(ROOT, 'crates/ai-usage-plugins/src/bundled_provider.js'), 'utf8'), sandbox);
   vm.runInContext(fs.readFileSync(path.join(ROOT, "plugins", id, "plugin.js"), "utf8"), sandbox, { filename: id + "/plugin.js" });
   const plugin = sandbox.__usagestat_plugin || sandbox.__ai_usage_plugin || sandbox.__openusage_plugin;
   return { ctx, requests, ingested, logs, files, plugin,
-    probe: () => JSON.parse(JSON.stringify(plugin.probe(ctx))) };
+    probe: () => {
+      const result = plugin.probe(ctx);
+      return result && typeof result.then === 'function' ? result.then(value => JSON.parse(JSON.stringify(value))) : JSON.parse(JSON.stringify(result));
+    } };
 }
 
 function lines(output) { return output.lines || output.metrics; }

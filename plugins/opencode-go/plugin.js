@@ -18,19 +18,22 @@
     WHERE json_valid(data)
       AND json_extract(data, '$.providerID') = 'opencode-go'
       AND json_extract(data, '$.role') = 'assistant'
-      AND json_type(data, '$.cost') IN ('integer', 'real')
     LIMIT 1
   `;
 
   const HISTORY_ROWS_SQL = `
     SELECT
       CAST(COALESCE(json_extract(data, '$.time.created'), time_created) AS INTEGER) AS createdMs,
-      CAST(json_extract(data, '$.cost') AS REAL) AS cost
+      json_extract(data, '$.cost') AS cost,
+      json_extract(data, '$.tokens.input') AS inputTokens,
+      json_extract(data, '$.tokens.output') AS outputTokens,
+      json_extract(data, '$.tokens.cache.read') AS cacheReadTokens,
+      json_extract(data, '$.tokens.cache.write') AS cacheCreationTokens,
+      json_extract(data, '$.tokens.reasoning') AS reasoningOutputTokens
     FROM message
     WHERE json_valid(data)
       AND json_extract(data, '$.providerID') = 'opencode-go'
       AND json_extract(data, '$.role') = 'assistant'
-      AND json_type(data, '$.cost') IN ('integer', 'real')
   `;
 
   function readNumber(value) {
@@ -361,9 +364,15 @@
       if (!row || typeof row !== "object") continue;
       const createdMs = readNumber(row.createdMs);
       const cost = readNumber(row.cost);
-      if (createdMs === null || createdMs <= 0) continue;
-      if (cost === null || cost < 0) continue;
-      rows.push({ createdMs, cost });
+      if (createdMs === null || createdMs <= 0 || createdMs > Date.parse(ctx.nowIso)) continue;
+      const entry = { createdMs, cost: cost !== null && cost >= 0 ? cost : 0, costKnown: cost !== null && cost >= 0, tokensKnown: false };
+      for (const key of ['inputTokens','outputTokens','cacheReadTokens','cacheCreationTokens','reasoningOutputTokens']) {
+        const value = readNumber(row[key]);
+        entry[key] = value !== null && value >= 0 ? value : 0;
+        if (value !== null && value >= 0 && key !== 'reasoningOutputTokens') entry.tokensKnown = true;
+      }
+      entry.totalTokens = entry.inputTokens + entry.outputTokens + entry.cacheReadTokens + entry.cacheCreationTokens;
+      if (entry.costKnown || entry.tokensKnown) rows.push(entry);
     }
 
     return { ok: true, rows };
@@ -623,7 +632,8 @@
 
     const rowsResult = loadHistory(ctx);
     if (rowsResult.ok && rowsResult.rows.length > 0) {
-      const lines = buildProgressLines(ctx, rowsResult.rows, readNowMs());
+      const lines = rowsResult.rows.every(row => row.costKnown)
+        ? buildProgressLines(ctx, rowsResult.rows, readNowMs()) : [];
       for (const line of lines) line.detail = "Estimated from local API-rate costs";
       attachCostHistory(ctx, lines, rowsResult.rows);
       if (cookie && source !== "local") {
@@ -669,12 +679,20 @@
       const date = toIso(row.createdMs);
       if (!date) continue;
       const day = date.slice(0, 10);
-      byDay[day] = (byDay[day] || 0) + row.cost;
+      const daily = byDay[day] || (byDay[day] = { date: day, costUsd: 0, tokensKnown: true, costKnown: true,
+        inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheCreationTokens: 0, reasoningOutputTokens: 0, totalTokens: 0, requests: 0 });
+      daily.costUsd += row.cost;
+      daily.costKnown = daily.costKnown && row.costKnown;
+      daily.tokensKnown = daily.tokensKnown && row.tokensKnown;
+      daily.requests++;
+      for (const key of ['inputTokens','outputTokens','cacheReadTokens','cacheCreationTokens','reasoningOutputTokens','totalTokens']) daily[key] += row[key];
     }
-    const daily = Object.keys(byDay).sort().map((day) => ({ date: day, costUsd: byDay[day] }));
+    const daily = Object.keys(byDay).sort().map((day) => byDay[day]);
     if (!daily.length) return;
-    lines.push(ctx.line.text({ label: "Local Cost", value: "$" + daily.reduce((n, day) => n + day.costUsd, 0).toFixed(2), subtitle: "Last 30 days; estimated API-rate cost" }));
-    lines.push(ctx.line.barChart({ label: "Cost History", points: daily.map((day) => ({ label: day.date, value: day.costUsd, valueLabel: "$" + day.costUsd.toFixed(2) })),
+    const total = daily.reduce((n, day) => n + day.costUsd, 0), known = daily.every(day => day.costKnown);
+    lines.push(ctx.line.text({ label: "Local Cost", value: known ? "$" + total.toFixed(2) : total > 0 ? "$" + total.toFixed(2) + "+" : "Unpriced", subtitle: "Last 30 days; estimated API-rate cost" }));
+    lines.push(ctx.line.text({ label: "Local Tokens", value: String(daily.reduce((n, day) => n + day.totalTokens, 0)) + (daily.every(day => day.tokensKnown) ? "" : "+"), subtitle: "Last 30 days" }));
+    lines.push(ctx.line.barChart({ label: "Cost History", points: daily.map((day) => ({ label: day.date, value: day.costUsd, valueLabel: day.costKnown ? "$" + day.costUsd.toFixed(2) : day.costUsd > 0 ? "$" + day.costUsd.toFixed(2) + "+" : "Unpriced" })),
       note: "Estimated from local OpenCode Go messages, not a subscription bill.", color: "#4d9f75" }));
     try {
       ctx.host.usageDaily.ingest({ displayName: "OpenCode Go", source: "opencode_go_local_estimated", daily });

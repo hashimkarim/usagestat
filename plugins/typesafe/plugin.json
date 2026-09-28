@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "id": "typesafe",
+  "name": "TypeSafe",
+  "version": "0.1.0",
+  "entry": "plugin.js",
+  "enabledByDefault": false,
+  "supportedModes": [
+    "web"
+  ],
+  "autoMode": "web",
+  "usageDashboardUrl": "https://console.typesafe.ai/usage",
+  "webUrl": "https://console.typesafe.ai",
+  "envVars": [
+    "TYPESAFE_COOKIE"
+  ],
+  "upstream": {
+    "repository": "https://github.com/steipete/CodexBar",
+    "revision": "78ba5a1e65e6859da59a21b799df95ab91bc0b89",
+    "path": "Sources/CodexBarCore/Resources/Plugins/typesafe.js",
+    "sha256": "eb3941346a966b3f5f9e0010f17edaeed7dfb6c8b0331319a86f26da10d51980",
+    "license": "MIT"
+  }
+}

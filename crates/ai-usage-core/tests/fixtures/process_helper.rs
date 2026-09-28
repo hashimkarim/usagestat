@@ -35,6 +35,15 @@ fn main() {
             assert!(bytes.iter().all(|byte| *byte == b'i'));
         }
         Some("ignore-input") => std::thread::sleep(Duration::from_secs(60)),
+        Some("dialogue") => {
+            use std::io::BufRead;
+            let mut input = std::io::stdin().lock().lines();
+            assert_eq!(input.next().unwrap().unwrap(), "initialize");
+            println!("initialized");
+            assert_eq!(input.next().unwrap().unwrap(), "get_usage");
+            println!("quota");
+            std::thread::sleep(Duration::from_secs(60));
+        }
         Some("exit") => std::process::exit(args.next().unwrap().parse().unwrap()),
         Some(mode @ ("tree" | "exit-tree")) => {
             let ready = args.next().unwrap();

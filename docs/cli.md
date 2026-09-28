@@ -169,8 +169,8 @@ own service settings with `usagestat-dev dashboard`.
 
 The dashboard's **History** tab shows saved daily token and cost trends across
 providers, including providers that are no longer enabled. Filter by provider,
-choose 7, 30, 90, or 365 days, all saved history, or custom dates, and group the
-chart by day, Monday-based week, or month. **Export selected CSV** downloads the
+choose 7, 30, 90, or 365 days, month-to-date, all saved history, or custom dates,
+and group the chart by day, Monday-based week, or month. **Export selected CSV** downloads the
 daily rows for that provider and date range, regardless of chart grouping.
 
 Totals are compared with the immediately preceding period of the same length.
@@ -183,11 +183,33 @@ Daily reports are saved in `~/.local/share/usagestat/usage_daily.json` (or the
 equivalent XDG data directory) when supported providers read local usage logs.
 Run `usagestat usage` or keep the daemon running to collect available reports.
 Only providers with daily reports contribute to spend and token totals. Costs
-may be API-equivalent estimates; a zero can also mean pricing was unavailable.
+may be API-equivalent estimates, not subscription charges. `costKnown` and
+`tokensKnown` distinguish complete values from partial/unavailable readings.
+The dashboard shows `Unpriced`, `Unknown`, or a `+` suffix rather than treating
+unavailable pricing as a known zero; older reports without these flags keep
+their original interpretation.
 Quota-only providers retain their snapshot charts in the provider tab.
 Repeated polling snapshots are never added together to calculate daily spend
 or token totals. History stays on the daemon's machine; this view does not
 combine records from other servers.
+
+The Used/Remaining selector applies to quota meters, not token or spend history.
+History day breakdowns initially show 30 rows and can expand to the full
+selected period. Display preferences can be exported/imported as bounded JSON;
+credentials, API endpoints, and provider configuration are not exported.
+
+Additional read-only daemon endpoints:
+
+```text
+GET /v1/history/daily/<provider>/<period>
+GET /v1/icons/<provider>
+GET /metrics
+```
+
+History periods accept `month`, `all`, or a day count from 1 to 36600. Icons use
+resolved provider metadata (including custom overrides). Prometheus output
+includes provider health, quota ratios, and fetch/reset timestamps, without
+account names, credentials, or diagnostic messages in metric labels.
 
 ## Quick Start
 
@@ -221,6 +243,11 @@ Probe one provider:
 usagestat usage claude
 usagestat usage --provider claude
 ```
+
+Claude's automatic source can also use fresh, account-verified Claude Code quota
+observations and a standalone no-prompt CLI fallback. See
+[Claude quota sources](claude-usage.md) for freshness, cooldown, and platform
+limitations. No T3 or status-line integration is required.
 
 Probe multiple providers:
 
@@ -394,9 +421,10 @@ usagestat status claude codex --json
 
 ### `cost`
 
-Prints Claude/Codex local cost and token summaries using the same ccusage
-runners as CodexBar/CrossUsage, or reads saved history when `--from-file` is
-supplied.
+Prints Claude/Codex local cost and token summaries. JSON mode first reads the
+saved daily ledger, supporting every provider that has written daily reports,
+and falls back to local Claude/Codex collection when no saved rows exist.
+`--from-file` reads exported snapshot history instead.
 
 ```bash
 usagestat cost [PROVIDER_IDS]...
@@ -408,16 +436,22 @@ Options:
 --format text|json|csv   Output format. Defaults to text.
 --from-file <PATH>       Read JSONL history instead of probing live.
 --refresh                Accepted for compatibility.
+--days <N>               JSON daily report window (default 30).
+--period <PERIOD>        JSON daily report: month, all, or 1..36600 days.
 ```
 
-Live cost currently supports `claude` and `codex`; `--provider all` maps to
-those local cost-capable providers. The first run may download the pinned
-ccusage packages through an available runner (`bunx`, `pnpm dlx`, `yarn dlx`,
-`npm exec`, or `npx`).
+Local live collection supports `claude` and `codex`. JSON reports with no explicit
+provider include these plus provider IDs present in the daily ledger. Text/CSV
+local collection retains its existing Claude/Codex scope. `--period` requires
+JSON mode and cannot be combined with `--from-file`. A selected period with no
+saved rows returns an empty daily report rather than relabeling unavailable
+history as recorded zero usage.
 
 ```bash
 usagestat cost claude codex
 usagestat cost --provider claude
+usagestat --json cost deepseek --period month
+usagestat --json cost --period all
 usagestat cost --from-file ~/.local/share/usagestat/history.jsonl --format csv
 ```
 

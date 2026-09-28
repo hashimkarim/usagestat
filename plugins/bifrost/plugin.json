@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "id": "bifrost",
+  "name": "Bifrost",
+  "version": "0.1.0",
+  "entry": "plugin.js",
+  "enabledByDefault": false,
+  "supportedModes": [
+    "api"
+  ],
+  "autoMode": "api",
+  "envVars": [
+    "BIFROST_API_KEY",
+    "BIFROST_BASE_URL"
+  ],
+  "upstream": {
+    "repository": "https://github.com/steipete/CodexBar",
+    "revision": "78ba5a1e65e6859da59a21b799df95ab91bc0b89",
+    "path": "Sources/CodexBarCore/Resources/Plugins/bifrost.js",
+    "sha256": "b7576d59ccd077c812118cf09d282042589a80df470c621e414583050f03aa07",
+    "license": "MIT"
+  }
+}

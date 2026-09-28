@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "id": "gemini-apps",
+  "name": "Gemini Apps",
+  "version": "0.1.0",
+  "entry": "plugin.js",
+  "enabledByDefault": false,
+  "supportedModes": ["web"],
+  "autoMode": "web",
+  "webUrl": "https://gemini.google.com",
+  "usageDashboardUrl": "https://gemini.google.com/usage",
+  "envVars": ["GEMINI_COOKIE"],
+  "upstream": {
+    "repository": "https://github.com/barramee27/crossusage",
+    "revision": "2b90b00be84e06acbf71a7c5c8db22d1c4e83966",
+    "path": "plugins/gemini-apps/plugin.js",
+    "license": "MIT"
+  }
+}

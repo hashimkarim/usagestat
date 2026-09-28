@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "id": "gitkraken",
+  "name": "GitKraken AI",
+  "version": "0.1.0",
+  "entry": "plugin.js",
+  "enabledByDefault": false,
+  "supportedModes": [
+    "api"
+  ],
+  "autoMode": "api",
+  "usageDashboardUrl": "https://gitkraken.dev/account#ai-usage",
+  "envVars": [
+    "GITKRAKEN_API_TOKEN",
+    "GITKRAKEN_ORG_ID"
+  ],
+  "upstream": {
+    "repository": "https://github.com/steipete/CodexBar",
+    "revision": "78ba5a1e65e6859da59a21b799df95ab91bc0b89",
+    "path": "Sources/CodexBarCore/Resources/Plugins/gitkraken.js",
+    "sha256": "c583890b74fc4c054cd818e560b30a17dd716c7611b554bd5b559f533a824ca2",
+    "license": "MIT"
+  }
+}

@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 756 779" role="img" aria-label="NanoGPT logo">
+  <defs>
+    <linearGradient id="nanoGradient" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#11E9BB"/>
+      <stop offset="100%" stop-color="#015A9E"/>
+    </linearGradient>
+  </defs>
+
+  <g fill="url(#nanoGradient)">
+    <polygon points="442,11 295,116 184,401 609,268"/>
+    <polygon points="542,102 544,112 642,264 722,298 560,88"/>
+    <polygon points="604,301 183,432 388,766"/>
+    <polygon points="744,339 640,296 458,693"/>
+    <polygon points="125,178 11,327 151,403 222,218"/>
+    <polygon points="52,383 272,637 149,437"/>
+  </g>
+</svg>

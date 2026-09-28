@@ -1,6 +1,6 @@
 use crate::host_api;
 use chrono::{DateTime, Utc};
-use rquickjs::{Array, Context, Ctx, Object, Runtime, Value};
+use rquickjs::{Array, Context, Ctx, Object, Runtime, Value, context::EvalOptions, promise::MaybePromise};
 use usagestat_core::{
     BarChartPoint, LoadedProvider, MetricLine, ProgressFormat, ProviderConfig, ProviderManifest,
     UsageSnapshot, paths,
@@ -30,9 +30,11 @@ pub fn probe_provider(
     let Ok(rt) = Runtime::new() else {
         return fallback();
     };
-    if let Some(cancellation) = usagestat_core::process::current_cancellation() {
-        rt.set_interrupt_handler(Some(Box::new(move || cancellation.is_cancelled())));
-    }
+    let cancellation = usagestat_core::process::current_cancellation();
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(90);
+    rt.set_memory_limit(128 * 1024 * 1024);
+    rt.set_interrupt_handler(Some(Box::new(move || std::time::Instant::now() >= deadline
+        || cancellation.as_ref().is_some_and(|value| value.is_cancelled()))));
     let Ok(ctx) = Context::full(&rt) else {
         return fallback();
     };
@@ -57,8 +59,15 @@ fn run_in_context(
     inject_context(&ctx, &provider.manifest, source_mode, provider_config)
         .map_err(|_| "host api injection failed".to_string())?;
 
-    ctx.eval::<(), _>(provider.entry_script.as_bytes())
-        .map_err(|_| "script eval failed".to_string())?;
+    ctx.eval::<(), _>(include_str!("bundled_provider.js").as_bytes())
+        .map_err(|_| "bundled provider adapter injection failed".to_string())?;
+
+    // A stable source name makes QuickJS exceptions actionable without exposing
+    // the user's installation path or dumping plugin source/credentials.
+    let mut eval_options = EvalOptions::default();
+    eval_options.filename = Some(format!("{}/{}", provider.manifest.id, provider.manifest.entry));
+    ctx.eval_with_options::<(), _>(provider.entry_script.as_bytes(), eval_options)
+        .map_err(|error| plugin_error(&ctx, error, "script evaluation"))?;
 
     let globals = ctx.globals();
     let plugin_obj: Object = globals
@@ -72,14 +81,9 @@ fn run_in_context(
     let probe_ctx: Value = globals
         .get("__usagestat_ctx")
         .unwrap_or_else(|_| Value::new_undefined(ctx.clone()));
-    let result: Object = probe_fn.call((probe_ctx,)).map_err(|error| {
-        let caught = extract_error_string(&ctx);
-        if caught == "The plugin failed." {
-            format!("{error:?}")
-        } else {
-            caught
-        }
-    })?;
+    let result: Object = probe_fn.call::<_, MaybePromise>((probe_ctx,))
+        .and_then(|value| value.finish())
+        .map_err(|error| plugin_error(&ctx, error, "probe"))?;
 
     let display_name = result
         .get::<_, String>("displayName")
@@ -118,6 +122,13 @@ fn run_in_context(
     })
 }
 
+fn plugin_error(ctx: &Ctx<'_>, error: rquickjs::Error, phase: &str) -> String {
+    if !error.is_exception() {
+        return format!("Plugin {phase} failed: {error}");
+    }
+    extract_error_string(ctx)
+}
+
 fn extract_error_string(ctx: &Ctx<'_>) -> String {
     let exc = ctx.catch();
     if exc.is_null() || exc.is_undefined() {
@@ -142,6 +153,18 @@ fn extract_error_string(ctx: &Ctx<'_>) -> String {
                 {
                     return format!("{code}: {trimmed}");
                 }
+            }
+            let name = value.get::<_, String>("name").unwrap_or_default();
+            // Ordinary strings and structured provider errors retain their
+            // actionable auth/state messages. Native JS errors also need their
+            // type and source location (QuickJS often says only "not a function").
+            if !name.is_empty() {
+                let stack = value.get::<_, String>("stack").unwrap_or_default();
+                let frame = stack.lines().map(str::trim).find(|line| line.starts_with("at "));
+                return match frame {
+                    Some(frame) => format!("{name}: {trimmed} ({frame})"),
+                    None => format!("{name}: {trimmed}"),
+                };
             }
             return trimmed.to_string();
         }
@@ -209,7 +232,12 @@ fn inject_context(
                     toml::Value::Integer(value) => settings_obj.set(key.as_str(), *value)?,
                     toml::Value::Float(value) => settings_obj.set(key.as_str(), *value)?,
                     toml::Value::Boolean(value) => settings_obj.set(key.as_str(), *value)?,
-                    _ => {}
+                    toml::Value::Array(_) | toml::Value::Table(_) => {
+                        let json = serde_json::to_string(value).unwrap_or_else(|_| "null".into());
+                        let parsed: Value = ctx.json_parse(json)?;
+                        settings_obj.set(key.as_str(), parsed)?;
+                    }
+                    toml::Value::Datetime(_) => {}
                 }
             }
             provider_obj.set("settings", settings_obj)?;
@@ -428,6 +456,78 @@ mod provider_sync_tests {
         }
     }
 
+    fn error_text(snapshot: &UsageSnapshot) -> &str {
+        assert_eq!(snapshot.source.as_deref(), Some("error"), "{snapshot:?}");
+        match &snapshot.metrics[0] {
+            MetricLine::Badge { text, .. } => text,
+            _ => panic!("expected error badge: {snapshot:?}"),
+        }
+    }
+
+    #[test]
+    fn javascript_errors_include_type_and_plugin_location() {
+        for script in [
+            "globalThis.__usagestat_plugin = {probe(ctx) { ctx.host.missingFunction(); }};",
+            "globalThis.__usagestat_plugin = {async probe(ctx) { await Promise.resolve(); ctx.host.missingFunction(); }};",
+            "throw new TypeError('top-level fixture failure');",
+            "globalThis.__usagestat_plugin = { probe: function( };",
+        ] {
+            let snapshot = probe_provider(&fixture(script), "auto", None);
+            let message = error_text(&snapshot);
+            assert!(message.contains("TypeError:") || message.contains("SyntaxError:"), "{message}");
+            assert!(message.contains("runtime-test/plugin.js:1"), "{message}");
+        }
+        let snapshot = probe_provider(&fixture("globalThis.__usagestat_plugin={probe(){throw 'Your session expired. Sign in again.';}}"), "auto", None);
+        assert_eq!(error_text(&snapshot), "Your session expired. Sign in again.");
+    }
+
+    #[test]
+    fn antigravity_discovery_runs_with_native_host_wrappers() {
+        let script = format!(r#"
+            __usagestat_ctx.host.ls._discoverReportRaw = function(raw) {{
+                if (JSON.parse(raw).processName !== 'language_server') throw new Error('unexpected discovery');
+                return JSON.stringify({{status:'ready',result:{{ports:[12345],csrf:'fixture'}}}});
+            }};
+            __usagestat_ctx.host.http.request = function(req) {{
+                if (req.headers['x-codeium-csrf-token'] !== 'fixture') throw new Error('lost CSRF token');
+                return {{status:200,bodyText:JSON.stringify({{userStatus:{{userTier:{{name:'Fixture'}},cascadeModelConfigData:{{clientModelConfigs:[
+                    {{label:'Gemini Pro',quotaInfo:{{remainingFraction:0.75}}}}
+                ]}}}}}})}};
+            }};
+            {}"#, include_str!("../../../plugins/antigravity/plugin.js"));
+        let snapshot = probe_provider(&fixture(&script), "auto", None);
+        assert_eq!(snapshot.plan.as_deref(), Some("Fixture"), "{snapshot:?}");
+        assert!(matches!(&snapshot.metrics[0], MetricLine::Progress { used, .. } if *used == 25.0));
+    }
+
+    #[test]
+    fn antigravity_oauth_database_runs_with_native_helpers() {
+        let script = format!(r#"
+            const ctx = __usagestat_ctx;
+            ctx.provider = {{settings:{{ideVariant:'antigravity'}}}};
+            const db = ctx.host.fs.appSupportPath('Antigravity/User/globalStorage/state.vscdb');
+            if (!db) throw new Error('no app support path');
+            ctx.host.fs.exists = path => path === db;
+            ctx.host.fs.readText = () => {{throw new Error('unexpected cache read');}};
+            ctx.host.ls._discoverReportRaw = () => {{throw new Error('selected profile used discovery');}};
+            const field = (n, s) => String.fromCharCode(n * 8 + 2, s.length) + s;
+            const token = 'synthetic-access';
+            const inner = ctx.base64.encode(field(1, token));
+            const outer = ctx.base64.encode(field(1, field(1,'oauthTokenInfoSentinelKey') + field(2, field(1,inner))));
+            ctx.host.sqlite.query = path => {{
+                if (path !== db) throw new Error('wrong profile');
+                return JSON.stringify([{{value:outer}}]);
+            }};
+            ctx.host.http.request = req => {{
+                if (req.headers.Authorization !== 'Bearer ' + token) throw new Error('lost access token');
+                return {{status:200,bodyText:JSON.stringify({{models:{{fixture:{{displayName:'Gemini Pro',quotaInfo:{{remainingFraction:0.75}}}}}}}})}};
+            }};
+            {}"#, include_str!("../../../plugins/antigravity/plugin.js"));
+        let snapshot = probe_provider(&fixture(&script), "auto", None);
+        assert_ne!(snapshot.source.as_deref(), Some("error"), "{snapshot:?}");
+        assert!(matches!(&snapshot.metrics[0], MetricLine::Progress { used, .. } if *used == 25.0));
+    }
+
     #[test]
     fn cached_snapshots_preserve_original_timestamp() {
         let provider = fixture(
@@ -440,6 +540,45 @@ mod provider_sync_tests {
             "2026-01-01T00:00:00Z".parse::<DateTime<Utc>>().unwrap()
         );
         assert_eq!(snapshot.metrics.len(), 1);
+    }
+
+    #[test]
+    fn structured_provider_settings_survive_native_injection() {
+        let config: ProviderConfig = toml::from_str(r#"
+            id = "runtime-test"
+            [settings]
+            sessionRoots = ["/selected/profile/sessions"]
+            flags = { partial = true, count = 2 }
+        "#).unwrap();
+        let provider = fixture("globalThis.__usagestat_plugin = {probe(ctx) { const s=ctx.provider.settings; if (!Array.isArray(s.sessionRoots) || !s.flags.partial || s.flags.count !== 2) throw 'Lost structured settings'; return {lines:[ctx.line.text({label:'Root',value:s.sessionRoots[0]})]}; }};");
+        let result = probe_provider(&provider, "auto", Some(&config));
+        assert!(matches!(&result.metrics[0], MetricLine::Text { value, .. } if value == "/selected/profile/sessions"), "{result:?}");
+    }
+
+    #[test]
+    fn asynchronous_bundled_fetchers_run_in_the_native_engine() {
+        let script = format!(
+            r#"__usagestat_ctx.provider = {{apiKey:'fixture'}};
+            __usagestat_ctx.host.http.request = function(req) {{
+                if (req.headers.Authorization !== 'Bearer fixture') throw new Error('missing header');
+                return {{status:200, headers:{{}}, bodyText:JSON.stringify({{object:'usage',
+                  free_tokens:{{used_today:25, limit_per_day:100, remaining:75}}, plan:'Pro'}})}};
+            }}; {}"#,
+            include_str!("../../../plugins/xkiro/plugin.js")
+        );
+        let snapshot = probe_provider(&fixture(&script), "api", None);
+        assert_eq!(snapshot.state, Some(usagestat_core::model::ProviderState::Ready), "{snapshot:?}");
+        assert_eq!(snapshot.plan.as_deref(), Some("Pro"));
+        assert!(matches!(&snapshot.metrics[0], MetricLine::Progress { used, .. } if *used == 25.0));
+    }
+
+    #[test]
+    fn rejected_async_probes_preserve_typed_errors_and_do_not_poison_retries() {
+        let provider = fixture("globalThis.__usagestat_plugin = {probe: async function() { await Promise.resolve(); throw {code:'missing-auth',message:'Sign in to the selected account.'}; }};");
+        let snapshot = probe_provider(&provider, "auto", None);
+        assert_eq!(snapshot.state, Some(usagestat_core::model::ProviderState::MissingAuth));
+        let good = fixture("globalThis.__usagestat_plugin = {probe: async function(ctx) { await Promise.resolve(); return {lines:[ctx.line.text({label:'Status',value:'Ready'})]}; }};");
+        assert_eq!(probe_provider(&good, "auto", None).state, Some(usagestat_core::model::ProviderState::Ready));
     }
 
     #[test]

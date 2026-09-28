@@ -10,7 +10,7 @@
     { "label": "Status", "url": "https://status.anthropic.com/" },
     { "label": "Console", "url": "https://console.anthropic.com/" }
   ],
-  "supportedModes": ["oauth", "web", "local", "api"],
+  "supportedModes": ["oauth", "cli", "web", "local", "api"],
   "autoMode": "oauth",
   "webUrl": "https://claude.ai",
   "usageDashboardUrl": "https://claude.ai/settings/usage",

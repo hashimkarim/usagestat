@@ -141,6 +141,12 @@ def runtime_resource_names(root: Path, tracked: list[str]) -> list[str]:
     if missing:
         raise ValueError('Commit provider resources before packaging: ' + ', '.join(missing))
     selected = names & {'LICENSE', notice}
+    icon_notices = {p.relative_to(root).as_posix() for p in (root / 'plugins/_provider-icons').rglob('*')
+        if p.is_file() and (p.name in {'LICENSE', 'NOTICE', 'provenance.json', 'source.json', 'manifest.json'}
+                           or 'licenses' in p.parts)}
+    if icon_notices - names:
+        raise ValueError('Commit provider icon notices before packaging: ' + ', '.join(sorted(icon_notices - names)))
+    selected.update(icon_notices)
     for name in sorted(names):
         path = PurePosixPath(name)
         if len(path.parts) != 3 or path.name != "plugin.json":

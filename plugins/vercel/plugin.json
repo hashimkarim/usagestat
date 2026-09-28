@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "id": "vercel",
+  "name": "Vercel AI Gateway",
+  "version": "0.1.0",
+  "entry": "plugin.js",
+  "enabledByDefault": false,
+  "supportedModes": [
+    "api"
+  ],
+  "autoMode": "api",
+  "usageDashboardUrl": "https://vercel.com/d?to=%2F%5Bteam%5D%2F%7E%2Fai-gateway",
+  "envVars": [
+    "AI_GATEWAY_API_KEY"
+  ],
+  "upstream": {
+    "repository": "https://github.com/steipete/CodexBar",
+    "revision": "78ba5a1e65e6859da59a21b799df95ab91bc0b89",
+    "path": "Sources/CodexBarCore/Resources/Plugins/vercel.js",
+    "sha256": "27b39f42709e93a2cfbf850171f198069553c99967f9b7ba6d16614862cb084a",
+    "license": "MIT"
+  }
+}

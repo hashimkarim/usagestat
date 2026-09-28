@@ -5,7 +5,8 @@ use std::sync::{Arc, Mutex};
 
 use anyhow::{Context, Result, bail};
 use hmac::{Hmac, Mac};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
+use serde_json::{Value, json};
 use sha2::Sha256;
 use std::collections::BTreeMap;
 use usagestat_core::{MetricLine, ProgressFormat, UsageSnapshot};
@@ -13,6 +14,8 @@ use usagestat_core::{MetricLine, ProgressFormat, UsageSnapshot};
 use crate::{AppState, http_request::Request, response_json, response_no_content};
 
 const STATUS_PATH: &str = "/v0/management/quota-scheduler/status";
+const AUTH_FILES_PATH: &str = "/v0/management/auth-files";
+const API_CALL_PATH: &str = "/v0/management/api-call";
 
 #[derive(Default)]
 pub struct ManagementApi {
@@ -43,7 +46,7 @@ impl ManagementApi {
     }
 
     pub fn route(&self, request: &Request, state: &Arc<Mutex<AppState>>) -> Option<String> {
-        if request.path != STATUS_PATH {
+        if ![STATUS_PATH, AUTH_FILES_PATH, API_CALL_PATH].contains(&request.path.as_str()) {
             return None;
         }
         let Some(key) = &self.key else {
@@ -75,20 +78,118 @@ impl ManagementApi {
                 r#"{"error":"invalid_management_key"}"#,
             ));
         }
-        if request.method != "GET" {
+        let method = if request.path == API_CALL_PATH {
+            "POST"
+        } else {
+            "GET"
+        };
+        if request.method != method {
             return Some(response_json(
                 405,
                 "Method Not Allowed",
                 r#"{"error":"method_not_allowed"}"#,
             ));
         }
-        let status = quota_status(&state.lock().expect("app state poisoned"));
+        let state = state.lock().expect("app state poisoned");
+        let status = match request.path.as_str() {
+            AUTH_FILES_PATH => auth_files(&state),
+            API_CALL_PATH => match serde_json::from_slice::<CachedApiCall>(&request.body) {
+                Ok(call) => cached_api_call(&state, &call),
+                Err(_) => {
+                    return Some(response_json(
+                        400,
+                        "Bad Request",
+                        r#"{"error":"invalid_api_call"}"#,
+                    ));
+                }
+            },
+            _ => serde_json::to_value(quota_status(&state)).expect("serializable quota status"),
+        };
         Some(response_json(
             200,
             "OK",
             &serde_json::to_string(&status).expect("serializable quota status"),
         ))
     }
+}
+
+fn auth_files(state: &AppState) -> Value {
+    let files: Vec<_> = quota_status(state)
+        .accounts
+        .into_iter()
+        .map(|(id, account)| {
+            let mut file = json!({ "id": id, "auth_index": id, "provider": account.provider });
+            if let Some(plan) = account.plan {
+                file["id_token"] = json!({"chatgpt_plan_type": plan});
+            }
+            file
+        })
+        .collect();
+    // Synthetic account identifiers only. Never read or export auth files.
+    json!({ "files": files })
+}
+
+#[derive(Deserialize)]
+struct CachedApiCall {
+    auth_index: String,
+    method: String,
+    url: String,
+    #[serde(default)]
+    data: Option<Value>,
+}
+
+fn api_result(status: u16, body: Value) -> Value {
+    json!({ "status_code": status, "body": body.to_string() })
+}
+
+fn cached_api_call(state: &AppState, call: &CachedApiCall) -> Value {
+    // The wire shape resembles a proxy, but no URL, header, token placeholder,
+    // or body supplied by a client is ever forwarded to the network.
+    if call.method != "GET" || call.data.is_some() {
+        return api_result(405, json!({"error": "read_only"}));
+    }
+    let accounts = quota_status(state).accounts;
+    let Some(account) = accounts.get(&call.auth_index) else {
+        return api_result(404, json!({"error": "unknown_account"}));
+    };
+    let supported = match account.provider.as_str() {
+        "claude" => "https://api.anthropic.com/api/oauth/usage",
+        "codex" => "https://chatgpt.com/backend-api/wham/usage",
+        _ => return api_result(404, json!({"error": "unsupported_provider"})),
+    };
+    if call.url != supported {
+        return api_result(403, json!({"error": "unsupported_cached_request"}));
+    }
+    let fresh = chrono::DateTime::parse_from_rfc3339(&account.fetched_at).is_ok_and(|at| {
+        let age = chrono::Utc::now().signed_duration_since(at).num_seconds();
+        (0..=10 * 60).contains(&age)
+    });
+    if account.windows.is_empty() || !fresh {
+        return api_result(503, json!({"error": "usage_unavailable"}));
+    }
+    let body = if account.provider == "claude" {
+        let window = |key| {
+            account.windows.get(key).map(|value| {
+                json!({
+                    "utilization": value.used_percent, "resets_at": value.reset_at,
+                })
+            })
+        };
+        json!({"five_hour": window("five_hour"), "seven_day": window("seven_day")})
+    } else {
+        let window = |key, seconds| {
+            account.windows.get(key).map(|value| json!({
+            "used_percent": value.used_percent,
+            "reset_at": value.reset_at.as_deref().and_then(|value| chrono::DateTime::parse_from_rfc3339(value).ok()).map(|value| value.timestamp()),
+            "limit_window_seconds": seconds,
+        }))
+        };
+        json!({"plan_type": account.plan, "rate_limit": {
+            "primary_window": window("five_hour", 5*60*60),
+            "secondary_window": window("weekly", 7*24*60*60),
+        }})
+    };
+    api_result(200, body)
 }
 
 pub(crate) fn keys_equal(expected: &str, supplied: &str) -> bool {
@@ -159,7 +260,11 @@ fn quota_account(snapshot: &UsageSnapshot) -> QuotaAccount {
         fetched_at: snapshot.fetched_at.to_rfc3339(),
         windows: BTreeMap::new(),
     };
-    if snapshot.source.as_deref() == Some("error") {
+    if snapshot.source.as_deref() == Some("error")
+        || snapshot
+            .state
+            .is_some_and(|state| state != usagestat_core::model::ProviderState::Ready)
+    {
         return account;
     }
     for metric in &snapshot.metrics {
@@ -368,6 +473,126 @@ mod tests {
         for supplied in ["", "test", "test-key-extra", "Test-key", "test-key\0"] {
             assert!(!keys_equal("test-key", supplied));
         }
+    }
+
+    fn management_request(path: &str, method: &str, body: &str, authorized: bool) -> Request {
+        let auth = if authorized {
+            "Authorization: Bearer test-key\r\n"
+        } else {
+            ""
+        };
+        read_request(
+            format!(
+                "{method} {path} HTTP/1.1\r\n{auth}Content-Length: {}\r\n\r\n{body}",
+                body.len()
+            )
+            .as_bytes(),
+        )
+        .unwrap()
+    }
+
+    fn body(response: String) -> Value {
+        serde_json::from_str(response.split_once("\r\n\r\n").unwrap().1).unwrap()
+    }
+
+    #[test]
+    fn current_t3_contract_lists_synthetic_accounts_and_serves_only_cached_quotas() {
+        let state = state();
+        for id in ["claude", "codex"] {
+            let mut snapshot = snapshot(id);
+            snapshot.fetched_at = chrono::Utc::now();
+            state.lock().unwrap().cache.upsert(snapshot);
+        }
+        let files = body(
+            api()
+                .route(
+                    &management_request(AUTH_FILES_PATH, "GET", "", true),
+                    &state,
+                )
+                .unwrap(),
+        );
+        assert_eq!(files["files"].as_array().unwrap().len(), 2);
+        assert_eq!(files["files"][0]["auth_index"], "claude.json");
+        assert!(!files.to_string().contains("accessToken"));
+        for (id, url, key, value_key) in [
+            (
+                "claude",
+                "https://api.anthropic.com/api/oauth/usage",
+                "five_hour",
+                "utilization",
+            ),
+            (
+                "codex",
+                "https://chatgpt.com/backend-api/wham/usage",
+                "primary_window",
+                "used_percent",
+            ),
+        ] {
+            let request = json!({"auth_index": format!("{id}.json"), "url": url, "method": "GET", "header": {"Authorization":"Bearer $TOKEN$"}});
+            let result = body(
+                api()
+                    .route(
+                        &management_request(API_CALL_PATH, "POST", &request.to_string(), true),
+                        &state,
+                    )
+                    .unwrap(),
+            );
+            assert_eq!(result["status_code"], 200);
+            let usage: Value = serde_json::from_str(result["body"].as_str().unwrap()).unwrap();
+            let windows = if id == "codex" {
+                &usage["rate_limit"]
+            } else {
+                &usage
+            };
+            assert_eq!(windows[key][value_key], 25.0);
+        }
+    }
+
+    #[test]
+    fn current_t3_contract_rejects_proxies_resets_missing_auth_and_stale_usage() {
+        let state = state();
+        for path in [AUTH_FILES_PATH, API_CALL_PATH] {
+            assert!(
+                api()
+                    .route(
+                        &management_request(
+                            path,
+                            if path == API_CALL_PATH { "POST" } else { "GET" },
+                            "{}",
+                            false
+                        ),
+                        &state
+                    )
+                    .unwrap()
+                    .starts_with("HTTP/1.1 401")
+            );
+            assert!(
+                ManagementApi::default()
+                    .route(&management_request(path, "GET", "", true), &state)
+                    .unwrap()
+                    .starts_with("HTTP/1.1 404")
+            );
+        }
+        let mut call = CachedApiCall {
+            auth_index: "claude.json".into(),
+            method: "GET".into(),
+            url: "https://api.anthropic.com/api/oauth/usage".into(),
+            data: None,
+        };
+        let state = state.lock().unwrap();
+        assert_eq!(cached_api_call(&state, &call)["status_code"], 503);
+        call.url = "http://127.0.0.1:22".into();
+        assert_eq!(cached_api_call(&state, &call)["status_code"], 403);
+        call.url = "https://chatgpt.com/backend-api/wham/usage".into();
+        assert_eq!(cached_api_call(&state, &call)["status_code"], 403);
+        call.method = "POST".into();
+        assert_eq!(cached_api_call(&state, &call)["status_code"], 405);
+        call.method = "GET".into();
+        call.data = Some(json!({"credit_id":"test"}));
+        assert_eq!(cached_api_call(&state, &call)["status_code"], 405);
+        call.data = None;
+        call.auth_index = "../../auth.json".into();
+        assert_eq!(cached_api_call(&state, &call)["status_code"], 404);
     }
 
     #[test]

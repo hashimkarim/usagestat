@@ -155,6 +155,13 @@
       ctx.host.log.warn("refresh skipped: no refresh token")
       return null
     }
+    var retryPath = ctx.app.pluginDataDir + "/oauth-retry-" + ctx.host.crypto.sha256Hex(refreshTokenValue) + ".json"
+    try {
+      if (ctx.host.fs.exists(retryPath)) {
+        var rejection = ctx.util.tryParseJson(ctx.host.fs.readText(retryPath))
+        if (rejection && rejection.retryAfterMs > Date.now()) return null
+      }
+    } catch (_) { /* A missing/corrupt cooldown must not prevent login. */ }
     ctx.host.log.info("attempting Google OAuth token refresh")
     try {
       var resp = ctx.host.http.request({
@@ -169,6 +176,12 @@
         timeoutMs: 15000,
       })
       if (resp.status < 200 || resp.status >= 300) {
+        var failure = ctx.util.tryParseJson(resp.bodyText)
+        if (resp.status === 400 && failure && failure.error === "invalid_grant") {
+          // A revoked token will not recover on the next dashboard poll. Store
+          // only a deadline under its hash; a new login bypasses this cooldown.
+          try { ctx.host.fs.writeText(retryPath, JSON.stringify({ retryAfterMs: Date.now() + 60 * 60 * 1000 })) } catch (_) {}
+        }
         ctx.host.log.warn("Google OAuth refresh returned status: " + resp.status)
         return null
       }
@@ -188,22 +201,34 @@
 
   // --- Token cache ---
 
+  function tokenCachePath(ctx, profileKey) {
+    // Include another hash so the filename remains bounded even on older hosts
+    // or test callers with an opaque profile key.
+    return ctx.app.pluginDataDir + "/auth-" + ctx.host.crypto.sha256Hex(profileKey) + ".json"
+  }
+
   function loadCachedToken(ctx, profileKey) {
-    var path = ctx.app.pluginDataDir + "/auth.json"
-    try {
-      if (!ctx.host.fs.exists(path)) return null
-      var data = ctx.util.tryParseJson(ctx.host.fs.readText(path))
-      if (!data || !profileKey || data.profileKey !== profileKey || !data.accessToken || !data.expiresAtMs) return null
-      if (data.expiresAtMs <= Date.now()) return null
-      return data.accessToken
-    } catch (e) {
-      ctx.host.log.warn("failed to read cached token: " + String(e))
-      return null
+    if (!profileKey) return null
+    // Read the old single-slot cache for compatibility, but write only the
+    // per-profile file so the IDE and agy cannot evict each other's token.
+    var paths = [tokenCachePath(ctx, profileKey), ctx.app.pluginDataDir + "/auth.json"]
+    for (var i = 0; i < paths.length; i++) {
+      try {
+        if (!ctx.host.fs.exists(paths[i])) continue
+        var data = ctx.util.tryParseJson(ctx.host.fs.readText(paths[i]))
+        if (!data || data.profileKey !== profileKey || !data.accessToken || !data.expiresAtMs) continue
+        if (data.expiresAtMs <= Date.now()) continue
+        return data.accessToken
+      } catch (e) {
+        ctx.host.log.warn("failed to read cached token: " + String(e))
+      }
     }
+    return null
   }
 
   function cacheToken(ctx, accessToken, expiresInSeconds, profileKey) {
-    var path = ctx.app.pluginDataDir + "/auth.json"
+    if (!profileKey) return
+    var path = tokenCachePath(ctx, profileKey)
     try {
       ctx.host.fs.writeText(path, JSON.stringify({
         accessToken: accessToken,
@@ -238,56 +263,123 @@
     return text || null
   }
 
-  function extractTokenFromObject(obj) {
-    if (!obj || typeof obj !== "object") return null
+  // agy stores {"token":{"access_token","refresh_token","expiry"},"id_token":...}.
+  // Search the whole payload for a bearer token before falling back to an ID
+  // token: Cloud Code rejects ID tokens, so a top-level id_token must not win.
+  var ACCESS_KEYS = ["access_token", "accessToken", "bearerToken", "auth_token", "authToken"]
+  var NESTED_KEYS = ["token", "tokens", "oauth", "oauth2", "credentials", "auth"]
 
-    var directKeys = [
-      "access_token",
-      "accessToken",
-      "token",
-      "id_token",
-      "idToken",
-      "bearerToken",
-      "auth_token",
-      "authToken",
-    ]
-    for (var i = 0; i < directKeys.length; i++) {
-      var value = obj[directKeys[i]]
+  function findStringDeep(obj, keys, depth) {
+    if (!obj || typeof obj !== "object" || depth > 4) return null
+    for (var i = 0; i < keys.length; i++) {
+      var value = obj[keys[i]]
       if (typeof value === "string" && value.trim()) return value.trim()
     }
-
-    var nestedKeys = ["token", "tokens", "oauth", "oauth2", "credentials", "auth"]
-    for (var j = 0; j < nestedKeys.length; j++) {
-      var nested = extractTokenFromObject(obj[nestedKeys[j]])
+    for (var j = 0; j < NESTED_KEYS.length; j++) {
+      var nested = findStringDeep(obj[NESTED_KEYS[j]], keys, depth + 1)
       if (nested) return nested
     }
-
     return null
   }
 
-  function extractAgyAccessToken(ctx, raw) {
-    var text = unwrapAgyKeychainText(ctx, raw)
-    if (!text) return null
-
-    var parsed = ctx.util.tryParseJson(text)
-    if (typeof parsed === "string" && parsed.trim()) return parsed.trim()
-    if (parsed) return extractTokenFromObject(parsed)
-
-    if (text.indexOf("Bearer ") === 0) return text.slice("Bearer ".length).trim() || null
-    return text
+  function extractTokenFromObject(obj) {
+    if (!obj || typeof obj !== "object") return null
+    return findStringDeep(obj, ACCESS_KEYS, 0) || findStringDeep(obj, ["token"], 0) ||
+      findStringDeep(obj, ["id_token", "idToken"], 0)
   }
 
-  function loadAgyKeychainToken(ctx) {
+  function parseExpiryMs(value) {
+    if (typeof value === "number" && isFinite(value)) return value < 1e12 ? value * 1000 : value
+    if (typeof value === "string" && value.trim()) {
+      var ms = Date.parse(value.trim())
+      return isFinite(ms) ? ms : null
+    }
+    return null
+  }
+
+  // Returns {accessToken, refreshToken, expiryMs} from agy's keyring payload.
+  function parseAgyCredentials(ctx, raw) {
+    var text = unwrapAgyKeychainText(ctx, raw)
+    if (!text) return null
+    var parsed = ctx.util.tryParseJson(text)
+    if (typeof parsed === "string" && parsed.trim()) return { accessToken: parsed.trim(), refreshToken: null, expiryMs: null }
+    if (parsed && typeof parsed === "object") {
+      var expiry = findStringDeep(parsed, ["expiry", "expires_at", "expiresAt"], 0)
+      var numericExpiry = parsed.token && typeof parsed.token === "object" ? parsed.token.expiry_date : null
+      return {
+        accessToken: extractTokenFromObject(parsed),
+        refreshToken: findStringDeep(parsed, ["refresh_token", "refreshToken"], 0),
+        expiryMs: parseExpiryMs(expiry) || parseExpiryMs(numericExpiry),
+      }
+    }
+    if (text.indexOf("Bearer ") === 0) return { accessToken: text.slice("Bearer ".length).trim() || null, refreshToken: null, expiryMs: null }
+    return { accessToken: text, refreshToken: null, expiryMs: null }
+  }
+
+  function extractAgyAccessToken(ctx, raw) {
+    var creds = parseAgyCredentials(ctx, raw)
+    return creds ? creds.accessToken : null
+  }
+
+  function loadAgyCredentials(ctx) {
     if (!ctx.host.keychain || typeof ctx.host.keychain.readGenericPassword !== "function") {
       return null
     }
     try {
-      var raw = ctx.host.keychain.readGenericPassword(AGY_KEYCHAIN_SERVICE, AGY_KEYCHAIN_ACCOUNT)
-      return extractAgyAccessToken(ctx, raw)
+      return parseAgyCredentials(ctx, ctx.host.keychain.readGenericPassword(AGY_KEYCHAIN_SERVICE, AGY_KEYCHAIN_ACCOUNT))
     } catch (e) {
       ctx.host.log.info("agy keychain read failed: " + String(e))
       return null
     }
+  }
+
+  function loadAgyKeychainToken(ctx) {
+    var creds = loadAgyCredentials(ctx)
+    return creds ? creds.accessToken : null
+  }
+
+  // Probe Cloud Code with agy's credentials, refreshing an expired or rejected
+  // access token with agy's refresh token (same Google OAuth client).
+  function probeAgyCredentials(ctx) {
+    var creds = loadAgyCredentials(ctx)
+    if (!creds || (!creds.accessToken && !creds.refreshToken)) return null
+    var profileKey = creds.refreshToken ? ctx.host.crypto.sha256Hex("agy\n" + creds.refreshToken) : null
+    var candidates = []
+    var cached = loadCachedToken(ctx, profileKey)
+    if (cached) candidates.push(cached)
+    var expired = creds.expiryMs != null && creds.expiryMs <= Date.now() + 60000
+    if (creds.accessToken && !expired && candidates.indexOf(creds.accessToken) === -1) candidates.push(creds.accessToken)
+    var last = null
+    for (var i = 0; i < candidates.length; i++) {
+      var result = probeAgyToken(ctx, candidates[i])
+      if (result && !result._authFailed) return result
+      if (result) last = result
+    }
+    if (creds.refreshToken && (last || !candidates.length)) {
+      var refreshed = refreshAccessToken(ctx, creds.refreshToken, profileKey)
+      if (refreshed) {
+        var refreshedResult = probeAgyToken(ctx, refreshed)
+        if (refreshedResult) return refreshedResult
+      }
+    }
+    return last
+  }
+
+  // Consumer agy accounts have no Cloud project, so retrieveUserQuota answers
+  // 403 "no valid license" even with a valid token. fetchAvailableModels still
+  // reports per-model quota, so use it before treating the token as rejected.
+  function probeAgyToken(ctx, token) {
+    var quota = probeAgyCloudCode(ctx, token)
+    if (quota && !quota._authFailed) return quota
+    var models = probeCloudCode(ctx, token)
+    if (models && !models._authFailed) {
+      var lines = buildModelLines(ctx, parseCloudCodeModels(models))
+      if (lines.length > 0) return { plan: null, lines: lines }
+      return null
+    }
+    // A quota 403 can mean "no license", not an invalid bearer. If the model
+    // endpoint is temporarily unavailable, don't turn that into a token refresh.
+    return models
   }
 
   // --- LS discovery ---
@@ -682,7 +774,7 @@
 
     var profileKey = dbTokenCandidates.length ? dbTokenCandidates[0].profileKey : null
     var cached = loadCachedToken(ctx, profileKey)
-    if (cached && tokens.indexOf(cached) === -1) tokens.push(cached)
+    if (cached && tokens.indexOf(cached) === -1) tokens.unshift(cached)
 
     var ccData = null
     var sawAuthFailure = false
@@ -717,13 +809,11 @@
       }
     }
 
-    if (!dbTokenCandidates.length && (!ccData || ccData._authFailed)) {
-      var agyToken = loadAgyKeychainToken(ctx)
-      if (agyToken) {
-        var agyResult = probeAgyCloudCode(ctx, agyToken)
-        if (agyResult && !agyResult._authFailed) return agyResult
-        if (agyResult && agyResult._authFailed) ccData = agyResult
-      }
+    // agy's own login also covers users whose IDE database is stale or absent.
+    if (!explicitDb && (!ccData || ccData._authFailed)) {
+      var agyResult = probeAgyCredentials(ctx)
+      if (agyResult && !agyResult._authFailed) return agyResult
+      if (agyResult && agyResult._authFailed) ccData = agyResult
     }
 
     if (ccData && !ccData._authFailed) {

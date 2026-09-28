@@ -6,14 +6,14 @@ use usagestat_core::{
 const DASHBOARD_HTML: &str = include_str!("dashboard.html");
 const DASHBOARD_TRENDS_JS: &str = include_str!("dashboard-trends.js");
 use anyhow::{Context, Result};
-use chrono::{DateTime, Datelike, Duration as ChronoDuration, TimeZone, Utc};
+use chrono::Utc;
 use clap::Parser;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value as JsonValue, json};
 use std::collections::HashMap;
-use std::io::{BufRead, Write};
+use std::io::Write;
 use std::net::{TcpListener, TcpStream};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread;
@@ -23,7 +23,13 @@ use usagestat_plugins::{discover_providers, probe_provider};
 mod cliproxy;
 mod codex_usage;
 mod control;
+mod history;
 mod http_request;
+mod local_usage;
+mod local_usage_cache;
+mod pricing;
+mod prometheus;
+use usagestat_core::usage_daily::UsageModelDaily as ModelAggregate;
 
 #[derive(Debug, Parser)]
 #[command(name = "usagestatd", version)]
@@ -140,6 +146,9 @@ fn main() -> Result<()> {
         refresh_sec,
         Arc::clone(&shutdown),
     );
+    // Build daily model history away from the HTTP/UI path. Per-file caches
+    // survive restarts; subsequent passes only parse changed transcripts.
+    start_usage_summarizer(Arc::clone(&state), Arc::clone(&shutdown));
     let result = serve(
         listener,
         state,
@@ -158,6 +167,37 @@ fn main() -> Result<()> {
         log::warn!("provider transport did not finish within the shutdown deadline");
     }
     result
+}
+
+fn start_usage_summarizer(state: Arc<Mutex<AppState>>, shutdown: Arc<AtomicBool>) {
+    thread::spawn(move || {
+        while !shutdown.load(Ordering::Relaxed) {
+            let providers: Vec<_> = state
+                .lock()
+                .expect("app state poisoned")
+                .providers
+                .iter()
+                .filter(|provider| {
+                    provider.enabled && matches!(provider.id.as_str(), "codex" | "claude")
+                })
+                .map(|provider| provider.id.clone())
+                .collect();
+            for provider in &providers {
+                if shutdown.load(Ordering::Relaxed) {
+                    return;
+                }
+                if let Err(error) = local_usage_cache::report(provider, "daily") {
+                    log::warn!("local daily summarization for {provider} failed: {error}");
+                }
+            }
+            for _ in 0..if providers.is_empty() { 1 } else { 60 } {
+                if shutdown.load(Ordering::Relaxed) {
+                    return;
+                }
+                thread::sleep(Duration::from_secs(1));
+            }
+        }
+    });
 }
 
 fn start_poller(
@@ -283,7 +323,15 @@ fn handle_connection(
                     reply.response
                 })
                 .or_else(|| management.route(&request, &state))
-                .unwrap_or_else(|| route(&request.method, &request.path, &state, &refresh_flag))
+                .unwrap_or_else(|| {
+                    route(
+                        &request.method,
+                        &request.path,
+                        &request.query,
+                        &state,
+                        &refresh_flag,
+                    )
+                })
         }
         Err(_) => response_json(400, "Bad Request", r#"{"error":"invalid_request"}"#),
     };
@@ -298,6 +346,7 @@ fn handle_connection(
 fn route(
     method: &str,
     path: &str,
+    query: &str,
     state: &Arc<Mutex<AppState>>,
     refresh_flag: &Arc<AtomicBool>,
 ) -> String {
@@ -352,40 +401,120 @@ fn route(
 
     if path == "/v1/providers" {
         let providers = state.lock().expect("app state poisoned").providers.clone();
-        let body = serde_json::to_string_pretty(&providers).unwrap_or_else(|_| "[]".into());
+        let body = serde_json::to_string(&providers).unwrap_or_else(|_| "[]".into());
         return response_json(200, "OK", &body);
+    }
+
+    if let Some(id) = path.strip_prefix("/v1/icons/") {
+        let providers = state.lock().expect("app state poisoned").providers.clone();
+        // Resolve only registered assets, never an arbitrary request-supplied path.
+        let icon = providers
+            .iter()
+            .find(|provider| provider.id == id)
+            .and_then(|provider| provider.icon.as_ref());
+        if let Some(icon) = icon {
+            let file = icon.color_path.as_ref().or(icon.path.as_ref());
+            if let Some(file) = file.filter(|file| file.ends_with(".svg")) {
+                if std::fs::metadata(file)
+                    .map(|meta| meta.len() <= 128 * 1024)
+                    .unwrap_or(false)
+                {
+                    if let Ok(svg) = std::fs::read_to_string(file) {
+                        return response_text(200, "OK", "image/svg+xml", &svg);
+                    }
+                }
+            }
+        }
+        return response_json(404, "Not Found", r#"{"error":"icon_not_found"}"#);
     }
 
     if path == "/v1/usage" {
         let guard = state.lock().expect("app state poisoned");
         let snapshots = ordered_snapshots(&guard);
-        let body = serde_json::to_string_pretty(&snapshots).unwrap_or_else(|_| "[]".into());
+        let body = serde_json::to_string(&snapshots).unwrap_or_else(|_| "[]".into());
         return response_json(200, "OK", &body);
     }
 
-    if path == "/v1/history" {
-        let body =
-            serde_json::to_string_pretty(&read_history(None)).unwrap_or_else(|_| "[]".into());
-        return response_json(200, "OK", &body);
+    if path == "/metrics" {
+        let guard = state.lock().expect("app state poisoned");
+        let snapshots = ordered_snapshots(&guard);
+        let enabled: Vec<_> = snapshots
+            .iter()
+            .filter(|snapshot| {
+                guard
+                    .providers
+                    .iter()
+                    .any(|provider| provider.enabled && provider.id == snapshot.provider_id)
+            })
+            .collect();
+        return response_text(
+            200,
+            "OK",
+            "text/plain; version=0.0.4; charset=utf-8",
+            &prometheus::render(&enabled),
+        );
     }
 
-    if path == "/v1/history/quota" {
-        let body =
-            serde_json::to_string_pretty(&read_history(None)).unwrap_or_else(|_| "[]".into());
-        return response_json(200, "OK", &body);
+    if path == "/v1/history" || path == "/v1/history/quota" {
+        return history::serve(None, query);
     }
-
     if let Some(provider_id) = path.strip_prefix("/v1/history/quota/") {
-        let body = serde_json::to_string_pretty(&read_history(Some(provider_id)))
-            .unwrap_or_else(|_| "[]".into());
-        return response_json(200, "OK", &body);
+        return history::serve(Some(provider_id), query);
     }
 
     if path == "/v1/history/daily" {
+        if query.split('&').any(|pair| pair == "includeSources=true") {
+            return serve_saved_daily_sources(None);
+        }
         return serve_all_saved_daily_history();
     }
 
+    if let Some(provider_id) = path.strip_prefix("/v1/history/models/") {
+        return match usage_daily::selected_model_daily_rows(provider_id) {
+            Ok(rows) => response_json(
+                200,
+                "OK",
+                &json!({"daily":rows,"timeZone":"UTC"}).to_string(),
+            ),
+            Err(_) => response_json(
+                500,
+                "Internal Server Error",
+                r#"{"error":"history_unavailable"}"#,
+            ),
+        };
+    }
+
     if let Some(provider_id) = path.strip_prefix("/v1/history/daily/") {
+        if query.split('&').any(|pair| pair == "includeSources=true") {
+            return serve_saved_daily_sources(Some(provider_id));
+        }
+        if let Some((id, period)) = provider_id.split_once('/') {
+            match usage_daily::selected_daily_rows(id) {
+                Ok(mut rows) => {
+                    if let Err(error) =
+                        usage_daily::filter_period(&mut rows, period, Utc::now().date_naive())
+                    {
+                        return response_json(
+                            400,
+                            "Bad Request",
+                            &json!({"error": error}).to_string(),
+                        );
+                    }
+                    return response_json(
+                        200,
+                        "OK",
+                        &json!({"daily":rows,"period":period,"timeZone":"UTC"}).to_string(),
+                    );
+                }
+                Err(_) => {
+                    return response_json(
+                        500,
+                        "Internal Server Error",
+                        r#"{"error":"history_unavailable"}"#,
+                    );
+                }
+            }
+        }
         return serve_saved_usage_report(provider_id, "daily");
     }
 
@@ -397,20 +526,18 @@ fn route(
         .strip_prefix("/v1/local-usage/")
         .or_else(|| path.strip_prefix("/v1/ccusage/"))
     {
-        return serve_local_usage_report(rest);
+        return serve_local_usage_report(rest, query);
     }
 
     if let Some(provider_id) = path.strip_prefix("/v1/history/") {
-        let body = serde_json::to_string_pretty(&read_history(Some(provider_id)))
-            .unwrap_or_else(|_| "[]".into());
-        return response_json(200, "OK", &body);
+        return history::serve(Some(provider_id), query);
     }
 
     if let Some(provider_id) = path.strip_prefix("/v1/usage/") {
         let guard = state.lock().expect("app state poisoned");
         return match guard.cache.get(provider_id) {
             Some(snap) => {
-                let body = serde_json::to_string_pretty(snap).unwrap_or_else(|_| "{}".into());
+                let body = serde_json::to_string(snap).unwrap_or_else(|_| "{}".into());
                 response_json(200, "OK", &body)
             }
             None => response_json(404, "Not Found", r#"{"error":"provider_not_found"}"#),
@@ -445,30 +572,9 @@ fn serve_cost(provider_id: &str) -> String {
             return serve_saved_cost(provider_id);
         }
     };
-    match scan_local_usage(canonical) {
-        Ok(events) => {
-            let daily = aggregate_usage(&events, Bucket::Day);
-            let totals = daily
-                .iter()
-                .fold(ModelAggregate::default(), |mut acc, row| {
-                    acc.input_tokens += row.input_tokens;
-                    acc.output_tokens += row.output_tokens;
-                    acc.cache_read_tokens += row.cache_read_tokens;
-                    acc.cache_creation_tokens += row.cache_creation_tokens;
-                    acc.reasoning_output_tokens += row.reasoning_output_tokens;
-                    acc.total_tokens += row.total_tokens;
-                    acc.cost_usd += row.cost_usd;
-                    acc
-                });
-            let body = serde_json::to_string_pretty(&json!({
-                "provider": canonical,
-                "currency": "USD",
-                "daily": daily,
-                "totals": totals,
-            }))
-            .unwrap_or_else(|_| "{}".into());
-            response_json(200, "OK", &body)
-        }
+    match local_usage_cache::report(canonical, "daily") {
+        Ok(_) => saved_cost_response(canonical).unwrap_or_else(|| response_json(200, "OK",
+            &json!({"provider":canonical,"currency":"USD","daily":[],"totals":ModelAggregate::default()}).to_string())),
         Err(error) if error.is::<usagestat_core::provider_paths::ProviderPathError>() => {
             provider_path_error_response()
         }
@@ -476,13 +582,29 @@ fn serve_cost(provider_id: &str) -> String {
     }
 }
 
-fn serve_local_usage_report(rest: &str) -> String {
+fn serve_local_usage_report(rest: &str, query: &str) -> String {
     let mut parts = rest.split('/');
     let provider_id = parts.next().unwrap_or_default();
     let report = parts.next().unwrap_or("daily");
     if parts.next().is_some() {
         return response_json(404, "Not Found", r#"{"error":"not_found"}"#);
     }
+    let limit = if query.is_empty() {
+        None
+    } else {
+        let limit = query
+            .strip_prefix("limit=")
+            .and_then(|limit| limit.parse::<usize>().ok())
+            .filter(|limit| (1..=1000).contains(limit));
+        if limit.is_none() || !matches!(report, "session" | "blocks") {
+            return response_json(
+                400,
+                "Bad Request",
+                r#"{"error":"limit must be 1-1000 for session or blocks reports"}"#,
+            );
+        }
+        limit
+    };
     if matches!(report, "daily" | "weekly" | "monthly") {
         if let Some(response) = saved_usage_report_response(provider_id, report) {
             return response;
@@ -498,7 +620,7 @@ fn serve_local_usage_report(rest: &str) -> String {
     };
     if !matches!(
         report,
-        "daily" | "weekly" | "monthly" | "session" | "blocks"
+        "daily" | "weekly" | "monthly" | "session" | "blocks" | "models"
     ) {
         return response_json(
             400,
@@ -507,7 +629,7 @@ fn serve_local_usage_report(rest: &str) -> String {
         );
     }
 
-    match local_usage_report(provider, report) {
+    match local_usage_cache::report_limited(provider, report, limit) {
         Ok(body) => response_json(200, "OK", &body),
         Err(e) => {
             if e.is::<usagestat_core::provider_paths::ProviderPathError>() {
@@ -537,11 +659,53 @@ fn serve_saved_usage_report(provider_id: &str, report: &str) -> String {
     })
 }
 
+fn serve_saved_daily_sources(provider_path: Option<&str>) -> String {
+    let (provider_id, period) = match provider_path.and_then(|path| path.split_once('/')) {
+        Some((id, period)) => (Some(id), Some(period)),
+        None => (provider_path, None),
+    };
+    let rows = match usage_daily::selected_daily_rows_with_sources(provider_id) {
+        Ok(rows) => rows,
+        Err(_) => {
+            return response_json(
+                500,
+                "Internal Server Error",
+                r#"{"error":"history_unavailable"}"#,
+            );
+        }
+    };
+    let mut body = json!({"daily":rows});
+    if let Some(period) = period {
+        let today = Utc::now().date_naive();
+        let start = match usage_daily::period_start(period, today) {
+            Ok(start) => start,
+            Err(error) => {
+                return response_json(400, "Bad Request", &json!({"error":error}).to_string());
+            }
+        };
+        body["daily"].as_array_mut().unwrap().retain(|row| {
+            row["date"]
+                .as_str()
+                .and_then(|date| chrono::NaiveDate::parse_from_str(date, "%Y-%m-%d").ok())
+                .is_some_and(|day| day <= today && start.is_none_or(|start| day >= start))
+        });
+        body["period"] = json!(period);
+        body["timeZone"] = json!("UTC");
+    } else if provider_id.is_some() && body["daily"].as_array().is_some_and(Vec::is_empty) {
+        return response_json(
+            200,
+            "OK",
+            r#"{"error":{"code":"UNAVAILABLE","message":"Saved daily usage is not available for this provider"}}"#,
+        );
+    }
+    response_json(200, "OK", &body.to_string())
+}
+
 fn serve_all_saved_daily_history() -> String {
     match usage_daily::all_selected_daily_rows() {
         Ok(rows) => {
-            let body = serde_json::to_string_pretty(&json!({ "daily": rows }))
-                .unwrap_or_else(|_| "{}".into());
+            let body =
+                serde_json::to_string(&json!({ "daily": rows })).unwrap_or_else(|_| "{}".into());
             response_json(200, "OK", &body)
         }
         Err(e) => {
@@ -561,7 +725,7 @@ fn saved_usage_report_response(provider_id: &str, report: &str) -> Option<String
             if value.get("error").is_some() {
                 return None;
             }
-            let body = serde_json::to_string_pretty(&value).unwrap_or_else(|_| "{}".into());
+            let body = serde_json::to_string(&value).unwrap_or_else(|_| "{}".into());
             Some(response_json(200, "OK", &body))
         }
         Err(e) => {
@@ -585,20 +749,16 @@ fn saved_cost_response(provider_id: &str) -> Option<String> {
     match usage_daily::selected_daily_rows(provider_id) {
         Ok(rows) if !rows.is_empty() => {
             let totals = rows.iter().fold(ModelAggregate::default(), |mut acc, row| {
-                acc.input_tokens += row.input_tokens;
-                acc.output_tokens += row.output_tokens;
-                acc.cache_read_tokens += row.cache_read_tokens;
-                acc.cache_creation_tokens += row.cache_creation_tokens;
-                acc.reasoning_output_tokens += row.reasoning_output_tokens;
-                acc.total_tokens += row.total_tokens;
-                acc.cost_usd += row.cost_usd;
+                acc.add(&row.metrics());
                 acc
             });
-            let body = serde_json::to_string_pretty(&json!({
+            let body = serde_json::to_string(&json!({
                 "provider": provider_id,
                 "currency": "USD",
                 "daily": rows,
                 "totals": totals,
+                "costKnown": rows.iter().all(|row| row.cost_known),
+                "tokensKnown": rows.iter().all(|row| row.tokens_known),
             }))
             .unwrap_or_else(|_| "{}".into());
             Some(response_json(200, "OK", &body))
@@ -609,426 +769,6 @@ fn saved_cost_response(provider_id: &str) -> Option<String> {
             None
         }
     }
-}
-
-fn local_usage_report(provider: &str, report: &str) -> Result<String> {
-    let events = scan_local_usage(provider)?;
-    let value = match report {
-        "daily" => json!({ "daily": aggregate_usage(&events, Bucket::Day) }),
-        "weekly" => json!({ "weekly": aggregate_usage(&events, Bucket::Week) }),
-        "monthly" => json!({ "monthly": aggregate_usage(&events, Bucket::Month) }),
-        "session" => json!({ "sessions": aggregate_sessions(&events) }),
-        "blocks" => json!({ "blocks": aggregate_blocks(&events) }),
-        _ => {
-            return Ok(
-                r#"{"error":{"code":"BAD_REPORT","message":"Unsupported usage report"}}"#
-                    .to_string(),
-            );
-        }
-    };
-    Ok(serde_json::to_string_pretty(&value)?)
-}
-
-#[derive(Debug, Clone, Default)]
-struct LocalUsageEvent {
-    ts: DateTime<Utc>,
-    session_id: String,
-    project: String,
-    model: String,
-    input_tokens: u64,
-    output_tokens: u64,
-    cache_read_tokens: u64,
-    cache_creation_tokens: u64,
-    reasoning_output_tokens: u64,
-    cost_usd: f64,
-}
-
-#[derive(Copy, Clone)]
-enum Bucket {
-    Day,
-    Week,
-    Month,
-}
-
-#[derive(Debug, Clone, Default, Serialize)]
-#[serde(rename_all = "camelCase")]
-struct UsageAggregate {
-    date: String,
-    input_tokens: u64,
-    output_tokens: u64,
-    cache_read_tokens: u64,
-    cache_creation_tokens: u64,
-    reasoning_output_tokens: u64,
-    total_tokens: u64,
-    cost_usd: f64,
-    models: HashMap<String, ModelAggregate>,
-}
-
-#[derive(Debug, Clone, Default, Serialize)]
-#[serde(rename_all = "camelCase")]
-struct ModelAggregate {
-    input_tokens: u64,
-    output_tokens: u64,
-    cache_read_tokens: u64,
-    cache_creation_tokens: u64,
-    reasoning_output_tokens: u64,
-    total_tokens: u64,
-    cost_usd: f64,
-}
-
-#[derive(Debug, Clone, Default, Serialize)]
-#[serde(rename_all = "camelCase")]
-struct SessionAggregate {
-    session_id: String,
-    project: String,
-    last_activity: String,
-    input_tokens: u64,
-    output_tokens: u64,
-    cache_read_tokens: u64,
-    cache_creation_tokens: u64,
-    reasoning_output_tokens: u64,
-    total_tokens: u64,
-    cost_usd: f64,
-    models: HashMap<String, ModelAggregate>,
-}
-
-#[derive(Debug, Clone, Default, Serialize)]
-#[serde(rename_all = "camelCase")]
-struct BlockAggregate {
-    block_start: String,
-    block_end: String,
-    active: bool,
-    input_tokens: u64,
-    output_tokens: u64,
-    cache_read_tokens: u64,
-    cache_creation_tokens: u64,
-    reasoning_output_tokens: u64,
-    total_tokens: u64,
-    cost_usd: f64,
-    models: HashMap<String, ModelAggregate>,
-}
-
-fn scan_local_usage(provider: &str) -> Result<Vec<LocalUsageEvent>> {
-    match provider {
-        "claude" => scan_claude_usage(),
-        "codex" => scan_codex_usage(),
-        _ => Ok(Vec::new()),
-    }
-}
-
-fn scan_claude_usage() -> Result<Vec<LocalUsageEvent>> {
-    let roots = usagestat_core::provider_paths::claude_usage_roots()?;
-    let mut events = Vec::new();
-    for root in roots {
-        for file in jsonl_files(&root) {
-            scan_claude_file(&file, &mut events)?;
-        }
-    }
-    Ok(events)
-}
-
-fn scan_claude_file(path: &Path, events: &mut Vec<LocalUsageEvent>) -> Result<()> {
-    let file = match std::fs::File::open(path) {
-        Ok(file) => file,
-        Err(_) => return Ok(()),
-    };
-    let fallback_session = path
-        .file_stem()
-        .and_then(|s| s.to_str())
-        .unwrap_or("unknown")
-        .to_string();
-    let fallback_project = path
-        .parent()
-        .and_then(|p| p.file_name())
-        .and_then(|s| s.to_str())
-        .map(project_from_slug)
-        .unwrap_or_else(|| "unknown".to_string());
-    for line in std::io::BufReader::new(file).lines().map_while(Result::ok) {
-        let Ok(v) = serde_json::from_str::<JsonValue>(&line) else {
-            continue;
-        };
-        let Some(usage) = v.pointer("/message/usage") else {
-            continue;
-        };
-        let Some(ts) = parse_ts(v.get("timestamp")) else {
-            continue;
-        };
-        let model = v
-            .pointer("/message/model")
-            .and_then(JsonValue::as_str)
-            .unwrap_or("unknown")
-            .to_string();
-        let input = json_u64_value(usage, &["input_tokens", "inputTokens"]);
-        let output = json_u64_value(usage, &["output_tokens", "outputTokens"]);
-        let cache_read =
-            json_u64_value(usage, &["cache_read_input_tokens", "cacheReadInputTokens"]);
-        let cache_creation = json_u64_value(
-            usage,
-            &["cache_creation_input_tokens", "cacheCreationInputTokens"],
-        );
-        if input + output + cache_read + cache_creation == 0 {
-            continue;
-        }
-        let session_id = v
-            .get("sessionId")
-            .and_then(JsonValue::as_str)
-            .unwrap_or(&fallback_session)
-            .to_string();
-        let project = v
-            .get("cwd")
-            .and_then(JsonValue::as_str)
-            .map(project_label)
-            .unwrap_or_else(|| fallback_project.clone());
-        let cost = estimate_cost_usd(&model, input, output, cache_creation, cache_read);
-        events.push(LocalUsageEvent {
-            ts,
-            session_id,
-            project,
-            model,
-            input_tokens: input,
-            output_tokens: output,
-            cache_read_tokens: cache_read,
-            cache_creation_tokens: cache_creation,
-            reasoning_output_tokens: 0,
-            cost_usd: cost,
-        });
-    }
-    Ok(())
-}
-
-fn scan_codex_usage() -> Result<Vec<LocalUsageEvent>> {
-    let roots = usagestat_core::provider_paths::codex_usage_roots()?;
-    let mut events = Vec::new();
-    for root in roots {
-        for file in jsonl_files(&root) {
-            scan_codex_file(&file, &mut events)?;
-        }
-    }
-    Ok(events)
-}
-
-fn scan_codex_file(path: &Path, events: &mut Vec<LocalUsageEvent>) -> Result<()> {
-    let file = match std::fs::File::open(path) {
-        Ok(file) => file,
-        Err(_) => return Ok(()),
-    };
-    let fallback_session = path
-        .file_stem()
-        .and_then(|s| s.to_str())
-        .unwrap_or("unknown")
-        .trim_start_matches("rollout-")
-        .to_string();
-    codex_usage::scan(std::io::BufReader::new(file), fallback_session, events);
-    Ok(())
-}
-
-fn jsonl_files(root: &Path) -> Vec<PathBuf> {
-    let mut out = Vec::new();
-    collect_jsonl_files(root, &mut out);
-    out
-}
-
-fn collect_jsonl_files(dir: &Path, out: &mut Vec<PathBuf>) {
-    let Ok(read_dir) = std::fs::read_dir(dir) else {
-        return;
-    };
-    for entry in read_dir.flatten() {
-        let path = entry.path();
-        if path.is_dir() {
-            collect_jsonl_files(&path, out);
-        } else if path.extension().and_then(|s| s.to_str()) == Some("jsonl") {
-            out.push(path);
-        }
-    }
-}
-
-fn parse_ts(value: Option<&JsonValue>) -> Option<DateTime<Utc>> {
-    match value? {
-        JsonValue::String(s) => DateTime::parse_from_rfc3339(s)
-            .ok()
-            .map(|dt| dt.with_timezone(&Utc)),
-        JsonValue::Number(n) => n
-            .as_i64()
-            .and_then(|secs| Utc.timestamp_opt(secs, 0).single()),
-        _ => None,
-    }
-}
-
-fn json_u64_value(value: &JsonValue, keys: &[&str]) -> u64 {
-    keys.iter()
-        .find_map(|key| value.get(*key).and_then(JsonValue::as_u64))
-        .unwrap_or(0)
-}
-
-fn project_from_slug(slug: &str) -> String {
-    let trimmed = slug.trim_matches('-');
-    if trimmed.is_empty() {
-        "unknown".to_string()
-    } else {
-        trimmed.replace('-', "/")
-    }
-}
-
-fn project_label(path: &str) -> String {
-    Path::new(path)
-        .file_name()
-        .and_then(|s| s.to_str())
-        .filter(|s| !s.is_empty())
-        .unwrap_or(path)
-        .to_string()
-}
-
-fn estimate_cost_usd(
-    model: &str,
-    input: u64,
-    output: u64,
-    cache_creation: u64,
-    cache_read: u64,
-) -> f64 {
-    let m = model.to_ascii_lowercase();
-    let (input_rate, output_rate, cache_write_rate, cache_read_rate) = if m.contains("opus") {
-        (5.0, 25.0, 6.25, 0.50)
-    } else if m.contains("haiku") {
-        (1.0, 5.0, 1.25, 0.10)
-    } else if m.contains("sonnet") || m.contains("claude") {
-        (3.0, 15.0, 3.75, 0.30)
-    } else if m.contains("gpt-5") || m.contains("codex") {
-        (1.25, 10.0, 1.25, 0.125)
-    } else {
-        (0.0, 0.0, 0.0, 0.0)
-    };
-    (input as f64 * input_rate
-        + output as f64 * output_rate
-        + cache_creation as f64 * cache_write_rate
-        + cache_read as f64 * cache_read_rate)
-        / 1_000_000.0
-}
-
-fn aggregate_usage(events: &[LocalUsageEvent], bucket: Bucket) -> Vec<UsageAggregate> {
-    let mut map: HashMap<String, UsageAggregate> = HashMap::new();
-    for event in events {
-        let key = bucket_key_for(event.ts, bucket);
-        let row = map.entry(key.clone()).or_insert_with(|| UsageAggregate {
-            date: key,
-            ..UsageAggregate::default()
-        });
-        add_event_to_usage(row, event);
-    }
-    let mut rows: Vec<_> = map.into_values().collect();
-    rows.sort_by(|a, b| b.date.cmp(&a.date));
-    rows
-}
-
-fn aggregate_sessions(events: &[LocalUsageEvent]) -> Vec<SessionAggregate> {
-    let mut map: HashMap<String, SessionAggregate> = HashMap::new();
-    for event in events {
-        let row = map
-            .entry(event.session_id.clone())
-            .or_insert_with(|| SessionAggregate {
-                session_id: event.session_id.clone(),
-                project: event.project.clone(),
-                ..SessionAggregate::default()
-            });
-        if row.last_activity.is_empty() || row.last_activity < event.ts.to_rfc3339() {
-            row.last_activity = event.ts.to_rfc3339();
-        }
-        add_event_to_session(row, event);
-    }
-    let mut rows: Vec<_> = map.into_values().collect();
-    rows.sort_by(|a, b| b.cost_usd.total_cmp(&a.cost_usd));
-    rows
-}
-
-fn aggregate_blocks(events: &[LocalUsageEvent]) -> Vec<BlockAggregate> {
-    let mut map: HashMap<i64, BlockAggregate> = HashMap::new();
-    let now = Utc::now();
-    for event in events {
-        let start = event.ts.timestamp() / (5 * 3600) * (5 * 3600);
-        let start_dt = Utc.timestamp_opt(start, 0).single().unwrap_or(event.ts);
-        let end_dt = start_dt + ChronoDuration::hours(5);
-        let row = map.entry(start).or_insert_with(|| BlockAggregate {
-            block_start: start_dt.to_rfc3339(),
-            block_end: end_dt.to_rfc3339(),
-            active: now >= start_dt && now < end_dt,
-            ..BlockAggregate::default()
-        });
-        add_event_to_block(row, event);
-    }
-    let mut rows: Vec<_> = map.into_values().collect();
-    rows.sort_by(|a, b| b.block_start.cmp(&a.block_start));
-    rows
-}
-
-fn bucket_key_for(ts: DateTime<Utc>, bucket: Bucket) -> String {
-    match bucket {
-        Bucket::Day => ts.format("%Y-%m-%d").to_string(),
-        Bucket::Month => ts.format("%Y-%m").to_string(),
-        Bucket::Week => {
-            let date = ts.date_naive();
-            let monday = date - ChronoDuration::days(date.weekday().num_days_from_monday() as i64);
-            monday.format("%Y-%m-%d").to_string()
-        }
-    }
-}
-
-fn add_model(models: &mut HashMap<String, ModelAggregate>, event: &LocalUsageEvent) {
-    let model = models.entry(event.model.clone()).or_default();
-    model.input_tokens += event.input_tokens;
-    model.output_tokens += event.output_tokens;
-    model.cache_read_tokens += event.cache_read_tokens;
-    model.cache_creation_tokens += event.cache_creation_tokens;
-    model.reasoning_output_tokens += event.reasoning_output_tokens;
-    model.total_tokens += event.input_tokens
-        + event.output_tokens
-        + event.cache_read_tokens
-        + event.cache_creation_tokens
-        + event.reasoning_output_tokens;
-    model.cost_usd += event.cost_usd;
-}
-
-fn add_event_to_usage(row: &mut UsageAggregate, event: &LocalUsageEvent) {
-    row.input_tokens += event.input_tokens;
-    row.output_tokens += event.output_tokens;
-    row.cache_read_tokens += event.cache_read_tokens;
-    row.cache_creation_tokens += event.cache_creation_tokens;
-    row.reasoning_output_tokens += event.reasoning_output_tokens;
-    row.total_tokens += event.input_tokens
-        + event.output_tokens
-        + event.cache_read_tokens
-        + event.cache_creation_tokens
-        + event.reasoning_output_tokens;
-    row.cost_usd += event.cost_usd;
-    add_model(&mut row.models, event);
-}
-
-fn add_event_to_session(row: &mut SessionAggregate, event: &LocalUsageEvent) {
-    row.input_tokens += event.input_tokens;
-    row.output_tokens += event.output_tokens;
-    row.cache_read_tokens += event.cache_read_tokens;
-    row.cache_creation_tokens += event.cache_creation_tokens;
-    row.reasoning_output_tokens += event.reasoning_output_tokens;
-    row.total_tokens += event.input_tokens
-        + event.output_tokens
-        + event.cache_read_tokens
-        + event.cache_creation_tokens
-        + event.reasoning_output_tokens;
-    row.cost_usd += event.cost_usd;
-    add_model(&mut row.models, event);
-}
-
-fn add_event_to_block(row: &mut BlockAggregate, event: &LocalUsageEvent) {
-    row.input_tokens += event.input_tokens;
-    row.output_tokens += event.output_tokens;
-    row.cache_read_tokens += event.cache_read_tokens;
-    row.cache_creation_tokens += event.cache_creation_tokens;
-    row.reasoning_output_tokens += event.reasoning_output_tokens;
-    row.total_tokens += event.input_tokens
-        + event.output_tokens
-        + event.cache_read_tokens
-        + event.cache_creation_tokens
-        + event.reasoning_output_tokens;
-    row.cost_usd += event.cost_usd;
-    add_model(&mut row.models, event);
 }
 
 fn response_html(status: u16, reason: &str, body: &str) -> String {
@@ -1401,27 +1141,6 @@ fn append_history_record(path: &std::path::Path, record: &SnapshotRecord) -> Res
     line.push(10);
     usagestat_core::storage::append_private(path, &line)
         .with_context(|| format!("append history {}", path.display()))
-}
-
-fn read_history(provider_id: Option<&str>) -> Vec<SnapshotRecord> {
-    // Startup already validates the native data directory.
-    let Ok(directory) = paths::data_dir() else {
-        return Vec::new();
-    };
-    let path = directory.join("history.jsonl");
-    let Ok(text) = std::fs::read_to_string(&path) else {
-        return Vec::new();
-    };
-
-    text.lines()
-        .filter(|line| !line.trim().is_empty())
-        .filter_map(|line| serde_json::from_str::<SnapshotRecord>(line).ok())
-        .filter(|record| {
-            provider_id
-                .map(|id| record.provider_id.eq_ignore_ascii_case(id))
-                .unwrap_or(true)
-        })
-        .collect()
 }
 
 fn provider_summaries(providers: &[LoadedProvider], config: &AppConfig) -> Vec<ProviderSummary> {

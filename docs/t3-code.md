@@ -1,12 +1,22 @@
 # T3 Code usage limits
 
 `usagestatd` can act as a read-only CLIProxyAPI usage hub for T3 Code. It exposes
-the cached Claude and Codex subscription quotas at:
+the cached Claude and Codex subscription quotas through both current and legacy
+hub contracts:
 
 ```text
 GET /v0/management/quota-scheduler/status
+GET /v0/management/auth-files
+POST /v0/management/api-call
 Authorization: Bearer <management-key>
 ```
+
+`auth-files` lists synthetic account IDs, never credential contents. `api-call`
+accepts only `GET` usage requests for the exact Claude and Codex quota URLs and
+returns normalized cached snapshots. It does not proxy requests or substitute
+tokens. Reset-credit redemption, credential changes, arbitrary URLs, and provider
+writes are rejected. Current T3 releases use these two endpoints instead of the
+legacy status endpoint.
 
 ## Enable automatic startup
 
@@ -125,7 +135,9 @@ API retains its local, unauthenticated behavior.
 Open **Usage → Limits**. T3 polls the hub when its settings change and on its
 provider health refresh interval. usagestat refreshes its cached quotas on its
 own polling interval (60 seconds by default); a hub read returns the current
-cache immediately.
+cache immediately. Current-protocol reads reject failed snapshots and readings
+older than ten minutes, because that protocol cannot display the original fetch
+timestamp. It must not present a stale cached reading as a new measurement.
 
 ## Supported data
 
@@ -161,6 +173,6 @@ natively in T3 would require T3 to add support for those fields and providers.
 
 The adapter follows T3's
 [usage source fetcher](https://github.com/pingdotgg/t3code/blob/main/apps/server/src/usage/UsageLimitSources.ts)
-and [quota decoder](https://github.com/pingdotgg/t3code/blob/main/apps/server/src/usage/cliproxyUsageLimits.ts).
-It implements the status endpoint T3 reads, not CLIProxyAPI inference, credential
-management, or proxy endpoints.
+and current `cliproxyApi.ts` request shapes, verified against the installed T3
+Nightly runtime on September 27, 2026. It implements cached usage compatibility,
+not CLIProxyAPI inference, credential management, or network proxying.

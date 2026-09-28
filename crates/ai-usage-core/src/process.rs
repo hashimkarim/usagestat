@@ -6,7 +6,7 @@ use std::cell::RefCell;
 use std::ffi::OsStr;
 use std::io::{self, Read};
 use std::path::{Path, PathBuf};
-use std::process::{Command, Output, Stdio};
+use std::process::{Command, ExitStatus, Output, Stdio};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
@@ -366,6 +366,185 @@ fn run_inner(
     })
 }
 
+pub enum StreamControl {
+    Continue,
+    Reply(Vec<u8>),
+    Finish,
+}
+
+/// Run a bounded, prompt-free helper control dialogue without retaining output.
+/// Replies use nonblocking stdin; all exit paths clean up the process tree.
+#[cfg(unix)]
+pub fn control_dialogue(
+    mut command: Command,
+    input: &[u8],
+    timeout: Duration,
+    output_limit: usize,
+    mut observer: impl FnMut(&[u8]) -> io::Result<StreamControl>,
+) -> io::Result<Option<ExitStatus>> {
+    use std::io::Write;
+    if input.len() > 4096 {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "control request exceeded limit",
+        ));
+    }
+    validate_arguments(&command)?;
+    let token = current_cancellation().or_else(|| {
+        crate::signals::current().map(|flag| CancellationToken::with_interrupt(Some(flag)))
+    });
+    if token.as_ref().is_some_and(CancellationToken::is_cancelled) {
+        return Err(io::Error::new(
+            io::ErrorKind::Interrupted,
+            "helper cancelled",
+        ));
+    }
+    command
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
+    let mut wrapped = CommandWrap::from(command);
+    #[cfg(unix)]
+    wrapped.wrap(process_wrap::std::ProcessGroup::leader());
+    #[cfg(windows)]
+    wrapped.wrap(process_wrap::std::JobObject);
+    let mut child = OwnedChild {
+        child: wrapped.spawn()?,
+        stopped: false,
+    };
+    let mut stdout = Pipe::new(child.child.stdout().take().expect("piped stdout"))?;
+    let mut stderr = child.child.stderr().take().map(Pipe::new).transpose()?;
+    let mut stdin = child.child.stdin().take();
+    #[cfg(unix)]
+    if let Some(pipe) = &stdin {
+        pipe.prepare()?;
+    }
+    let mut pending = input.to_vec();
+    let mut written = 0;
+    let mut received = 0_usize;
+    let start = Instant::now();
+    let mut exited = None;
+    let mut cleanup_deadline = None;
+    let mut finished = false;
+    let mut finish_deadline = None;
+    loop {
+        if token.as_ref().is_some_and(CancellationToken::is_cancelled) {
+            return Err(io::Error::new(
+                io::ErrorKind::Interrupted,
+                "helper cancelled",
+            ));
+        }
+        if start.elapsed() >= timeout {
+            return Err(io::Error::new(
+                io::ErrorKind::TimedOut,
+                "control dialogue timed out",
+            ));
+        }
+        stdout.drain_with(&mut |bytes| {
+            received = received.saturating_add(bytes.len());
+            if received > output_limit {
+                return Err(io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    "helper output exceeded limit",
+                ));
+            }
+            if finished {
+                return Ok(());
+            }
+            match observer(bytes)? {
+                StreamControl::Continue => {}
+                StreamControl::Finish => finished = true,
+                StreamControl::Reply(reply) => {
+                    if stdin.is_none() || written != pending.len() || reply.len() > 4096 {
+                        return Err(io::Error::new(
+                            io::ErrorKind::InvalidInput,
+                            "invalid control reply",
+                        ));
+                    }
+                    pending = reply;
+                    written = 0;
+                }
+            }
+            Ok(())
+        })?;
+        if finished && finish_deadline.is_none() {
+            // EOF lets cooperative helpers flush their own caches and exit.
+            // Uncooperative descendants still get the bounded tree cleanup.
+            stdin.take();
+            pending.clear();
+            written = 0;
+            finish_deadline = Some(Instant::now() + CLEANUP);
+        }
+        if finish_deadline.is_some_and(|until| Instant::now() >= until) {
+            return Ok(None);
+        }
+        if let Some(stderr) = &mut stderr {
+            stderr.drain_with(&mut |bytes| {
+                received = received.saturating_add(bytes.len());
+                if received > output_limit {
+                    return Err(io::Error::new(
+                        io::ErrorKind::InvalidData,
+                        "helper output exceeded limit",
+                    ));
+                }
+                Ok(())
+            })?;
+        }
+        if written < pending.len() {
+            match stdin
+                .as_mut()
+                .expect("dialogue stdin")
+                .write(&pending[written..])
+            {
+                Ok(0) => {
+                    return Err(io::Error::new(
+                        io::ErrorKind::WriteZero,
+                        "helper closed stdin",
+                    ));
+                }
+                Ok(count) => written += count,
+                Err(error)
+                    if matches!(
+                        error.kind(),
+                        io::ErrorKind::WouldBlock | io::ErrorKind::Interrupted
+                    ) => {}
+                Err(error) => return Err(error),
+            }
+        }
+        if exited.is_none()
+            && let Some(status) = child.child.try_wait()?
+        {
+            exited = Some(status);
+            child.stop();
+            cleanup_deadline = Some(Instant::now() + CLEANUP);
+        }
+        if exited.is_some() && stdout.eof && stderr.as_ref().is_none_or(|pipe| pipe.eof) {
+            return Ok(if finished { None } else { exited });
+        }
+        if cleanup_deadline.is_some_and(|until| Instant::now() >= until) {
+            return Err(io::Error::new(
+                io::ErrorKind::TimedOut,
+                "helper output pipes did not close",
+            ));
+        }
+        std::thread::sleep(POLL);
+    }
+}
+
+#[cfg(not(unix))]
+pub fn control_dialogue(
+    _command: Command,
+    _input: &[u8],
+    _timeout: Duration,
+    _output_limit: usize,
+    _observer: impl FnMut(&[u8]) -> io::Result<StreamControl>,
+) -> io::Result<Option<ExitStatus>> {
+    Err(io::Error::new(
+        io::ErrorKind::Unsupported,
+        "control dialogues require nonblocking stdin",
+    ))
+}
+
 struct OwnedChild {
     child: Box<dyn ChildWrapper>,
     stopped: bool,
@@ -412,6 +591,17 @@ impl<R: Read + PipeHandle> Pipe<R> {
     }
 
     fn drain(&mut self, limit: usize) -> io::Result<()> {
+        let mut output = std::mem::take(&mut self.output);
+        let result = self.drain_with(&mut |bytes| {
+            let keep = bytes.len().min(limit.saturating_sub(output.len()));
+            output.extend_from_slice(&bytes[..keep]);
+            Ok(())
+        });
+        self.output = output;
+        result
+    }
+
+    fn drain_with(&mut self, receive: &mut impl FnMut(&[u8]) -> io::Result<()>) -> io::Result<()> {
         let mut buffer = [0; 8192];
         // A continuously writing process must not starve timeout/cancellation.
         for _ in 0..32 {
@@ -433,8 +623,7 @@ impl<R: Read + PipeHandle> Pipe<R> {
                     break;
                 }
                 Ok(count) => {
-                    let keep = count.min(limit.saturating_sub(self.output.len()));
-                    self.output.extend_from_slice(&buffer[..keep]);
+                    receive(&buffer[..count])?;
                 }
                 Err(error) if error.kind() == io::ErrorKind::WouldBlock => break,
                 Err(error) if error.kind() == io::ErrorKind::Interrupted => continue,

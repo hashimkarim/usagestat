@@ -67,27 +67,23 @@
   function extractTokenFromObject(obj) {
     if (!obj || typeof obj !== "object") return null
 
-    var directKeys = [
-      "access_token",
-      "accessToken",
-      "token",
-      "id_token",
-      "idToken",
-      "bearerToken",
-      "auth_token",
-      "authToken",
-    ]
-    for (var i = 0; i < directKeys.length; i += 1) {
-      var value = obj[directKeys[i]]
+    // Prefer a bearer token anywhere in the payload; an ID token is a last resort
+    // (agy stores {"token":{"access_token":...},"id_token":...}).
+    return findTokenDeep(obj, ["access_token", "accessToken", "bearerToken", "auth_token", "authToken"], 0) ||
+      findTokenDeep(obj, ["token"], 0) || findTokenDeep(obj, ["id_token", "idToken"], 0)
+  }
+
+  function findTokenDeep(obj, keys, depth) {
+    if (!obj || typeof obj !== "object" || depth > 4) return null
+    for (var i = 0; i < keys.length; i += 1) {
+      var value = obj[keys[i]]
       if (typeof value === "string" && value.trim()) return value.trim()
     }
-
     var nestedKeys = ["token", "tokens", "oauth", "oauth2", "credentials", "auth"]
     for (var j = 0; j < nestedKeys.length; j += 1) {
-      var nested = extractTokenFromObject(obj[nestedKeys[j]])
+      var nested = findTokenDeep(obj[nestedKeys[j]], keys, depth + 1)
       if (nested) return nested
     }
-
     return null
   }
 

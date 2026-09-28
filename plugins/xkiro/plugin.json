@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "id": "xkiro",
+  "name": "xKiro",
+  "version": "0.1.0",
+  "entry": "plugin.js",
+  "enabledByDefault": false,
+  "supportedModes": [
+    "api"
+  ],
+  "autoMode": "api",
+  "usageDashboardUrl": "https://xkiro.com",
+  "envVars": [
+    "XKIRO_API_KEY"
+  ],
+  "upstream": {
+    "repository": "https://github.com/steipete/CodexBar",
+    "revision": "78ba5a1e65e6859da59a21b799df95ab91bc0b89",
+    "path": "Sources/CodexBarCore/Resources/Plugins/xkiro.js",
+    "sha256": "03bfcb8e518577ee18dd335e4e1e1f7d629d3e5abdf2216b187b1cba8b683853",
+    "license": "MIT"
+  }
+}

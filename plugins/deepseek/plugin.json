@@ -9,8 +9,10 @@
     { "label": "Platform", "url": "https://platform.deepseek.com/usage" }
   ],
   "usageDashboardUrl": "https://platform.deepseek.com/usage",
-  "supportedModes": ["api"],
+  "supportedModes": ["api", "web"],
   "autoMode": "api",
+  "webUrl": "https://platform.deepseek.com",
+  "envVars": ["DEEPSEEK_API_KEY", "DEEPSEEK_KEY", "DEEPSEEK_PLATFORM_TOKEN", "DEEPSEEK_USER_TOKEN"],
   "lines": [
     { "type": "text", "label": "Balance", "scope": "overview" }
   ]

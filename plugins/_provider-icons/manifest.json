@@ -1,0 +1,1219 @@
+{
+  "version": 1,
+  "icons": {
+    "abacus": {
+      "name": "Abacus",
+      "monochrome": "abacus.svg",
+      "alternatives": [
+        "abacus"
+      ]
+    },
+    "ai21": {
+      "name": "AI21",
+      "monochrome": "ai21.svg",
+      "alternatives": [
+        "ai21"
+      ]
+    },
+    "ai302": {
+      "name": "302.AI",
+      "monochrome": "ai302.svg",
+      "alternatives": [
+        "ai302"
+      ],
+      "color": "ai302-color.svg"
+    },
+    "ai360": {
+      "name": "AI360",
+      "monochrome": "ai360.svg",
+      "alternatives": [
+        "ai360"
+      ],
+      "color": "ai360-color.svg"
+    },
+    "aihubmix": {
+      "name": "AiHubMix",
+      "monochrome": "aihubmix.svg",
+      "alternatives": [
+        "aihubmix"
+      ],
+      "color": "aihubmix-color.svg"
+    },
+    "aimass": {
+      "name": "AiMass",
+      "monochrome": "aimass.svg",
+      "alternatives": [
+        "aimass"
+      ],
+      "color": "aimass-color.svg"
+    },
+    "aistudio": {
+      "name": "Google AI Studio",
+      "monochrome": "aistudio.svg",
+      "alternatives": [
+        "aistudio"
+      ]
+    },
+    "akashchat": {
+      "name": "AkashChat",
+      "monochrome": "akashchat.svg",
+      "alternatives": [
+        "akashchat"
+      ],
+      "color": "akashchat-color.svg"
+    },
+    "alephalpha": {
+      "name": "AlephAlpha",
+      "monochrome": "alephalpha.svg",
+      "alternatives": [
+        "alephalpha"
+      ]
+    },
+    "alibaba": {
+      "name": "Alibaba",
+      "monochrome": "alibaba.svg",
+      "alternatives": [
+        "alibaba"
+      ],
+      "color": "alibaba-color.svg"
+    },
+    "alibabacloud": {
+      "name": "AlibabaCloud",
+      "monochrome": "alibabacloud.svg",
+      "alternatives": [
+        "alibabacloud"
+      ],
+      "color": "alibabacloud-color.svg"
+    },
+    "amp": {
+      "name": "Amp",
+      "monochrome": "amp.svg",
+      "alternatives": [
+        "amp"
+      ],
+      "color": "amp-color.svg"
+    },
+    "antgroup": {
+      "name": "AntGroup",
+      "monochrome": "antgroup.svg",
+      "alternatives": [
+        "antgroup"
+      ],
+      "color": "antgroup-color.svg"
+    },
+    "anthropic": {
+      "name": "Anthropic",
+      "monochrome": "anthropic.svg",
+      "alternatives": [
+        "anthropic",
+        "claude",
+        "claudecode"
+      ]
+    },
+    "antigravity": {
+      "name": "Antigravity",
+      "monochrome": "antigravity.svg",
+      "alternatives": [
+        "antigravity"
+      ],
+      "color": "antigravity-color.svg"
+    },
+    "anyscale": {
+      "name": "Anyscale",
+      "monochrome": "anyscale.svg",
+      "alternatives": [
+        "anyscale"
+      ],
+      "color": "anyscale-color.svg"
+    },
+    "apple": {
+      "name": "Apple",
+      "monochrome": "apple.svg",
+      "alternatives": [
+        "apple"
+      ]
+    },
+    "atlascloud": {
+      "name": "Atlas Cloud",
+      "monochrome": "atlascloud.svg",
+      "alternatives": [
+        "atlascloud"
+      ]
+    },
+    "augment": {
+      "name": "Augment",
+      "monochrome": "augment.svg",
+      "alternatives": [
+        "augment"
+      ]
+    },
+    "aws": {
+      "name": "AWS",
+      "monochrome": "aws.svg",
+      "alternatives": [
+        "aws"
+      ],
+      "color": "aws-color.svg"
+    },
+    "azure": {
+      "name": "Azure",
+      "monochrome": "azure.svg",
+      "alternatives": [
+        "azure"
+      ],
+      "color": "azure-color.svg"
+    },
+    "azureai": {
+      "name": "AzureAI",
+      "monochrome": "azureai.svg",
+      "alternatives": [
+        "azureai"
+      ],
+      "color": "azureai-color.svg"
+    },
+    "baichuan": {
+      "name": "Baichuan",
+      "monochrome": "baichuan.svg",
+      "alternatives": [
+        "baichuan"
+      ],
+      "color": "baichuan-color.svg"
+    },
+    "baidu": {
+      "name": "Baidu",
+      "monochrome": "baidu.svg",
+      "alternatives": [
+        "baidu"
+      ],
+      "color": "baidu-color.svg"
+    },
+    "baiducloud": {
+      "name": "BaiduCloud",
+      "monochrome": "baiducloud.svg",
+      "alternatives": [
+        "baiducloud"
+      ],
+      "color": "baiducloud-color.svg"
+    },
+    "bailian": {
+      "name": "BaiLian",
+      "monochrome": "bailian.svg",
+      "alternatives": [
+        "bailian"
+      ],
+      "color": "bailian-color.svg"
+    },
+    "baseten": {
+      "name": "Baseten",
+      "monochrome": "baseten.svg",
+      "alternatives": [
+        "baseten"
+      ]
+    },
+    "bedrock": {
+      "name": "Bedrock",
+      "monochrome": "bedrock.svg",
+      "alternatives": [
+        "bedrock"
+      ],
+      "color": "bedrock-color.svg"
+    },
+    "bfl": {
+      "name": "Black Forest Labs",
+      "monochrome": "bfl.svg",
+      "alternatives": [
+        "bfl"
+      ]
+    },
+    "bilibili": {
+      "name": "bilibili",
+      "monochrome": "bilibili.svg",
+      "alternatives": [
+        "bilibili"
+      ],
+      "color": "bilibili-color.svg"
+    },
+    "burncloud": {
+      "name": "BurnCloud",
+      "monochrome": "burncloud.svg",
+      "alternatives": [
+        "burncloud"
+      ],
+      "color": "burncloud-color.svg"
+    },
+    "bytedance": {
+      "name": "ByteDance",
+      "monochrome": "bytedance.svg",
+      "alternatives": [
+        "bytedance"
+      ],
+      "color": "bytedance-color.svg"
+    },
+    "centml": {
+      "name": "CentML",
+      "monochrome": "centml.svg",
+      "alternatives": [
+        "centml"
+      ],
+      "color": "centml-color.svg"
+    },
+    "cerebras": {
+      "name": "Cerebras",
+      "monochrome": "cerebras.svg",
+      "alternatives": [
+        "cerebras"
+      ],
+      "color": "cerebras-color.svg"
+    },
+    "civitai": {
+      "name": "Civitai",
+      "monochrome": "civitai.svg",
+      "alternatives": [
+        "civitai"
+      ],
+      "color": "civitai-color.svg"
+    },
+    "claude": {
+      "name": "Claude",
+      "monochrome": "claude.svg",
+      "alternatives": [
+        "anthropic",
+        "claude",
+        "claudecode"
+      ],
+      "color": "claude-color.svg"
+    },
+    "claudecode": {
+      "name": "Claude Code",
+      "monochrome": "claudecode.svg",
+      "alternatives": [
+        "anthropic",
+        "claude",
+        "claudecode"
+      ],
+      "color": "claudecode-color.svg"
+    },
+    "cloudflare": {
+      "name": "Cloudflare",
+      "monochrome": "cloudflare.svg",
+      "alternatives": [
+        "cloudflare"
+      ],
+      "color": "cloudflare-color.svg"
+    },
+    "codebuff": {
+      "name": "Codebuff",
+      "monochrome": "codebuff.svg",
+      "alternatives": [
+        "codebuff"
+      ]
+    },
+    "codex": {
+      "name": "Codex",
+      "monochrome": "codex.svg",
+      "alternatives": [
+        "openai",
+        "codex"
+      ],
+      "color": "codex-color.svg"
+    },
+    "cohere": {
+      "name": "Cohere",
+      "monochrome": "cohere.svg",
+      "alternatives": [
+        "cohere"
+      ],
+      "color": "cohere-color.svg"
+    },
+    "cometapi": {
+      "name": "CometAPI",
+      "monochrome": "cometapi.svg",
+      "alternatives": [
+        "cometapi"
+      ],
+      "color": "cometapi-color.svg"
+    },
+    "comfyui": {
+      "name": "ComfyUI",
+      "monochrome": "comfyui.svg",
+      "alternatives": [
+        "comfyui"
+      ],
+      "color": "comfyui-color.svg"
+    },
+    "commandcode": {
+      "name": "Commandcode",
+      "monochrome": "commandcode.svg",
+      "alternatives": [
+        "commandcode"
+      ]
+    },
+    "copilot": {
+      "name": "Copilot",
+      "monochrome": "copilot.svg",
+      "alternatives": [
+        "copilot",
+        "githubcopilot"
+      ],
+      "color": "copilot-color.svg"
+    },
+    "crof": {
+      "name": "Crof",
+      "monochrome": "crof.svg",
+      "alternatives": [
+        "crof"
+      ]
+    },
+    "crusoe": {
+      "name": "Crusoe",
+      "monochrome": "crusoe.svg",
+      "alternatives": [
+        "crusoe"
+      ],
+      "color": "crusoe-color.svg"
+    },
+    "cursor": {
+      "name": "Cursor",
+      "monochrome": "cursor.svg",
+      "alternatives": [
+        "cursor"
+      ]
+    },
+    "deepinfra": {
+      "name": "DeepInfra",
+      "monochrome": "deepinfra.svg",
+      "alternatives": [
+        "deepinfra"
+      ],
+      "color": "deepinfra-color.svg"
+    },
+    "deepmind": {
+      "name": "DeepMind",
+      "monochrome": "deepmind.svg",
+      "alternatives": [
+        "deepmind"
+      ],
+      "color": "deepmind-color.svg"
+    },
+    "deepseek": {
+      "name": "DeepSeek",
+      "monochrome": "deepseek.svg",
+      "alternatives": [
+        "deepseek"
+      ],
+      "color": "deepseek-color.svg"
+    },
+    "doubao": {
+      "name": "Doubao",
+      "monochrome": "doubao.svg",
+      "alternatives": [
+        "doubao"
+      ],
+      "color": "doubao-color.svg"
+    },
+    "elevenlabs": {
+      "name": "Elevenlabs",
+      "monochrome": "elevenlabs.svg",
+      "alternatives": [
+        "elevenlabs"
+      ]
+    },
+    "exa": {
+      "name": "Exa",
+      "monochrome": "exa.svg",
+      "alternatives": [
+        "exa"
+      ],
+      "color": "exa-color.svg"
+    },
+    "factory": {
+      "name": "Factory",
+      "monochrome": "factory.svg",
+      "alternatives": [
+        "factory"
+      ]
+    },
+    "fal": {
+      "name": "Fal",
+      "monochrome": "fal.svg",
+      "alternatives": [
+        "fal"
+      ],
+      "color": "fal-color.svg"
+    },
+    "featherless": {
+      "name": "featherless.ai",
+      "monochrome": "featherless.svg",
+      "alternatives": [
+        "featherless"
+      ],
+      "color": "featherless-color.svg"
+    },
+    "fireworks": {
+      "name": "Fireworks",
+      "monochrome": "fireworks.svg",
+      "alternatives": [
+        "fireworks"
+      ],
+      "color": "fireworks-color.svg"
+    },
+    "friendli": {
+      "name": "Friendli",
+      "monochrome": "friendli.svg",
+      "alternatives": [
+        "friendli"
+      ]
+    },
+    "gemini": {
+      "name": "Gemini",
+      "monochrome": "gemini.svg",
+      "alternatives": [
+        "gemini"
+      ],
+      "color": "gemini-color.svg"
+    },
+    "giteeai": {
+      "name": "GiteeAI",
+      "monochrome": "giteeai.svg",
+      "alternatives": [
+        "giteeai"
+      ]
+    },
+    "github": {
+      "name": "Github",
+      "monochrome": "github.svg",
+      "alternatives": [
+        "github"
+      ]
+    },
+    "githubcopilot": {
+      "name": "GithubCopilot",
+      "monochrome": "githubcopilot.svg",
+      "alternatives": [
+        "copilot",
+        "githubcopilot"
+      ]
+    },
+    "google": {
+      "name": "Google",
+      "monochrome": "google.svg",
+      "alternatives": [
+        "google"
+      ],
+      "color": "google-color.svg"
+    },
+    "googlecloud": {
+      "name": "GoogleCloud",
+      "monochrome": "googlecloud.svg",
+      "alternatives": [
+        "googlecloud"
+      ],
+      "color": "googlecloud-color.svg"
+    },
+    "groq": {
+      "name": "Groq",
+      "monochrome": "groq.svg",
+      "alternatives": [
+        "groq"
+      ]
+    },
+    "higress": {
+      "name": "Higress",
+      "monochrome": "higress.svg",
+      "alternatives": [
+        "higress"
+      ],
+      "color": "higress-color.svg"
+    },
+    "huawei": {
+      "name": "Huawei",
+      "monochrome": "huawei.svg",
+      "alternatives": [
+        "huawei"
+      ],
+      "color": "huawei-color.svg"
+    },
+    "huaweicloud": {
+      "name": "HuaweiCloud",
+      "monochrome": "huaweicloud.svg",
+      "alternatives": [
+        "huaweicloud"
+      ],
+      "color": "huaweicloud-color.svg"
+    },
+    "huggingface": {
+      "name": "HuggingFace",
+      "monochrome": "huggingface.svg",
+      "alternatives": [
+        "huggingface"
+      ],
+      "color": "huggingface-color.svg"
+    },
+    "hunyuan": {
+      "name": "Hunyuan",
+      "monochrome": "hunyuan.svg",
+      "alternatives": [
+        "hunyuan"
+      ],
+      "color": "hunyuan-color.svg"
+    },
+    "hyperbolic": {
+      "name": "Hyperbolic",
+      "monochrome": "hyperbolic.svg",
+      "alternatives": [
+        "hyperbolic"
+      ],
+      "color": "hyperbolic-color.svg"
+    },
+    "ibm": {
+      "name": "IBM",
+      "monochrome": "ibm.svg",
+      "alternatives": [
+        "ibm"
+      ]
+    },
+    "iflytekcloud": {
+      "name": "iFlyTekCloud",
+      "monochrome": "iflytekcloud.svg",
+      "alternatives": [
+        "iflytekcloud"
+      ],
+      "color": "iflytekcloud-color.svg"
+    },
+    "inference": {
+      "name": "Inference",
+      "monochrome": "inference.svg",
+      "alternatives": [
+        "inference"
+      ]
+    },
+    "infermatic": {
+      "name": "Infermatic",
+      "monochrome": "infermatic.svg",
+      "alternatives": [
+        "infermatic"
+      ],
+      "color": "infermatic-color.svg"
+    },
+    "infinigence": {
+      "name": "Infinigence",
+      "monochrome": "infinigence.svg",
+      "alternatives": [
+        "infinigence"
+      ],
+      "color": "infinigence-color.svg"
+    },
+    "internlm": {
+      "name": "InternLM",
+      "monochrome": "internlm.svg",
+      "alternatives": [
+        "internlm"
+      ],
+      "color": "internlm-color.svg"
+    },
+    "jetbrains-ai-assistant": {
+      "name": "Jetbrains Ai Assistant",
+      "monochrome": "jetbrains-ai-assistant.svg",
+      "alternatives": [
+        "jetbrains-ai-assistant"
+      ],
+      "color": "jetbrains-ai-assistant-color.svg"
+    },
+    "jina": {
+      "name": "Jina",
+      "monochrome": "jina.svg",
+      "alternatives": [
+        "jina"
+      ]
+    },
+    "kilo": {
+      "name": "Kilo Code",
+      "monochrome": "kilo.svg",
+      "alternatives": [
+        "kilo"
+      ]
+    },
+    "kimi": {
+      "name": "Kimi",
+      "monochrome": "kimi.svg",
+      "alternatives": [
+        "kimi"
+      ],
+      "color": "kimi-color.svg"
+    },
+    "kiro": {
+      "name": "Kiro",
+      "monochrome": "kiro.svg",
+      "alternatives": [
+        "kiro"
+      ],
+      "color": "kiro-color.svg"
+    },
+    "kluster": {
+      "name": "Kluster",
+      "monochrome": "kluster.svg",
+      "alternatives": [
+        "kluster"
+      ],
+      "color": "kluster-color.svg"
+    },
+    "lambda": {
+      "name": "Lambda",
+      "monochrome": "lambda.svg",
+      "alternatives": [
+        "lambda"
+      ]
+    },
+    "leptonai": {
+      "name": "LeptonAI",
+      "monochrome": "leptonai.svg",
+      "alternatives": [
+        "leptonai"
+      ],
+      "color": "leptonai-color.svg"
+    },
+    "lg": {
+      "name": "LG AI",
+      "monochrome": "lg.svg",
+      "alternatives": [
+        "lg"
+      ],
+      "color": "lg-color.svg"
+    },
+    "lmstudio": {
+      "name": "LM Studio",
+      "monochrome": "lmstudio.svg",
+      "alternatives": [
+        "lmstudio"
+      ]
+    },
+    "lobehub": {
+      "name": "LobeHub",
+      "monochrome": "lobehub.svg",
+      "alternatives": [
+        "lobehub"
+      ],
+      "color": "lobehub-color.svg"
+    },
+    "longcat": {
+      "name": "LongCat",
+      "monochrome": "longcat.svg",
+      "alternatives": [
+        "longcat"
+      ],
+      "color": "longcat-color.svg"
+    },
+    "manus": {
+      "name": "Manus",
+      "monochrome": "manus.svg",
+      "alternatives": [
+        "manus"
+      ]
+    },
+    "menlo": {
+      "name": "MENLO",
+      "monochrome": "menlo.svg",
+      "alternatives": [
+        "menlo"
+      ],
+      "color": "menlo-color.svg"
+    },
+    "meta": {
+      "name": "Meta",
+      "monochrome": "meta.svg",
+      "alternatives": [
+        "meta"
+      ],
+      "color": "meta-color.svg"
+    },
+    "microsoft": {
+      "name": "Azure",
+      "monochrome": "microsoft.svg",
+      "alternatives": [
+        "microsoft"
+      ],
+      "color": "microsoft-color.svg"
+    },
+    "mimo": {
+      "name": "Mimo",
+      "monochrome": "mimo.svg",
+      "alternatives": [
+        "mimo"
+      ]
+    },
+    "minimax": {
+      "name": "Minimax",
+      "monochrome": "minimax.svg",
+      "alternatives": [
+        "minimax"
+      ],
+      "color": "minimax-color.svg"
+    },
+    "mistral": {
+      "name": "Mistral",
+      "monochrome": "mistral.svg",
+      "alternatives": [
+        "mistral"
+      ],
+      "color": "mistral-color.svg"
+    },
+    "modelscope": {
+      "name": "ModelScope",
+      "monochrome": "modelscope.svg",
+      "alternatives": [
+        "modelscope"
+      ],
+      "color": "modelscope-color.svg"
+    },
+    "moonshot": {
+      "name": "MoonshotAI",
+      "monochrome": "moonshot.svg",
+      "alternatives": [
+        "moonshot"
+      ]
+    },
+    "nanogpt": {
+      "name": "Nanogpt",
+      "monochrome": "nanogpt.svg",
+      "alternatives": [
+        "nanogpt"
+      ],
+      "color": "nanogpt-color.svg"
+    },
+    "nebius": {
+      "name": "Nebius",
+      "monochrome": "nebius.svg",
+      "alternatives": [
+        "nebius"
+      ]
+    },
+    "newapi": {
+      "name": "New API",
+      "monochrome": "newapi.svg",
+      "alternatives": [
+        "newapi"
+      ],
+      "color": "newapi-color.svg"
+    },
+    "nousresearch": {
+      "name": "NousResearch",
+      "monochrome": "nousresearch.svg",
+      "alternatives": [
+        "nousresearch"
+      ]
+    },
+    "novita": {
+      "name": "Novita AI",
+      "monochrome": "novita.svg",
+      "alternatives": [
+        "novita"
+      ],
+      "color": "novita-color.svg"
+    },
+    "nplcloud": {
+      "name": "NPLCloud",
+      "monochrome": "nplcloud.svg",
+      "alternatives": [
+        "nplcloud"
+      ],
+      "color": "nplcloud-color.svg"
+    },
+    "nvidia": {
+      "name": "Nvidia",
+      "monochrome": "nvidia.svg",
+      "alternatives": [
+        "nvidia"
+      ],
+      "color": "nvidia-color.svg"
+    },
+    "ollama": {
+      "name": "Ollama",
+      "monochrome": "ollama.svg",
+      "alternatives": [
+        "ollama"
+      ]
+    },
+    "openai": {
+      "name": "ChatGPT / OpenAI",
+      "monochrome": "openai.svg",
+      "alternatives": [
+        "openai",
+        "codex"
+      ]
+    },
+    "opencode-go": {
+      "name": "opencode",
+      "monochrome": "opencode-go.svg",
+      "alternatives": [
+        "opencode-go"
+      ]
+    },
+    "openrouter": {
+      "name": "OpenRouter",
+      "monochrome": "openrouter.svg",
+      "alternatives": [
+        "openrouter"
+      ]
+    },
+    "parasail": {
+      "name": "Parasail",
+      "monochrome": "parasail.svg",
+      "alternatives": [
+        "parasail"
+      ]
+    },
+    "perplexity": {
+      "name": "Perplexity",
+      "monochrome": "perplexity.svg",
+      "alternatives": [
+        "perplexity"
+      ],
+      "color": "perplexity-color.svg"
+    },
+    "player2": {
+      "name": "Player2",
+      "monochrome": "player2.svg",
+      "alternatives": [
+        "player2"
+      ],
+      "color": "player2-color.svg"
+    },
+    "ppio": {
+      "name": "PPIO",
+      "monochrome": "ppio.svg",
+      "alternatives": [
+        "ppio"
+      ],
+      "color": "ppio-color.svg"
+    },
+    "qiniu": {
+      "name": "Qiniu",
+      "monochrome": "qiniu.svg",
+      "alternatives": [
+        "qiniu"
+      ],
+      "color": "qiniu-color.svg"
+    },
+    "qwen": {
+      "name": "Qwen",
+      "monochrome": "qwen.svg",
+      "alternatives": [
+        "qwen"
+      ],
+      "color": "qwen-color.svg"
+    },
+    "replicate": {
+      "name": "Replicate",
+      "monochrome": "replicate.svg",
+      "alternatives": [
+        "replicate"
+      ]
+    },
+    "sambanova": {
+      "name": "SambaNova",
+      "monochrome": "sambanova.svg",
+      "alternatives": [
+        "sambanova"
+      ],
+      "color": "sambanova-color.svg"
+    },
+    "search1api": {
+      "name": "Search1API",
+      "monochrome": "search1api.svg",
+      "alternatives": [
+        "search1api"
+      ],
+      "color": "search1api-color.svg"
+    },
+    "searchapi": {
+      "name": "SearchApi",
+      "monochrome": "searchapi.svg",
+      "alternatives": [
+        "searchapi"
+      ]
+    },
+    "sensenova": {
+      "name": "SenseNova",
+      "monochrome": "sensenova.svg",
+      "alternatives": [
+        "sensenova"
+      ],
+      "color": "sensenova-color.svg"
+    },
+    "siliconcloud": {
+      "name": "SiliconCloud",
+      "monochrome": "siliconcloud.svg",
+      "alternatives": [
+        "siliconcloud"
+      ],
+      "color": "siliconcloud-color.svg"
+    },
+    "snowflake": {
+      "name": "Snowflake",
+      "monochrome": "snowflake.svg",
+      "alternatives": [
+        "snowflake"
+      ],
+      "color": "snowflake-color.svg"
+    },
+    "sophnet": {
+      "name": "SophNet",
+      "monochrome": "sophnet.svg",
+      "alternatives": [
+        "sophnet"
+      ],
+      "color": "sophnet-color.svg"
+    },
+    "spark": {
+      "name": "Spark",
+      "monochrome": "spark.svg",
+      "alternatives": [
+        "spark"
+      ],
+      "color": "spark-color.svg"
+    },
+    "stability": {
+      "name": "Stability",
+      "monochrome": "stability.svg",
+      "alternatives": [
+        "stability"
+      ],
+      "color": "stability-color.svg"
+    },
+    "statecloud": {
+      "name": "StateCloud",
+      "monochrome": "statecloud.svg",
+      "alternatives": [
+        "statecloud"
+      ],
+      "color": "statecloud-color.svg"
+    },
+    "stepfun": {
+      "name": "Stepfun",
+      "monochrome": "stepfun.svg",
+      "alternatives": [
+        "stepfun"
+      ],
+      "color": "stepfun-color.svg"
+    },
+    "straico": {
+      "name": "Straico",
+      "monochrome": "straico.svg",
+      "alternatives": [
+        "straico"
+      ],
+      "color": "straico-color.svg"
+    },
+    "streamlake": {
+      "name": "StreamLake",
+      "monochrome": "streamlake.svg",
+      "alternatives": [
+        "streamlake"
+      ],
+      "color": "streamlake-color.svg"
+    },
+    "submodel": {
+      "name": "SubModel",
+      "monochrome": "submodel.svg",
+      "alternatives": [
+        "submodel"
+      ],
+      "color": "submodel-color.svg"
+    },
+    "synthetic": {
+      "name": "Synthetic",
+      "monochrome": "synthetic.svg",
+      "alternatives": [
+        "synthetic"
+      ]
+    },
+    "targon": {
+      "name": "Targon",
+      "monochrome": "targon.svg",
+      "alternatives": [
+        "targon"
+      ],
+      "color": "targon-color.svg"
+    },
+    "tencent": {
+      "name": "Tencent",
+      "monochrome": "tencent.svg",
+      "alternatives": [
+        "tencent"
+      ],
+      "color": "tencent-color.svg"
+    },
+    "tencentcloud": {
+      "name": "TencentCloud",
+      "monochrome": "tencentcloud.svg",
+      "alternatives": [
+        "tencentcloud"
+      ],
+      "color": "tencentcloud-color.svg"
+    },
+    "tii": {
+      "name": "Technology Innovation Institute",
+      "monochrome": "tii.svg",
+      "alternatives": [
+        "tii"
+      ],
+      "color": "tii-color.svg"
+    },
+    "upstage": {
+      "name": "Upsate",
+      "monochrome": "upstage.svg",
+      "alternatives": [
+        "upstage"
+      ],
+      "color": "upstage-color.svg"
+    },
+    "v0": {
+      "name": "V0",
+      "monochrome": "v0.svg",
+      "alternatives": [
+        "v0"
+      ]
+    },
+    "venice": {
+      "name": "Venice",
+      "monochrome": "venice.svg",
+      "alternatives": [
+        "venice"
+      ],
+      "color": "venice-color.svg"
+    },
+    "vercel": {
+      "name": "Vercel",
+      "monochrome": "vercel.svg",
+      "alternatives": [
+        "vercel"
+      ]
+    },
+    "vertexai": {
+      "name": "VertexAI",
+      "monochrome": "vertexai.svg",
+      "alternatives": [
+        "vertexai"
+      ],
+      "color": "vertexai-color.svg"
+    },
+    "vllm": {
+      "name": "vLLM",
+      "monochrome": "vllm.svg",
+      "alternatives": [
+        "vllm"
+      ],
+      "color": "vllm-color.svg"
+    },
+    "volcengine": {
+      "name": "Volcengine",
+      "monochrome": "volcengine.svg",
+      "alternatives": [
+        "volcengine"
+      ],
+      "color": "volcengine-color.svg"
+    },
+    "warp": {
+      "name": "Warp",
+      "monochrome": "warp.svg",
+      "alternatives": [
+        "warp"
+      ],
+      "color": "warp-color.svg"
+    },
+    "wenxin": {
+      "name": "Wenxin",
+      "monochrome": "wenxin.svg",
+      "alternatives": [
+        "wenxin"
+      ],
+      "color": "wenxin-color.svg"
+    },
+    "windsurf": {
+      "name": "Windsurf",
+      "monochrome": "windsurf.svg",
+      "alternatives": [
+        "windsurf"
+      ]
+    },
+    "workersai": {
+      "name": "WorkersAI",
+      "monochrome": "workersai.svg",
+      "alternatives": [
+        "workersai"
+      ],
+      "color": "workersai-color.svg"
+    },
+    "xai": {
+      "name": "Grok",
+      "monochrome": "xai.svg",
+      "alternatives": [
+        "xai"
+      ]
+    },
+    "xiaomimimo": {
+      "name": "XiaomiMiMo",
+      "monochrome": "xiaomimimo.svg",
+      "alternatives": [
+        "xiaomimimo"
+      ]
+    },
+    "xinference": {
+      "name": "Xinference",
+      "monochrome": "xinference.svg",
+      "alternatives": [
+        "xinference"
+      ],
+      "color": "xinference-color.svg"
+    },
+    "yandex": {
+      "name": "Yandex",
+      "monochrome": "yandex.svg",
+      "alternatives": [
+        "yandex"
+      ]
+    },
+    "zai": {
+      "name": "Z.ai",
+      "monochrome": "zai.svg",
+      "alternatives": [
+        "zai"
+      ]
+    },
+    "zenmux": {
+      "name": "ZenMux",
+      "monochrome": "zenmux.svg",
+      "alternatives": [
+        "zenmux"
+      ]
+    },
+    "zeroone": {
+      "name": "01.AI",
+      "monochrome": "zeroone.svg",
+      "alternatives": [
+        "zeroone"
+      ],
+      "color": "zeroone-color.svg"
+    },
+    "zhipu": {
+      "name": "Zhipu",
+      "monochrome": "zhipu.svg",
+      "alternatives": [
+        "zhipu"
+      ],
+      "color": "zhipu-color.svg"
+    }
+  },
+  "aliases": {
+    "chatgpt": "openai",
+    "openai-api": "openai",
+    "claude-code": "claudecode",
+    "gemini-cli": "gemini",
+    "opencode": "opencode-go",
+    "opencodego": "opencode-go",
+    "kimi-k2": "kimi",
+    "jetbrains": "jetbrains-ai-assistant",
+    "xai-responses": "xai",
+    "grok": "xai"
+  }
+}

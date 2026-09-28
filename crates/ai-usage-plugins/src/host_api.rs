@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value as JsonValue};
 use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, HashMap};
+use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::time::Duration;
@@ -65,6 +66,8 @@ const ENV_ALLOWLIST: &[&str] = &[
     "DEEPGRAM_PROJECT_ID",
     "DEEPSEEK_API_KEY",
     "DEEPSEEK_KEY",
+    "DEEPSEEK_PLATFORM_TOKEN",
+    "DEEPSEEK_USER_TOKEN",
     "DOUBAO_API_KEY",
     "DROID_COOKIE",
     "ELEVENLABS_API_KEY",
@@ -123,6 +126,7 @@ const ENV_ALLOWLIST: &[&str] = &[
     "USAGESTAT_BEDROCK_API_URL",
     "USAGESTAT_BEDROCK_BUDGET",
     "VENICE_API_KEY",
+    "VENICE_COOKIE",
     "VOLCENGINE_API_KEY",
     "WARP_API_KEY",
     "ZED_ACCESS_TOKEN",
@@ -187,6 +191,45 @@ const ENV_ALLOWLIST: &[&str] = &[
     "ZENMUX_MANAGEMENT_API_KEY",
     "ZOOMMATE_BEARER_TOKEN",
     "ZOOMMATE_COOKIE",
+    "AI_GATEWAY_API_KEY",
+    "AIXY_API_KEY",
+    "AIXY_BASE_URL",
+    "ATLASCLOUD_API_KEY",
+    "BIFROST_API_KEY",
+    "BIFROST_BASE_URL",
+    "DEVPASS_API_KEY",
+    "GITKRAKEN_API_TOKEN",
+    "GITKRAKEN_ORG_ID",
+    "HELMCODE_COOKIE",
+    "HF_TOKEN",
+    "HUGGINGFACE_COOKIE",
+    "HYPER_API_KEY",
+    "HYPER_COOKIE",
+    "LLMMAN_API_KEY",
+    "LLMMAN_HOST",
+    "MUSE_DEVICE_TOKEN",
+    "MUSE_AUTH_PATH",
+    "MUSE_COOKIE",
+    "MUSE_WEB_TEAM_ID",
+    "NOUS_PORTAL_ACCESS_TOKEN",
+    "HERMES_HOME",
+    "PORTAL_URL",
+    "RAYCAST_COOKIE",
+    "REPLICATE_COOKIE",
+    "TYPESAFE_COOKIE",
+    "V0_API_KEY",
+    "V0_SCOPE",
+    "XKIRO_API_KEY",
+    "GEMINI_COOKIE",
+    "CODERABBIT_CLI_PATH",
+    "CLINE_PROVIDER_SETTINGS_PATH",
+    "CLINE_DATA_DIR",
+    "CLINE_DIR",
+    "PI_CODING_AGENT_DIR",
+    "PI_CODING_AGENT_SESSION_DIR",
+    "PI_CONFIG_DIR",
+    "PI_PROFILE",
+    "OMP_PROFILE",
 ];
 
 const FIRECTL_TIMEOUT_SECS: u64 = 15;
@@ -210,6 +253,8 @@ struct HttpRequest {
     body_text: Option<String>,
     #[serde(default = "default_timeout_ms")]
     timeout_ms: u64,
+    #[serde(default)]
+    http1_only: bool,
 }
 
 #[derive(Debug, Serialize)]
@@ -302,18 +347,39 @@ pub fn inject<'js>(
     inject_env(ctx, &host)?;
     inject_fs(ctx, &host)?;
     inject_codex(ctx, &host)?;
+    if plugin_id == "claude" {
+        inject_claude_quota(ctx, &host)?;
+    }
     let crypto = Object::new(ctx.clone())?;
-    crypto.set("sha256", Function::new(ctx.clone(), |value: String| sha256_hex(value.as_bytes()))?)?;
-    crypto.set("sha256Hex", Function::new(ctx.clone(), |value: String| sha256_hex(value.as_bytes()))?)?;
+    crypto.set(
+        "sha256",
+        Function::new(ctx.clone(), |value: String| sha256_hex(value.as_bytes()))?,
+    )?;
+    crypto.set(
+        "sha256Hex",
+        Function::new(ctx.clone(), |value: String| sha256_hex(value.as_bytes()))?,
+    )?;
+    crypto.set(
+        "sha1Hex",
+        Function::new(ctx.clone(), |value: String| {
+            hex_lower(&sha1::Sha1::digest(value.as_bytes()))
+        })?,
+    )?;
     host.set("crypto", crypto)?;
     let cursor_paths = Object::new(ctx.clone())?;
     let cursor_plugin = plugin_id.to_owned();
-    cursor_paths.set("resolveStateDb", Function::new(ctx.clone(), move || {
-        crate::cursor_paths::resolve_cursor_state_db_for_plugin_id(&cursor_plugin)
-            .map(|path| path.to_string_lossy().into_owned())
-    })?)?;
-    cursor_paths.set("sharedCredentialsAllowed", plugin_id == "cursor"
-        && std::env::var_os("CURSOR_STATE_DB").is_none_or(|value| value.is_empty()))?;
+    cursor_paths.set(
+        "resolveStateDb",
+        Function::new(ctx.clone(), move || {
+            crate::cursor_paths::resolve_cursor_state_db_for_plugin_id(&cursor_plugin)
+                .map(|path| path.to_string_lossy().into_owned())
+        })?,
+    )?;
+    cursor_paths.set(
+        "sharedCredentialsAllowed",
+        plugin_id == "cursor"
+            && std::env::var_os("CURSOR_STATE_DB").is_none_or(|value| value.is_empty()),
+    )?;
     host.set("cursorPaths", cursor_paths)?;
     inject_keychain(ctx, &host, plugin_id)?;
     inject_ls(ctx, &host)?;
@@ -345,6 +411,7 @@ pub fn test_https_request(url: &str, timeout_ms: u64) -> Result<HttpsTestResult,
         headers: HashMap::new(),
         body_text: None,
         timeout_ms,
+        http1_only: false,
     })
     .map_err(|error| error.to_string())?;
 
@@ -497,6 +564,34 @@ fn inject_fs<'js>(ctx: &Ctx<'js>, host: &Object<'js>) -> rquickjs::Result<()> {
     )?;
 
     fs_obj.set(
+        "readTextLimited",
+        Function::new(
+            ctx.clone(),
+            |ctx: Ctx<'_>, path: String, limit: usize| -> rquickjs::Result<String> {
+                use std::io::Read;
+                let file = std::fs::File::open(expand_path(&path)).map_err(|_| {
+                    Exception::throw_message(&ctx, "Unable to read local usage file")
+                })?;
+                let limit = limit.min(16 * 1024 * 1024);
+                let mut bytes = Vec::new();
+                file.take(limit as u64 + 1)
+                    .read_to_end(&mut bytes)
+                    .map_err(|_| {
+                        Exception::throw_message(&ctx, "Unable to read local usage file")
+                    })?;
+                if bytes.len() > limit {
+                    return Err(Exception::throw_message(
+                        &ctx,
+                        "Local usage file exceeds size limit",
+                    ));
+                }
+                String::from_utf8(bytes)
+                    .map_err(|_| Exception::throw_message(&ctx, "Local usage file is not UTF-8"))
+            },
+        )?,
+    )?;
+
+    fs_obj.set(
         "listDir",
         Function::new(
             ctx.clone(),
@@ -551,17 +646,66 @@ fn inject_fs<'js>(ctx: &Ctx<'js>, host: &Object<'js>) -> rquickjs::Result<()> {
     Ok(())
 }
 
+fn inject_claude_quota<'js>(ctx: &Ctx<'js>, host: &Object<'js>) -> rquickjs::Result<()> {
+    let claude = Object::new(ctx.clone())?;
+    claude.set(
+        "readQuota",
+        Function::new(ctx.clone(), |token_hash: String, organization: Option<String>| {
+            serde_json::to_string(&crate::claude_quota::read(&token_hash, organization.as_deref()))
+                .unwrap_or_else(|_| "null".into())
+        })?,
+    )?;
+    claude.set(
+        "probeQuota",
+        Function::new(
+            ctx.clone(),
+            |inner: Ctx<'_>, token_hash: String, organization: Option<String>| -> rquickjs::Result<String> {
+                let result = crate::claude_quota::probe(&token_hash, organization.as_deref())
+                    .map_err(|_| Exception::throw_message(&inner, "Claude CLI quota check unavailable"))?;
+                Ok(serde_json::to_string(&result).unwrap_or_else(|_| "null".into()))
+            },
+        )?,
+    )?;
+    host.set("claude", claude)
+}
+
 fn inject_codex<'js>(ctx: &Ctx<'js>, host: &Object<'js>) -> rquickjs::Result<()> {
     let codex = Object::new(ctx.clone())?;
-    codex.set("readAuth", Function::new(ctx.clone(), |inner: Ctx<'_>, explicit: Option<String>| -> rquickjs::Result<String> {
-        let result = crate::codex_auth::read(explicit.as_deref())
-            .and_then(|state| serde_json::to_string(&state).map_err(|_| "credential-malformed: Codex auth cannot be serialized".into()));
-        result.map_err(|error| Exception::throw_message(&inner, &error))
-    })?)?;
-    codex.set("writeAuth", Function::new(ctx.clone(), |inner: Ctx<'_>, explicit: Option<String>, profile_key: String, revision: String, storage: String, value: String| -> rquickjs::Result<()> {
-        crate::codex_auth::write(explicit.as_deref(), &profile_key, &revision, &storage, &value)
-            .map_err(|error| Exception::throw_message(&inner, &error))
-    })?)?;
+    codex.set(
+        "readAuth",
+        Function::new(
+            ctx.clone(),
+            |inner: Ctx<'_>, explicit: Option<String>| -> rquickjs::Result<String> {
+                let result = crate::codex_auth::read(explicit.as_deref()).and_then(|state| {
+                    serde_json::to_string(&state)
+                        .map_err(|_| "credential-malformed: Codex auth cannot be serialized".into())
+                });
+                result.map_err(|error| Exception::throw_message(&inner, &error))
+            },
+        )?,
+    )?;
+    codex.set(
+        "writeAuth",
+        Function::new(
+            ctx.clone(),
+            |inner: Ctx<'_>,
+             explicit: Option<String>,
+             profile_key: String,
+             revision: String,
+             storage: String,
+             value: String|
+             -> rquickjs::Result<()> {
+                crate::codex_auth::write(
+                    explicit.as_deref(),
+                    &profile_key,
+                    &revision,
+                    &storage,
+                    &value,
+                )
+                .map_err(|error| Exception::throw_message(&inner, &error))
+            },
+        )?,
+    )?;
     host.set("codex", codex)?;
     Ok(())
 }
@@ -870,6 +1014,17 @@ fn inject_http<'js>(ctx: &Ctx<'js>, host: &Object<'js>) -> rquickjs::Result<()> 
     let http_obj = Object::new(ctx.clone())?;
 
     http_obj.set(
+        "validateProviderUrl",
+        Function::new(
+            ctx.clone(),
+            |ctx: Ctx<'_>, raw: String, endpoints: String| {
+                validate_provider_url(&raw, &endpoints)
+                    .map_err(|message| Exception::throw_message(&ctx, &message))
+            },
+        )?,
+    )?;
+
+    http_obj.set(
         "validateBaseUrl",
         Function::new(
             ctx.clone(),
@@ -899,6 +1054,61 @@ fn inject_http<'js>(ctx: &Ctx<'js>, host: &Object<'js>) -> rquickjs::Result<()> 
 
     host.set("http", http_obj)?;
     Ok(())
+}
+
+fn validate_provider_url(raw: &str, endpoints: &str) -> Result<String, String> {
+    #[derive(Deserialize)]
+    struct Endpoint {
+        url: Option<String>,
+        policy: String,
+    }
+    const INVALID: &str = "Provider request is outside its declared endpoints";
+    let parse = |raw: &str| -> Result<reqwest::Url, String> {
+        if raw.contains('\\') || raw.chars().any(char::is_whitespace) {
+            return Err(INVALID.into());
+        }
+        let url = reqwest::Url::parse(raw).map_err(|_| INVALID.to_string())?;
+        if url.host_str().is_none()
+            || !url.username().is_empty()
+            || url.password().is_some()
+            || url.fragment().is_some()
+        {
+            return Err(INVALID.into());
+        }
+        Ok(url)
+    };
+    let request = parse(raw)?;
+    let endpoints: Vec<Endpoint> =
+        serde_json::from_str(endpoints).map_err(|_| INVALID.to_string())?;
+    for endpoint in endpoints {
+        let Some(base) = endpoint.url.filter(|url| !url.is_empty()) else {
+            continue;
+        };
+        let base = parse(&base)?;
+        let host = base.host_str().unwrap_or("").trim_matches(['[', ']']);
+        let ip = host.parse::<std::net::IpAddr>().ok();
+        let loopback = host == "localhost" || ip.is_some_and(|ip| ip.is_loopback());
+        let private = ip.is_some_and(|ip| match ip {
+            std::net::IpAddr::V4(ip) => ip.is_private(),
+            std::net::IpAddr::V6(ip) => ip.is_unique_local(),
+        });
+        let http_allowed = loopback && endpoint.policy != "https"
+            || private && endpoint.policy == "https-or-private-network-http";
+        if base.query().is_some()
+            || !(base.scheme() == "https" || base.scheme() == "http" && http_allowed)
+        {
+            return Err(INVALID.into());
+        }
+        let path = base.path().trim_end_matches('/');
+        if request.origin() == base.origin()
+            && (path.is_empty()
+                || request.path() == path
+                || request.path().starts_with(&format!("{path}/")))
+        {
+            return Ok(request.to_string());
+        }
+    }
+    Err(INVALID.into())
 }
 
 fn validate_base_url(raw: &str, allow_loopback_http: bool) -> Result<String, &'static str> {
@@ -1701,7 +1911,10 @@ fn log_keychain_read(plugin_id: &str, service: &str, account: Option<&str>) {
     }
 }
 
-pub(crate) fn platform_keychain_read(service: &str, account: Option<&str>) -> Result<String, String> {
+pub(crate) fn platform_keychain_read(
+    service: &str,
+    account: Option<&str>,
+) -> Result<String, String> {
     #[cfg(windows)]
     {
         return usagestat_core::credentials::read(
@@ -1815,7 +2028,8 @@ fn macos_keychain_read(service: &str, account: Option<&str>) -> Result<String, S
             Some(44) => "credential-missing: no item for the selected service and account",
             Some(51 | 128) => "credential-denied: Keychain access was denied",
             _ => "credential-unavailable: Keychain is locked or unavailable in this session",
-        }.into());
+        }
+        .into());
     }
     non_empty_trimmed(&String::from_utf8_lossy(&output.stdout))
         .ok_or_else(|| "empty keychain item".to_string())
@@ -1928,9 +2142,15 @@ fn linux_secret_tool_read(service: &str, account: Option<&str>) -> Result<String
     let output = process::run(command, Duration::from_secs(30), COMMAND_OUTPUT_LIMIT_BYTES)
         .map_err(|error| error.to_string())?;
     if !output.status.success() {
-        return Err(if output.status.code() == Some(1) && output.stdout.is_empty() && output.stderr.is_empty() {
+        return Err(if output.status.code() == Some(1)
+            && output.stdout.is_empty()
+            && output.stderr.is_empty()
+        {
             "credential-missing: no item for the selected service and account"
-        } else { "credential-unavailable: Secret Service is locked or unavailable in this session" }.into());
+        } else {
+            "credential-unavailable: Secret Service is locked or unavailable in this session"
+        }
+        .into());
     }
     non_empty_trimmed(&String::from_utf8_lossy(&output.stdout))
         .ok_or_else(|| "secret-tool returned empty secret".to_string())
@@ -2049,8 +2269,10 @@ fn sqlite_query_impl(path: &str, sql: &str) -> Result<String, String> {
     // locking/change detection and is unsafe for that case; fail explicitly.
     let conn = Connection::open_with_flags(path, OpenFlags::SQLITE_OPEN_READ_ONLY)
         .map_err(|error| format!("sqlite open failed: {error}"))?;
-    conn.busy_timeout(Duration::from_millis(250)).map_err(|error| error.to_string())?;
-    conn.pragma_update(None, "query_only", true).map_err(|error| error.to_string())?;
+    conn.busy_timeout(Duration::from_millis(250))
+        .map_err(|error| error.to_string())?;
+    conn.pragma_update(None, "query_only", true)
+        .map_err(|error| error.to_string())?;
     let mut stmt = conn.prepare(sql).map_err(|e| e.to_string())?;
     let col_names: Vec<String> = stmt.column_names().into_iter().map(String::from).collect();
     let rows = stmt
@@ -2234,13 +2456,35 @@ fn aws_uri_encode(value: &str, encode_slash: bool) -> String {
     encoded
 }
 
-fn execute_http_request(request: HttpRequest) -> Result<HttpResponse, reqwest::Error> {
+const HTTP_BODY_LIMIT_BYTES: usize = 16 * 1024 * 1024;
+
+fn bounded_http_body(reader: impl Read) -> Result<String, String> {
+    let mut bytes = Vec::new();
+    reader
+        .take(HTTP_BODY_LIMIT_BYTES as u64 + 1)
+        .read_to_end(&mut bytes)
+        .map_err(|_| "Could not read provider response".to_string())?;
+    if bytes.len() > HTTP_BODY_LIMIT_BYTES {
+        return Err("Provider response exceeds the 16 MiB limit".into());
+    }
+    Ok(String::from_utf8_lossy(&bytes).into_owned())
+}
+
+fn execute_http_request(request: HttpRequest) -> Result<HttpResponse, String> {
     let _ = rustls::crypto::ring::default_provider().install_default();
 
-    let client = reqwest::blocking::Client::builder()
-        .timeout(std::time::Duration::from_millis(request.timeout_ms))
-        .redirect(reqwest::redirect::Policy::none())
-        .build()?;
+    let builder = reqwest::blocking::Client::builder()
+        .timeout(std::time::Duration::from_millis(
+            request.timeout_ms.clamp(1, 90_000),
+        ))
+        .redirect(reqwest::redirect::Policy::none());
+    let client = if request.http1_only {
+        builder.http1_only()
+    } else {
+        builder
+    }
+    .build()
+    .map_err(|error| error.without_url().to_string())?;
     let method = request
         .method
         .parse::<reqwest::Method>()
@@ -2255,14 +2499,16 @@ fn execute_http_request(request: HttpRequest) -> Result<HttpResponse, reqwest::E
         builder = builder.body(body);
     }
 
-    let response = builder.send()?;
+    let response = builder
+        .send()
+        .map_err(|error| error.without_url().to_string())?;
     let status = response.status().as_u16();
     let headers = response
         .headers()
         .iter()
         .filter_map(|(name, value)| Some((name.to_string(), value.to_str().ok()?.to_string())))
         .collect();
-    let body_text = response.text()?;
+    let body_text = bounded_http_body(response)?;
 
     Ok(HttpResponse {
         status,
@@ -2342,27 +2588,45 @@ fn execute_aws_cost_explorer_request(
         .send()
         .map_err(|error| format!("AWS Cost Explorer request failed: {error}"))?;
     let status = response.status().as_u16();
-    let body_text = response.text().map_err(|error| error.to_string())?;
+    let body_text = bounded_http_body(response)?;
     Ok(AwsCostExplorerResponse { status, body_text })
 }
 
 fn execute_command_request(request: CommandRequest) -> Result<CommandResponse, String> {
-    if request.program != "gh" {
+    let coderabbit = request.program == "coderabbit" && request.args == ["usage"];
+    let claude_version = request.program == "claude" && request.args == ["--version"];
+    if request.program != "gh" && !coderabbit && !claude_version {
         return Err(format!("command not allowed: {}", request.program));
     }
     if request.timeout_ms > 30_000 {
         return Err("command timeout exceeds 30000ms".to_string());
     }
 
-    let mut command = process::command(&request.program).map_err(|error| error.to_string())?;
+    let program = if coderabbit {
+        std::env::var("CODERABBIT_CLI_PATH")
+            .ok()
+            .filter(|value| !value.trim().is_empty())
+            .unwrap_or(request.program)
+    } else {
+        request.program
+    };
+    let mut command = process::command(&program).map_err(|error| error.to_string())?;
+    if coderabbit {
+        command.env("NO_COLOR", "1");
+    }
     command
         .args(&request.args)
+        .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
     let output = process::run(
         command,
         Duration::from_millis(request.timeout_ms),
-        COMMAND_OUTPUT_LIMIT_BYTES,
+        if coderabbit {
+            128 * 1024
+        } else {
+            COMMAND_OUTPUT_LIMIT_BYTES
+        },
     )
     .map_err(|error| error.to_string())?;
 
@@ -2416,6 +2680,23 @@ mod tests {
     use super::*;
 
     #[test]
+    fn claude_command_host_allows_version_only_not_prompts_or_auth_changes() {
+        for args in [
+            vec!["--print", "hello"],
+            vec!["auth", "logout"],
+            vec!["--version", "--print"],
+            vec![],
+        ] {
+            let result = execute_command_request(CommandRequest {
+                program: "claude".into(),
+                args: args.into_iter().map(str::to_owned).collect(),
+                timeout_ms: 3000,
+            });
+            assert!(matches!(result, Err(message) if message == "command not allowed: claude"));
+        }
+    }
+
+    #[test]
     fn keychain_capabilities_and_unsupported_operations_remain_explicit() {
         let runtime = rquickjs::Runtime::new().unwrap();
         let context = rquickjs::Context::full(&runtime).unwrap();
@@ -2440,7 +2721,9 @@ mod tests {
     fn javascript_keychain_contract_roundtrips_disposable_native_credentials() {
         // Repeated contexts expose the intermittent immediate read-after-create
         // failure without retrying or accepting a failed operation.
-        for _ in 0..16 { javascript_keychain_roundtrip(); }
+        for _ in 0..16 {
+            javascript_keychain_roundtrip();
+        }
     }
 
     #[cfg(windows)]
@@ -2523,6 +2806,19 @@ mod tests {
     }
 
     #[test]
+    fn provider_response_body_is_bounded_even_without_content_length() {
+        assert_eq!(bounded_http_body("fixture".as_bytes()).unwrap(), "fixture");
+        assert!(
+            bounded_http_body(std::io::repeat(b'x').take(HTTP_BODY_LIMIT_BYTES as u64)).is_ok()
+        );
+        assert!(
+            bounded_http_body(std::io::repeat(b'x'))
+                .unwrap_err()
+                .contains("16 MiB")
+        );
+    }
+
+    #[test]
     fn capped_output_decode_drops_incomplete_trailing_utf8() {
         let mut bytes = "command ".as_bytes().to_vec();
         bytes.extend_from_slice(&[0xF0, 0x9F, 0x98]);
@@ -2549,6 +2845,58 @@ mod provider_sync_tests {
     use super::*;
 
     #[test]
+    fn bundled_requests_never_send_credentials_outside_declared_origins() {
+        let endpoints = r#"[{"url":"https://api.example.test/v1","policy":"https"}]"#;
+        assert!(
+            validate_provider_url(
+                "https://api.example.test/v1/usage?date=2026-09-27",
+                endpoints
+            )
+            .is_ok()
+        );
+        for url in [
+            "https://api.example.test.evil.test/v1",
+            "https://api.example.test/v10",
+            "https://api.example.test/v1/../admin",
+            "https://user@api.example.test/v1",
+            "https://api.example.test:8443/v1",
+            "https://api.example.test/v1#secret",
+            "https://api.example.test\\@evil.test/v1",
+            "http://api.example.test/v1",
+        ] {
+            assert!(validate_provider_url(url, endpoints).is_err(), "{url}");
+        }
+    }
+
+    #[test]
+    fn bundled_private_network_http_requires_explicit_policy() {
+        for base in [
+            "http://127.0.0.1:17434",
+            "http://[::1]:8080",
+            "http://192.168.1.8:8080",
+            "http://[fd00::1]:8080",
+        ] {
+            let endpoints =
+                serde_json::json!([{"url": base, "policy": "https-or-private-network-http"}])
+                    .to_string();
+            assert!(validate_provider_url(&format!("{base}/api/usage"), &endpoints).is_ok());
+            let https = serde_json::json!([{"url": base, "policy": "https"}]).to_string();
+            assert!(validate_provider_url(base, &https).is_err());
+        }
+        for base in [
+            "http://example.test",
+            "http://8.8.8.8",
+            "http://localhost.evil.test",
+            "http://169.254.169.254",
+        ] {
+            let endpoints =
+                serde_json::json!([{"url": base, "policy": "https-or-private-network-http"}])
+                    .to_string();
+            assert!(validate_provider_url(base, &endpoints).is_err());
+        }
+    }
+
+    #[test]
     fn devin_environment_precedence_survives_the_native_javascript_bridge() {
         const CHILD: &str = "USAGESTAT_DEVIN_ENV_FIXTURE";
         if std::env::var(CHILD).as_deref() != Ok("child") {
@@ -2562,7 +2910,11 @@ mod provider_sync_tests {
                 .env("DEVIN_NOT_ALLOWLISTED", "synthetic-private")
                 .env("OPENAI_API_KEY", "")
                 .output().unwrap();
-            assert!(output.status.success(), "{}", String::from_utf8_lossy(&output.stdout));
+            assert!(
+                output.status.success(),
+                "{}",
+                String::from_utf8_lossy(&output.stdout)
+            );
             return;
         }
         let runtime = rquickjs::Runtime::new().unwrap();
@@ -2571,14 +2923,19 @@ mod provider_sync_tests {
             let host = Object::new(ctx.clone()).unwrap();
             inject_env(&ctx, &host).unwrap();
             ctx.globals().set("host", host).unwrap();
-            assert!(ctx.eval::<bool, _>(r#"
+            assert!(
+                ctx.eval::<bool, _>(
+                    r#"
                 host.env.get('DEVIN_BEARER_TOKEN') === '' &&
                 host.env.get('DEVIN_AUTHORIZATION') === 'Bearer synthetic-fixture' &&
                 host.env.get('DEVIN_ORGANIZATION') === '  ' &&
                 host.env.get('DEVIN_ORG') == null &&
                 host.env.get('DEVIN_NOT_ALLOWLISTED') == null &&
                 host.env.get('OPENAI_API_KEY') == null
-            "#).unwrap());
+            "#
+                )
+                .unwrap()
+            );
         });
     }
 
@@ -2620,5 +2977,4 @@ mod provider_sync_tests {
             assert!(validate_base_url(url, true).is_err(), "{url}");
         }
     }
-
 }

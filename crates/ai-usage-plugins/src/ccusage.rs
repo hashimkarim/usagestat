@@ -23,6 +23,7 @@ pub struct CcusageQueryOpts {
     pub until: Option<String>,
     pub home_path: Option<String>,
     pub claude_path: Option<String>,
+    pub time_zone: Option<String>,
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
@@ -84,17 +85,26 @@ pub fn resolve_provider(opts: &CcusageQueryOpts, plugin_id: &str) -> CcusageProv
 
 pub fn query_status_json(opts: &CcusageQueryOpts, plugin_id: &str) -> String {
     let provider = resolve_provider(opts, plugin_id);
+    // Pass the zone explicitly and stamp that exact zone on the result. Inferring
+    // it later at store-read time would mislabel historical or imported rows.
+    let mut opts = opts.clone();
+    let time_zone = opts.time_zone.clone().filter(|zone| !zone.trim().is_empty())
+        .or_else(|| std::env::var("TZ").ok().filter(|zone| !zone.trim().is_empty()))
+        .or_else(|| iana_time_zone::get_timezone().ok())
+        .unwrap_or_else(|| "UTC".to_string());
+    opts.time_zone = Some(time_zone.trim().trim_start_matches(':').to_string());
     let runners = collect_runners();
     if runners.is_empty() {
         return serde_json::json!({ "status": "no_runner" }).to_string();
     }
 
     for (kind, program) in runners {
-        match run_with_runner(kind, &program, opts, provider) {
+        match run_with_runner(kind, &program, &opts, provider) {
             CcusageRunnerResult::Success(result) => {
-                let Ok(data) = serde_json::from_str::<JsonValue>(&result) else {
+                let Ok(mut data) = serde_json::from_str::<JsonValue>(&result) else {
                     continue;
                 };
+                stamp_time_zone(&mut data, opts.time_zone.as_deref().unwrap());
                 return serde_json::json!({ "status": "ok", "data": data }).to_string();
             }
             CcusageRunnerResult::Failed => {}
@@ -105,6 +115,19 @@ pub fn query_status_json(opts: &CcusageQueryOpts, plugin_id: &str) -> String {
     }
 
     serde_json::json!({ "status": "runner_failed" }).to_string()
+}
+
+fn stamp_time_zone(data: &mut JsonValue, time_zone: &str) {
+    if let Some(daily) = data.get_mut("daily").and_then(JsonValue::as_array_mut) {
+        for row in daily {
+            if let Some(row) = row.as_object_mut() {
+                row.insert("timeZone".into(), JsonValue::String(time_zone.into()));
+            }
+        }
+    }
+    if let Some(data) = data.as_object_mut() {
+        data.insert("timeZone".into(), JsonValue::String(time_zone.into()));
+    }
 }
 
 pub fn query_daily(opts: &CcusageQueryOpts, plugin_id: &str) -> Result<JsonValue, String> {
@@ -342,6 +365,10 @@ fn append_common_args(
         "--order".to_string(),
         "desc".to_string(),
     ]);
+
+    if let Some(time_zone) = &opts.time_zone {
+        args.extend(["--timezone".into(), time_zone.clone()]);
+    }
 
     if let Some(since) = opts
         .since
@@ -595,6 +622,21 @@ mod tests {
                 "desc",
             ]
         );
+    }
+
+    #[test]
+    fn provenance_uses_the_explicit_zone_for_current_and_legacy_reports() {
+        let opts = CcusageQueryOpts { time_zone: Some("Europe/Amsterdam".into()), ..Default::default() };
+        for provider in [CcusageProvider::Claude, CcusageProvider::Codex] {
+            for flavor in [CcusageCommandFlavor::Current, CcusageCommandFlavor::Legacy] {
+                let args = runner_args(CcusageRunnerKind::Bunx, &opts, provider, flavor);
+                assert!(args.windows(2).any(|args| args == ["--timezone", "Europe/Amsterdam"]));
+            }
+        }
+        let mut data = serde_json::json!({"daily":[{"date":"2026-09-27","totalTokens":10}]});
+        stamp_time_zone(&mut data, opts.time_zone.as_deref().unwrap());
+        assert_eq!(data["timeZone"], "Europe/Amsterdam");
+        assert_eq!(data["daily"][0]["timeZone"], "Europe/Amsterdam");
     }
 
     #[test]

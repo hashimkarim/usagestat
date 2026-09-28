@@ -17,6 +17,7 @@ chrono.workspace = true
 csv.workspace = true
 dirs.workspace = true
 hmac.workspace = true
+iana-time-zone = "0.1"
 log.workspace = true
 reqwest.workspace = true
 rquickjs.workspace = true
@@ -25,6 +26,7 @@ rusqlite.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 sha2.workspace = true
+sha1.workspace = true
 toml.workspace = true
 
 [target.'cfg(unix)'.dependencies]

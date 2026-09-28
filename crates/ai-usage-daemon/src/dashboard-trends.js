@@ -4,6 +4,7 @@ const UsageTrends = (() => {
   const DAY = 86400000;
   const fields = ['inputTokens', 'outputTokens', 'cacheReadTokens', 'cacheCreationTokens',
     'reasoningOutputTokens', 'totalTokens', 'cost'];
+  const costFields = ['inputCostUsd', 'cacheReadCostUsd', 'cacheWriteCostUsd', 'outputCostUsd'];
   const key = ms => new Date(ms).toISOString().slice(0, 10);
   function dateMs(value) {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(value || '')) return NaN;
@@ -20,7 +21,9 @@ const UsageTrends = (() => {
       if (b > end) return { error: 'End date cannot be in the future.' };
       return makeRange(a, b);
     }
-    if (options.range === 'all') {
+    if (options.range === 'month') {
+      start = dateMs(today.slice(0, 7) + '-01');
+    } else if (options.range === 'all') {
       const dates = rows.map(r => dateMs(r.date)).filter(ms => Number.isFinite(ms) && ms <= end);
       if (dates.length) start = Math.min(...dates);
     } else if (['7', '30', '90', '365'].includes(String(options.range))) {
@@ -38,8 +41,17 @@ const UsageTrends = (() => {
   function select(rows, start, end) {
     return rows.filter(r => Number.isFinite(dateMs(r.date)) && r.date >= start && r.date <= end);
   }
-  function empty() { return Object.fromEntries(fields.map(f => [f, 0])); }
+  function empty() { return {...Object.fromEntries([...fields, ...costFields].map(f => [f, 0])), costComponentsKnown:true, costKnown: true, tokensKnown: true, sessions:0, sessionsKnown:true, cacheSavingsUsd:0, cacheSavingsKnown:true}; }
   function add(total, row) {
+    total.costComponentsKnown &&= row.costKnown !== false && costFields.every(f => Number.isFinite(row[f]) && row[f]>=0)
+      && Math.abs(costFields.reduce((sum,f)=>sum+row[f],0)-row.cost)<=Math.max(1,Math.abs(row.cost))*1e-9;
+    for(const f of costFields) total[f] = total.costComponentsKnown ? total[f]+row[f] : null;
+    total.sessionsKnown &&= Number.isSafeInteger(row.sessions) && row.sessions>=0;
+    total.cacheSavingsKnown &&= Number.isFinite(row.cacheSavingsUsd) && row.cacheSavingsUsd>=0;
+    total.sessions += Number.isSafeInteger(row.sessions) && row.sessions>=0 ? row.sessions : 0;
+    total.cacheSavingsUsd += Number.isFinite(row.cacheSavingsUsd) && row.cacheSavingsUsd>=0 ? row.cacheSavingsUsd : 0;
+    total.costKnown &&= row.costKnown !== false;
+    total.tokensKnown &&= row.tokensKnown !== false;
     for (const f of fields) {
       const n = Number(row[f]);
       if (Number.isFinite(n) && n >= 0) total[f] += n;

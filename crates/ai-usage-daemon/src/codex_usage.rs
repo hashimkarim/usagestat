@@ -1,16 +1,16 @@
-use super::{LocalUsageEvent, estimate_cost_usd, json_u64_value, parse_ts, project_label};
+use super::local_usage::{LocalUsageEvent, json_u64_value, parse_ts, project_label};
 use serde_json::Value;
 use std::io::BufRead;
 
 struct Row {
     ordinal: Option<u64>,
-    total: Option<[u64; 4]>,
+    total: Option<[u64; 5]>,
     event: LocalUsageEvent,
 }
 
 // Cumulative counters are usable only when their input/output fields are
 // present and integral. Missing optional components are zero, not a reset.
-fn totals(value: &Value) -> Option<[u64; 4]> {
+fn totals(value: &Value) -> Option<[u64; 5]> {
     let optional = |names: &[&str]| -> Option<u64> {
         names
             .iter()
@@ -32,6 +32,11 @@ fn totals(value: &Value) -> Option<[u64; 4]> {
             "cache_read_input_tokens",
         ])?,
         optional(&["reasoning_output_tokens", "reasoningOutputTokens"])?,
+        optional(&[
+            "cache_creation_input_tokens",
+            "cache_write_tokens",
+            "cacheCreationTokens",
+        ])?,
     ])
 }
 
@@ -46,6 +51,20 @@ pub(super) fn scan(
     let mut boundary = None;
     let mut rows = Vec::new();
     for line in reader.lines().map_while(Result::ok) {
+        // Most rollout bytes are conversation/tool payloads. These cannot
+        // affect accounting, and parsing their full JSON dominates cold scans.
+        if ![
+            "\"session_meta\"",
+            "\"turn_context\"",
+            "\"token_count\"",
+            "\"last_token_usage\"",
+            "\"total_token_usage\"",
+        ]
+        .iter()
+        .any(|marker| line.contains(marker))
+        {
+            continue;
+        }
         let Ok(value) = serde_json::from_str::<Value>(&line) else {
             continue;
         };
@@ -54,8 +73,10 @@ pub(super) fn scan(
                 .pointer("/payload/subagent_history_start_ordinal")
                 .and_then(Value::as_u64);
         }
-        if let Some(id) = value.pointer("/payload/id").and_then(Value::as_str) {
-            session_id = id.to_string();
+        if value.get("type").and_then(Value::as_str) == Some("session_meta") {
+            if let Some(id) = value.pointer("/payload/id").and_then(Value::as_str) {
+                session_id = id.to_string();
+            }
         }
         if let Some(name) = value
             .pointer("/payload/model")
@@ -70,17 +91,17 @@ pub(super) fn scan(
         let last = value
             .pointer("/payload/info/last_token_usage")
             .or_else(|| value.pointer("/payload/last_token_usage"));
-        let total = value
+        let total_value = value
             .pointer("/payload/info/total_token_usage")
-            .or_else(|| value.pointer("/payload/total_token_usage"))
-            .and_then(totals);
+            .or_else(|| value.pointer("/payload/total_token_usage"));
+        let total = total_value.and_then(totals);
         if last.is_none() && total.is_none() {
             continue;
         }
         let Some(ts) = parse_ts(value.get("timestamp")) else {
             continue;
         };
-        let last = last.unwrap_or(&Value::Null);
+        let last = last.or(total_value).unwrap_or(&Value::Null);
         rows.push(Row {
             ordinal: value.get("ordinal").and_then(Value::as_u64),
             total,
@@ -99,12 +120,19 @@ pub(super) fn scan(
                         "cache_read_input_tokens",
                     ],
                 ),
-                cache_creation_tokens: 0,
+                cache_creation_tokens: json_u64_value(
+                    last,
+                    &[
+                        "cache_creation_input_tokens",
+                        "cache_write_tokens",
+                        "cacheCreationTokens",
+                    ],
+                ),
                 reasoning_output_tokens: json_u64_value(
                     last,
                     &["reasoning_output_tokens", "reasoningOutputTokens"],
                 ),
-                cost_usd: 0.0,
+                ..LocalUsageEvent::default()
             },
         });
     }
@@ -120,38 +148,40 @@ pub(super) fn scan(
                 previous = row.total.or(previous);
                 continue;
             }
-            if let (Some(current), Some(before)) = (row.total, previous) {
-                if let Some(delta) = current
-                    .iter()
-                    .zip(before)
-                    .map(|(n, p)| n.checked_sub(p))
-                    .collect::<Option<Vec<_>>>()
-                {
-                    row.event.input_tokens = delta[0];
-                    row.event.output_tokens = delta[1];
-                    row.event.cache_read_tokens = delta[2];
-                    row.event.reasoning_output_tokens = delta[3];
-                }
-            }
-            // A missing total or counter restart uses last_token_usage. Clear a
-            // gap's baseline to avoid including those tokens again later.
-            previous = row.total;
         }
+        if let (Some(current), Some(before)) = (row.total, previous) {
+            if let Some(delta) = current
+                .iter()
+                .zip(before)
+                .map(|(n, p)| n.checked_sub(p))
+                .collect::<Option<Vec<_>>>()
+            {
+                row.event.input_tokens = delta[0];
+                row.event.output_tokens = delta[1];
+                row.event.cache_read_tokens = delta[2];
+                row.event.reasoning_output_tokens = delta[3];
+                row.event.cache_creation_tokens = delta[4];
+            }
+        }
+        // A missing total or counter restart uses last_token_usage. Clear a
+        // gap's baseline to avoid including those tokens again later.
+        previous = row.total;
         let event = &mut row.event;
         if event.input_tokens == 0
             && event.output_tokens == 0
             && event.cache_read_tokens == 0
+            && event.cache_creation_tokens == 0
             && event.reasoning_output_tokens == 0
         {
             continue;
         }
-        event.cost_usd = estimate_cost_usd(
-            &event.model,
-            event.input_tokens,
-            event.output_tokens,
-            0,
-            event.cache_read_tokens,
-        );
+        // Codex reports inclusive input; the shared schema stores exclusive
+        // input/cache classes. Reasoning remains a subset of output.
+        event.input_tokens = event
+            .input_tokens
+            .saturating_sub(event.cache_read_tokens)
+            .saturating_sub(event.cache_creation_tokens);
+        super::pricing::apply(event);
         events.push(row.event);
     }
 }
@@ -268,10 +298,44 @@ mod tests {
                 event.cache_read_tokens,
                 event.reasoning_output_tokens
             ),
-            (40, 5, 10, 2)
+            (30, 5, 10, 2)
         );
         assert_eq!(event.model, "gpt-5");
         assert_eq!(event.ts.to_rfc3339(), "2026-09-11T00:00:00+00:00");
         assert!(event.cost_usd > 0.0);
+    }
+
+    #[test]
+    fn ordinary_cumulative_duplicates_and_message_ids_do_not_inflate_usage_or_sessions() {
+        let mut first = usage(json!(1), Some(100), 100);
+        first["payload"]["info"]["last_token_usage"] = json!({"input_tokens":100,"cached_input_tokens":80,"output_tokens":10,"reasoning_output_tokens":4});
+        first["payload"]["info"]["total_token_usage"] = json!({"input_tokens":100,"cached_input_tokens":80,"output_tokens":10,"reasoning_output_tokens":4});
+        let mut next = first.clone();
+        next["timestamp"] = json!("2026-09-12T00:01:00Z");
+        next["payload"]["info"]["total_token_usage"] = json!({"input_tokens":150,"cached_input_tokens":120,"output_tokens":20,"reasoning_output_tokens":8});
+        let events = parse(&[
+            json!({"type":"session_meta","payload":{"id":"real-session"}}),
+            json!({"type":"turn_context","payload":{"model":"gpt-6-astra"}}),
+            first.clone(),
+            first,
+            json!({"type":"response_item","payload":{"id":"message-id"}}),
+            next,
+        ]);
+        assert_eq!(events.len(), 2);
+        assert!(
+            events
+                .iter()
+                .all(|event| event.session_id == "real-session")
+        );
+        assert_eq!(events[0].input_tokens, 20);
+        assert_eq!(events[0].metrics().total_tokens, 110);
+        assert_eq!(events[1].metrics().total_tokens, 60);
+        assert!(events.iter().all(|event| event.cost_known));
+        let days = super::super::local_usage::aggregate_usage(
+            &events,
+            super::super::local_usage::Bucket::Day,
+        );
+        assert_eq!(days.len(), 2);
+        assert!(days.iter().all(|day| day.usage.sessions == Some(1)));
     }
 }

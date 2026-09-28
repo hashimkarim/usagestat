@@ -2941,7 +2941,7 @@ dependencies = [
 
 [[package]]
 name = "usagestat-cli"
-version = "2.0.0-alpha.3"
+version = "2.0.0-alpha.4"
 dependencies = [
  "aes",
  "aes-gcm",
@@ -2972,7 +2972,7 @@ dependencies = [
 
 [[package]]
 name = "usagestat-core"
-version = "2.0.0-alpha.3"
+version = "2.0.0-alpha.4"
 dependencies = [
  "chrono",
  "dirs",
@@ -2989,7 +2989,7 @@ dependencies = [
 
 [[package]]
 name = "usagestat-daemon"
-version = "2.0.0-alpha.3"
+version = "2.0.0-alpha.4"
 dependencies = [
  "anyhow",
  "chrono",
@@ -3006,7 +3006,7 @@ dependencies = [
 
 [[package]]
 name = "usagestat-plugins"
-version = "2.0.0-alpha.3"
+version = "2.0.0-alpha.4"
 dependencies = [
  "age",
  "anyhow",
@@ -3015,6 +3015,7 @@ dependencies = [
  "csv",
  "dirs",
  "hmac",
+ "iana-time-zone",
  "libc",
  "log",
  "reqwest",
@@ -3023,6 +3024,7 @@ dependencies = [
  "rustls",
  "serde",
  "serde_json",
+ "sha1",
  "sha2 0.10.9",
  "tempfile",
  "toml 0.8.23",
@@ -3031,7 +3033,7 @@ dependencies = [
 
 [[package]]
 name = "usagestat-service"
-version = "2.0.0-alpha.3"
+version = "2.0.0-alpha.4"
 dependencies = [
  "usagestat-core",
  "windows",

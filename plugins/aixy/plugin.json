@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "id": "aixy",
+  "name": "Aixy",
+  "version": "0.1.0",
+  "entry": "plugin.js",
+  "enabledByDefault": false,
+  "supportedModes": [
+    "api"
+  ],
+  "autoMode": "api",
+  "usageDashboardUrl": "https://dash.aixy-gateway.com",
+  "envVars": [
+    "AIXY_API_KEY",
+    "AIXY_BASE_URL"
+  ],
+  "upstream": {
+    "repository": "https://github.com/steipete/CodexBar",
+    "revision": "78ba5a1e65e6859da59a21b799df95ab91bc0b89",
+    "path": "Sources/CodexBarCore/Resources/Plugins/aixy.js",
+    "sha256": "975d98525503e286f9425c2a1d64fe00da8e2fdc0b00890e15c2cbcb9a37c125",
+    "license": "MIT"
+  }
+}

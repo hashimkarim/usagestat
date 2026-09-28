@@ -59,6 +59,33 @@
       "auditNote": "Configured credentials and HTTP request code inspected; real credentials, API responses and provider/account behavior remain unverified on each OS."
     },
     {
+      "id": "aixy",
+      "manifest": "plugins/aixy/plugin.json",
+      "entry": "plugins/aixy/plugin.js",
+      "entrySha256": "34375adf81ea629101b0657e2eea95894b89a0deb712c27633f18b1f4a75e08e",
+      "declaredModes": [
+        "api"
+      ],
+      "autoMode": "api",
+      "osStatus": {
+        "linux": "I",
+        "macos": "I",
+        "windows": "I"
+      },
+      "liveCredentialQualification": "unverified",
+      "methods": [
+        "configured token/key",
+        "native bundled-provider adapter"
+      ],
+      "hostCalls": [],
+      "literalPathEvidence": [],
+      "branchesOnSourceMode": false,
+      "fixtures": [
+        "tests/bundled-providers.test.cjs"
+      ],
+      "auditNote": "Vendored CodexBar provider with a bounded native asynchronous host adapter and explicit credential/endpoint routing. Disabled by default. Adapter fixtures do not qualify real credentials, browser import, or every optional upstream workflow; cache TTL is not persisted."
+    },
+    {
       "id": "alibaba",
       "manifest": "plugins/alibaba/plugin.json",
       "entry": "plugins/alibaba/plugin.js",
@@ -146,7 +173,7 @@
       "id": "antigravity",
       "manifest": "plugins/antigravity/plugin.json",
       "entry": "plugins/antigravity/plugin.js",
-      "entrySha256": "8828a6c22a1368e9f3c043ebb024cf92e5706f1926f0cfe1b12b4959516d6360",
+      "entrySha256": "de6a94dd87cc4196ba0525dd6e8914c5994622870e5ea32225f67a74e8872268",
       "declaredModes": [
         "oauth",
         "local"
@@ -189,7 +216,7 @@
       "id": "antigravity-cli",
       "manifest": "plugins/antigravity-cli/plugin.json",
       "entry": "plugins/antigravity-cli/plugin.js",
-      "entrySha256": "1917e82ccf7ffdde46f81646a40b778b2d9847759b932489fb0b92dc12357547",
+      "entrySha256": "832f94f373aa28595473ce0440b5aabc5014079da7a8d1beb2b2ef4a0e5a3de1",
       "declaredModes": [
         "oauth",
         "local"
@@ -247,6 +274,33 @@
         "tools/portability/ide_discovery.py"
       ],
       "auditNote": "Native discovery/argument fixtures; real IDE version and process permissions pending #12/#20."
+    },
+    {
+      "id": "atlascloud",
+      "manifest": "plugins/atlascloud/plugin.json",
+      "entry": "plugins/atlascloud/plugin.js",
+      "entrySha256": "ad20742d3c0f4a1e41f86408d4ae9535af8c5225706d2dee1ce70b87ee8a0c23",
+      "declaredModes": [
+        "api"
+      ],
+      "autoMode": "api",
+      "osStatus": {
+        "linux": "I",
+        "macos": "I",
+        "windows": "I"
+      },
+      "liveCredentialQualification": "unverified",
+      "methods": [
+        "configured token/key",
+        "native bundled-provider adapter"
+      ],
+      "hostCalls": [],
+      "literalPathEvidence": [],
+      "branchesOnSourceMode": false,
+      "fixtures": [
+        "tests/bundled-providers.test.cjs"
+      ],
+      "auditNote": "Vendored CodexBar provider with a bounded native asynchronous host adapter and explicit credential/endpoint routing. Disabled by default. Adapter fixtures do not qualify real credentials, browser import, or every optional upstream workflow; cache TTL is not persisted."
     },
     {
       "id": "augment",
@@ -334,6 +388,33 @@
       "auditNote": "Configured credentials and HTTP request code inspected; real credentials, API responses and provider/account behavior remain unverified on each OS."
     },
     {
+      "id": "bifrost",
+      "manifest": "plugins/bifrost/plugin.json",
+      "entry": "plugins/bifrost/plugin.js",
+      "entrySha256": "45e9c1a3c9254e430dc804c168296fdf74353b418ff345315520b7535453ca8e",
+      "declaredModes": [
+        "api"
+      ],
+      "autoMode": "api",
+      "osStatus": {
+        "linux": "I",
+        "macos": "I",
+        "windows": "I"
+      },
+      "liveCredentialQualification": "unverified",
+      "methods": [
+        "configured token/key",
+        "native bundled-provider adapter"
+      ],
+      "hostCalls": [],
+      "literalPathEvidence": [],
+      "branchesOnSourceMode": false,
+      "fixtures": [
+        "tests/bundled-providers.test.cjs"
+      ],
+      "auditNote": "Vendored CodexBar provider with a bounded native asynchronous host adapter and explicit credential/endpoint routing. Disabled by default. Adapter fixtures do not qualify real credentials, browser import, or every optional upstream workflow; cache TTL is not persisted."
+    },
+    {
       "id": "chutes",
       "manifest": "plugins/chutes/plugin.json",
       "entry": "plugins/chutes/plugin.js",
@@ -363,9 +444,10 @@
       "id": "claude",
       "manifest": "plugins/claude/plugin.json",
       "entry": "plugins/claude/plugin.js",
-      "entrySha256": "62f15a3052847e88a488316b98ad4c40c2e6c52faec6baf69d4a9fb479fead2a",
+      "entrySha256": "48ece30db5a4ed37b499e0e71b675a2528e1369a203fd29506ca22a7a711b6e8",
       "declaredModes": [
         "oauth",
+        "cli",
         "web",
         "local",
         "api"
@@ -382,10 +464,12 @@
         "manual web credential",
         "files",
         "OS store",
+        "CLI helper",
         "local/export collector"
       ],
       "hostCalls": [
         "ccusage.query",
+        "command.run",
         "credentials.get",
         "credentials.update",
         "crypto.sha256",
@@ -407,7 +491,8 @@
         "tools/portability/local_usage.py",
         "tests/plugin-contracts.test.cjs",
         "tests/provider-updates.test.cjs",
-        "tests/quota-regressions.test.cjs"
+        "tests/quota-regressions.test.cjs",
+        "tests/inspo-sync-20260927.test.cjs"
       ],
       "auditNote": "Native local collectors and macOS profile/account isolation fixtures. OAuth/web/API credentials and real app versions unverified."
     },
@@ -446,7 +531,7 @@
       "id": "clinepass",
       "manifest": "plugins/clinepass/plugin.json",
       "entry": "plugins/clinepass/plugin.js",
-      "entrySha256": "4ef6dbdbb32fd59bc58876c34cf4947a3cdcb1e6e4fac25a52c53eaa54ed7fc5",
+      "entrySha256": "5d99dc4287ef088e304e4aab2eb86673458a3700db7293fb560ba7973992d480",
       "declaredModes": [
         "api"
       ],
@@ -458,17 +543,21 @@
       },
       "liveCredentialQualification": "unverified",
       "methods": [
-        "configured token/key"
+        "configured token/key",
+        "files"
       ],
       "hostCalls": [
-        "env.get"
+        "env.get",
+        "fs.homeDir",
+        "fs.readText"
       ],
       "literalPathEvidence": [],
       "branchesOnSourceMode": false,
       "fixtures": [
         "tests/plugin-contracts.test.cjs",
         "tests/provider-updates.test.cjs",
-        "tests/quota-regressions.test.cjs"
+        "tests/quota-regressions.test.cjs",
+        "tests/inspo-sync-20260927.test.cjs"
       ],
       "auditNote": "Configured credentials and HTTP request code inspected; real credentials, API responses and provider/account behavior remain unverified on each OS."
     },
@@ -543,10 +632,38 @@
       "auditNote": "Home-relative manicode credential path; XDG/native override behavior unverified."
     },
     {
+      "id": "coderabbit",
+      "manifest": "plugins/coderabbit/plugin.json",
+      "entry": "plugins/coderabbit/plugin.js",
+      "entrySha256": "d1248bec1fe60fe2e611271db9fb34ad50646e0112af0d66479fbbade5ec5380",
+      "declaredModes": [
+        "cli"
+      ],
+      "autoMode": "cli",
+      "osStatus": {
+        "linux": "I",
+        "macos": "I",
+        "windows": "I"
+      },
+      "liveCredentialQualification": "unverified",
+      "methods": [
+        "CLI helper"
+      ],
+      "hostCalls": [
+        "command.run"
+      ],
+      "literalPathEvidence": [],
+      "branchesOnSourceMode": false,
+      "fixtures": [
+        "tests/inspo-sync-20260927.test.cjs"
+      ],
+      "auditNote": "Bounded read-only coderabbit usage CLI helper and JSON fixtures. Installed CLI versions/authentication remain unverified."
+    },
+    {
       "id": "codex",
       "manifest": "plugins/codex/plugin.json",
       "entry": "plugins/codex/plugin.js",
-      "entrySha256": "9fb67dc8609cf4178718f88d40d92f1fd32261da747aa08f8f529da4e4b232e5",
+      "entrySha256": "424e9a4eef907712b10aa3a7b4eab54253a3746b1ad79d4220af3c96cc8621ab",
       "declaredModes": [
         "oauth",
         "local",
@@ -587,7 +704,8 @@
         "tests/codex-auth.test.cjs",
         "tools/portability/codex_auth.py",
         "tools/portability/local_usage.py",
-        "crates/ai-usage-daemon/src/codex_usage.rs"
+        "crates/ai-usage-daemon/src/codex_usage.rs",
+        "tests/inspo-sync-20260927.test.cjs"
       ],
       "auditNote": "Native file/direct-keyring/age auth, canonical profile/revision/account guards and collectors. Encrypted store is read-only; config layers and non-OAuth auth modes are not interpreted."
     },
@@ -595,7 +713,7 @@
       "id": "command-code",
       "manifest": "plugins/command-code/plugin.json",
       "entry": "plugins/command-code/plugin.js",
-      "entrySha256": "d48db2e7cefd995e652c2bf7b5b5be08ce0717c20c704ea38a70c8f990fe6b2f",
+      "entrySha256": "7a3e4cf862f5250ef0676bc066f5792b4aacf886b76c965bcfe580d9f3bfccbd",
       "declaredModes": [
         "web"
       ],
@@ -621,7 +739,8 @@
       ],
       "branchesOnSourceMode": false,
       "fixtures": [
-        "tests/inspo-sync-20260909.test.cjs"
+        "tests/inspo-sync-20260909.test.cjs",
+        "tests/inspo-sync-20260927.test.cjs"
       ],
       "auditNote": "Configured credentials and HTTP request code inspected; real credentials, API responses and provider/account behavior remain unverified on each OS."
     },
@@ -875,9 +994,10 @@
       "id": "deepseek",
       "manifest": "plugins/deepseek/plugin.json",
       "entry": "plugins/deepseek/plugin.js",
-      "entrySha256": "38aa9e74ac683260b78b15f8d10954bafe593e037632d1f76383e1c165871726",
+      "entrySha256": "14f7ec4cd08d11aa19d512c44366337a7b7c0aca2101dd317ce4b75ef25d518c",
       "declaredModes": [
-        "api"
+        "api",
+        "web"
       ],
       "autoMode": "api",
       "osStatus": {
@@ -887,21 +1007,26 @@
       },
       "liveCredentialQualification": "unverified",
       "methods": [
-        "configured token/key"
+        "configured token/key",
+        "manual web credential"
       ],
       "hostCalls": [
-        "env.get"
+        "crypto.sha256",
+        "env.get",
+        "usageDaily.ingest"
       ],
       "literalPathEvidence": [],
-      "branchesOnSourceMode": false,
-      "fixtures": [],
-      "auditNote": "Configured credentials and HTTP request code inspected; real credentials, API responses and provider/account behavior remain unverified on each OS."
+      "branchesOnSourceMode": true,
+      "fixtures": [
+        "tests/inspo-sync-20260927.test.cjs"
+      ],
+      "auditNote": "API balance plus explicitly selected Platform wallet and bounded daily/monthly detail collection. Non-USD spend is never stored as USD. Synthetic fixtures only; live Platform schemas remain unverified."
     },
     {
       "id": "devin",
       "manifest": "plugins/devin/plugin.json",
       "entry": "plugins/devin/plugin.js",
-      "entrySha256": "ea9e7667e157d0ca7ed0d7e0680a1d6b2bd2ff21548befc81b3fbe29b0190209",
+      "entrySha256": "e472de832a337564c18dda5c080d233e021b1ceb67fbd94bdd588784b9060f38",
       "declaredModes": [
         "local",
         "web"
@@ -936,9 +1061,37 @@
       "branchesOnSourceMode": true,
       "fixtures": [
         "tests/provider-remaining-paths.test.cjs",
-        "tests/devin-manual-auth.test.cjs"
+        "tests/devin-manual-auth.test.cjs",
+        "tests/inspo-sync-20260927.test.cjs"
       ],
       "auditNote": "Explicit manual web bearer/organization routing plus native CLI/IDE account selection. Synthetic fixtures cover precedence, rejected credentials and quota shapes; live web sessions, CLI schemas and preview variants remain unverified."
+    },
+    {
+      "id": "devpass",
+      "manifest": "plugins/devpass/plugin.json",
+      "entry": "plugins/devpass/plugin.js",
+      "entrySha256": "5acf72712a88424b2da5c4c871df6964603a938d4141b7404bef61098b9b2d1b",
+      "declaredModes": [
+        "api"
+      ],
+      "autoMode": "api",
+      "osStatus": {
+        "linux": "I",
+        "macos": "I",
+        "windows": "I"
+      },
+      "liveCredentialQualification": "unverified",
+      "methods": [
+        "configured token/key",
+        "native bundled-provider adapter"
+      ],
+      "hostCalls": [],
+      "literalPathEvidence": [],
+      "branchesOnSourceMode": false,
+      "fixtures": [
+        "tests/bundled-providers.test.cjs"
+      ],
+      "auditNote": "Vendored CodexBar provider with a bounded native asynchronous host adapter and explicit credential/endpoint routing. Disabled by default. Adapter fixtures do not qualify real credentials, browser import, or every optional upstream workflow; cache TTL is not persisted."
     },
     {
       "id": "doubao",
@@ -1160,6 +1313,62 @@
       "auditNote": "Home OAuth files exist; OAuth-client extraction searches Unix/macOS package layouts. Windows/global-node installation discovery and current schemas remain to port."
     },
     {
+      "id": "gemini-apps",
+      "manifest": "plugins/gemini-apps/plugin.json",
+      "entry": "plugins/gemini-apps/plugin.js",
+      "entrySha256": "84c08d82429650d6ce028a57621ed74e460464a25cd90fcf1f03d7503a56848d",
+      "declaredModes": [
+        "web"
+      ],
+      "autoMode": "web",
+      "osStatus": {
+        "linux": "I",
+        "macos": "I",
+        "windows": "I"
+      },
+      "liveCredentialQualification": "unverified",
+      "methods": [
+        "manual web credential"
+      ],
+      "hostCalls": [
+        "chromiumCookies.read",
+        "crypto.sha1Hex",
+        "env.get"
+      ],
+      "literalPathEvidence": [],
+      "branchesOnSourceMode": false,
+      "fixtures": [
+        "tests/inspo-sync-20260927.test.cjs"
+      ],
+      "auditNote": "Explicit web-session SAPISID hash authentication and HTTP/1 RPC fixtures. Browser-bound live sessions and current RPC schema remain unverified."
+    },
+    {
+      "id": "gitkraken",
+      "manifest": "plugins/gitkraken/plugin.json",
+      "entry": "plugins/gitkraken/plugin.js",
+      "entrySha256": "42ed3911dd7a94f1e7236431e2dfe05642a06ea8ac31b6426eb4fcbc40e5447c",
+      "declaredModes": [
+        "api"
+      ],
+      "autoMode": "api",
+      "osStatus": {
+        "linux": "I",
+        "macos": "I",
+        "windows": "I"
+      },
+      "liveCredentialQualification": "unverified",
+      "methods": [
+        "native bundled-provider adapter"
+      ],
+      "hostCalls": [],
+      "literalPathEvidence": [],
+      "branchesOnSourceMode": false,
+      "fixtures": [
+        "tests/bundled-providers.test.cjs"
+      ],
+      "auditNote": "Vendored CodexBar provider with a bounded native asynchronous host adapter and explicit credential/endpoint routing. Disabled by default. Adapter fixtures do not qualify real credentials, browser import, or every optional upstream workflow; cache TTL is not persisted."
+    },
+    {
       "id": "grok",
       "manifest": "plugins/grok/plugin.json",
       "entry": "plugins/grok/plugin.js",
@@ -1220,6 +1429,89 @@
       "branchesOnSourceMode": false,
       "fixtures": [],
       "auditNote": "Configured credentials and HTTP request code inspected; real credentials, API responses and provider/account behavior remain unverified on each OS."
+    },
+    {
+      "id": "helmcode",
+      "manifest": "plugins/helmcode/plugin.json",
+      "entry": "plugins/helmcode/plugin.js",
+      "entrySha256": "5774565d856a506642a43b00dcd78f877435203c56c3b17c2a025e867110c51f",
+      "declaredModes": [
+        "web"
+      ],
+      "autoMode": "web",
+      "osStatus": {
+        "linux": "I",
+        "macos": "I",
+        "windows": "I"
+      },
+      "liveCredentialQualification": "unverified",
+      "methods": [
+        "manual web credential",
+        "native bundled-provider adapter"
+      ],
+      "hostCalls": [],
+      "literalPathEvidence": [],
+      "branchesOnSourceMode": false,
+      "fixtures": [
+        "tests/bundled-providers.test.cjs"
+      ],
+      "auditNote": "Vendored CodexBar provider with a bounded native asynchronous host adapter and explicit credential/endpoint routing. Disabled by default. Adapter fixtures do not qualify real credentials, browser import, or every optional upstream workflow; cache TTL is not persisted."
+    },
+    {
+      "id": "huggingface",
+      "manifest": "plugins/huggingface/plugin.json",
+      "entry": "plugins/huggingface/plugin.js",
+      "entrySha256": "a8fe6413186e5f0f4cc725383d0e2125c8e338fc7fbb43e02da8ee11ea931a1c",
+      "declaredModes": [
+        "api"
+      ],
+      "autoMode": "api",
+      "osStatus": {
+        "linux": "I",
+        "macos": "I",
+        "windows": "I"
+      },
+      "liveCredentialQualification": "unverified",
+      "methods": [
+        "manual web credential",
+        "native bundled-provider adapter"
+      ],
+      "hostCalls": [],
+      "literalPathEvidence": [],
+      "branchesOnSourceMode": false,
+      "fixtures": [
+        "tests/bundled-providers.test.cjs"
+      ],
+      "auditNote": "Vendored CodexBar provider with a bounded native asynchronous host adapter and explicit credential/endpoint routing. Disabled by default. Adapter fixtures do not qualify real credentials, browser import, or every optional upstream workflow; cache TTL is not persisted."
+    },
+    {
+      "id": "hyper",
+      "manifest": "plugins/hyper/plugin.json",
+      "entry": "plugins/hyper/plugin.js",
+      "entrySha256": "a406ea387ff96c6facbfa606b72636b386539a3c745e9d190c51105b084486cf",
+      "declaredModes": [
+        "api",
+        "web"
+      ],
+      "autoMode": "api",
+      "osStatus": {
+        "linux": "I",
+        "macos": "I",
+        "windows": "I"
+      },
+      "liveCredentialQualification": "unverified",
+      "methods": [
+        "configured token/key",
+        "manual web credential",
+        "native bundled-provider adapter"
+      ],
+      "hostCalls": [],
+      "literalPathEvidence": [],
+      "branchesOnSourceMode": false,
+      "fixtures": [
+        "tests/bundled-providers.test.cjs"
+      ],
+      "auditNote": "Vendored CodexBar provider with a bounded native asynchronous host adapter and explicit credential/endpoint routing. Disabled by default. Adapter fixtures do not qualify real credentials, browser import, or every optional upstream workflow; cache TTL is not persisted."
     },
     {
       "id": "ibmbob",
@@ -1427,7 +1719,7 @@
       "id": "litellm",
       "manifest": "plugins/litellm/plugin.json",
       "entry": "plugins/litellm/plugin.js",
-      "entrySha256": "3cc96f2d41bd9d7b49b89814046b92c3ca261f62a5644a10bd932240f672d38d",
+      "entrySha256": "67a46c6df4406ad1e036ad8d609a51021f77ac4dd7a7e7cfdec72ffbbadbfde9",
       "declaredModes": [
         "api"
       ],
@@ -1442,11 +1734,14 @@
         "configured token/key"
       ],
       "hostCalls": [
-        "env.get"
+        "env.get",
+        "http.request"
       ],
       "literalPathEvidence": [],
       "branchesOnSourceMode": false,
-      "fixtures": [],
+      "fixtures": [
+        "tests/inspo-sync-20260927.test.cjs"
+      ],
       "auditNote": "Configured credentials and HTTP request code inspected; real credentials, API responses and provider/account behavior remain unverified on each OS."
     },
     {
@@ -1474,6 +1769,33 @@
       "branchesOnSourceMode": false,
       "fixtures": [],
       "auditNote": "Configured credentials and HTTP request code inspected; real credentials, API responses and provider/account behavior remain unverified on each OS."
+    },
+    {
+      "id": "llmman",
+      "manifest": "plugins/llmman/plugin.json",
+      "entry": "plugins/llmman/plugin.js",
+      "entrySha256": "0a48644a19793d07cfa38e10673ffe192ff38df09f3a673a691e86f9e4a4fd35",
+      "declaredModes": [
+        "api"
+      ],
+      "autoMode": "api",
+      "osStatus": {
+        "linux": "I",
+        "macos": "I",
+        "windows": "I"
+      },
+      "liveCredentialQualification": "unverified",
+      "methods": [
+        "configured token/key",
+        "native bundled-provider adapter"
+      ],
+      "hostCalls": [],
+      "literalPathEvidence": [],
+      "branchesOnSourceMode": false,
+      "fixtures": [
+        "tests/bundled-providers.test.cjs"
+      ],
+      "auditNote": "Vendored CodexBar provider with a bounded native asynchronous host adapter and explicit credential/endpoint routing. Disabled by default. Adapter fixtures do not qualify real credentials, browser import, or every optional upstream workflow; cache TTL is not persisted."
     },
     {
       "id": "longcat",
@@ -1589,7 +1911,7 @@
       "id": "mistral",
       "manifest": "plugins/mistral/plugin.json",
       "entry": "plugins/mistral/plugin.js",
-      "entrySha256": "f38d2a5d41cd89175b5f54f48678489c527bb80d6c509567d5ca56301e61a38a",
+      "entrySha256": "5473b779cbb612eee2752bc5d4650d07b4236abbb4020576f328a3cea0993d48",
       "declaredModes": [
         "web"
       ],
@@ -1604,11 +1926,14 @@
         "manual web credential"
       ],
       "hostCalls": [
-        "env.get"
+        "env.get",
+        "http.request"
       ],
       "literalPathEvidence": [],
       "branchesOnSourceMode": false,
-      "fixtures": [],
+      "fixtures": [
+        "tests/inspo-sync-20260927.test.cjs"
+      ],
       "auditNote": "Configured credentials and HTTP request code inspected; real credentials, API responses and provider/account behavior remain unverified on each OS."
     },
     {
@@ -1638,6 +1963,32 @@
         "tests/inspo-sync-20260909.test.cjs"
       ],
       "auditNote": "Configured credentials and HTTP request code inspected; real credentials, API responses and provider/account behavior remain unverified on each OS."
+    },
+    {
+      "id": "muse",
+      "manifest": "plugins/muse/plugin.json",
+      "entry": "plugins/muse/plugin.js",
+      "entrySha256": "85bc5e0c0d12d71d4e08ec5347cb7b60db567445a5e845c2abb879f1d22e8ba4",
+      "declaredModes": [
+        "api"
+      ],
+      "autoMode": "api",
+      "osStatus": {
+        "linux": "I",
+        "macos": "I",
+        "windows": "I"
+      },
+      "liveCredentialQualification": "unverified",
+      "methods": [
+        "native bundled-provider adapter"
+      ],
+      "hostCalls": [],
+      "literalPathEvidence": [],
+      "branchesOnSourceMode": false,
+      "fixtures": [
+        "tests/bundled-providers.test.cjs"
+      ],
+      "auditNote": "Vendored CodexBar provider with a bounded native asynchronous host adapter and explicit credential/endpoint routing. Disabled by default. Adapter fixtures do not qualify real credentials, browser import, or every optional upstream workflow; cache TTL is not persisted."
     },
     {
       "id": "nanogpt",
@@ -1720,6 +2071,33 @@
         "tests/quota-regressions.test.cjs"
       ],
       "auditNote": "Configured credentials and HTTP request code inspected; real credentials, API responses and provider/account behavior remain unverified on each OS."
+    },
+    {
+      "id": "nous",
+      "manifest": "plugins/nous/plugin.json",
+      "entry": "plugins/nous/plugin.js",
+      "entrySha256": "446dd24358b73f6fb8c5f9b406df955fb8a8e2da7441b2652bdd1bdbe3766842",
+      "declaredModes": [
+        "api"
+      ],
+      "autoMode": "api",
+      "osStatus": {
+        "linux": "I",
+        "macos": "I",
+        "windows": "I"
+      },
+      "liveCredentialQualification": "unverified",
+      "methods": [
+        "configured token/key",
+        "native bundled-provider adapter"
+      ],
+      "hostCalls": [],
+      "literalPathEvidence": [],
+      "branchesOnSourceMode": false,
+      "fixtures": [
+        "tests/bundled-providers.test.cjs"
+      ],
+      "auditNote": "Vendored CodexBar provider with a bounded native asynchronous host adapter and explicit credential/endpoint routing. Disabled by default. Adapter fixtures do not qualify real credentials, browser import, or every optional upstream workflow; cache TTL is not persisted."
     },
     {
       "id": "ollama",
@@ -1811,7 +2189,7 @@
       "id": "opencode-go",
       "manifest": "plugins/opencode-go/plugin.json",
       "entry": "plugins/opencode-go/plugin.js",
-      "entrySha256": "501b305d9b2a22ef58315ad0d3fd05226bccc01c20a59e6b63538d4d39e16757",
+      "entrySha256": "95a26f9184a68b9fc25c61488db3d62fd99cf0f631f2f5ff8f5dfdfacd6167f8",
       "declaredModes": [
         "api",
         "local",
@@ -1918,6 +2296,40 @@
       "auditNote": "Entry always uses legacy macOS CFNetwork cache, including declared web/oauth modes. Linux/Windows cache method explicitly unsupported; manual web-cookie implementation is absent."
     },
     {
+      "id": "pi",
+      "manifest": "plugins/pi/plugin.json",
+      "entry": "plugins/pi/plugin.js",
+      "entrySha256": "bd1a0bb56b483990885346837f1680e9337d27ef66652bd559fd60f003cf7eb8",
+      "declaredModes": [
+        "local"
+      ],
+      "autoMode": "local",
+      "osStatus": {
+        "linux": "I",
+        "macos": "I",
+        "windows": "I"
+      },
+      "liveCredentialQualification": "unverified",
+      "methods": [
+        "files"
+      ],
+      "hostCalls": [
+        "crypto.sha256",
+        "env.get",
+        "fs.exists",
+        "fs.homeDir",
+        "fs.listDir",
+        "fs.readTextLimited",
+        "usageDaily.ingest"
+      ],
+      "literalPathEvidence": [],
+      "branchesOnSourceMode": false,
+      "fixtures": [
+        "tests/inspo-sync-20260927.test.cjs"
+      ],
+      "auditNote": "Bounded local Pi/OMP transcript collection, profile isolation and partial/unpriced history fixtures. Only explicitly recognized historical model prices are estimated; full model coverage and process discovery are pending."
+    },
+    {
       "id": "poe",
       "manifest": "plugins/poe/plugin.json",
       "entry": "plugins/poe/plugin.js",
@@ -2004,6 +2416,59 @@
         "tests/quota-regressions.test.cjs"
       ],
       "auditNote": "Configured credentials and HTTP request code inspected; real credentials, API responses and provider/account behavior remain unverified on each OS."
+    },
+    {
+      "id": "raycast",
+      "manifest": "plugins/raycast/plugin.json",
+      "entry": "plugins/raycast/plugin.js",
+      "entrySha256": "239d60b2111645707fec1a16f03415934b0dd59a8534be123599f9cf9c806651",
+      "declaredModes": [
+        "web"
+      ],
+      "autoMode": "web",
+      "osStatus": {
+        "linux": "I",
+        "macos": "I",
+        "windows": "I"
+      },
+      "liveCredentialQualification": "unverified",
+      "methods": [
+        "native bundled-provider adapter"
+      ],
+      "hostCalls": [],
+      "literalPathEvidence": [],
+      "branchesOnSourceMode": false,
+      "fixtures": [
+        "tests/bundled-providers.test.cjs"
+      ],
+      "auditNote": "Vendored CodexBar provider with a bounded native asynchronous host adapter and explicit credential/endpoint routing. Disabled by default. Adapter fixtures do not qualify real credentials, browser import, or every optional upstream workflow; cache TTL is not persisted."
+    },
+    {
+      "id": "replicate",
+      "manifest": "plugins/replicate/plugin.json",
+      "entry": "plugins/replicate/plugin.js",
+      "entrySha256": "da767a86a8e10ae78a92994b07d0a7857ead1d885d10cc560724f55ecdab2350",
+      "declaredModes": [
+        "web"
+      ],
+      "autoMode": "web",
+      "osStatus": {
+        "linux": "I",
+        "macos": "I",
+        "windows": "I"
+      },
+      "liveCredentialQualification": "unverified",
+      "methods": [
+        "manual web credential",
+        "native bundled-provider adapter"
+      ],
+      "hostCalls": [],
+      "literalPathEvidence": [],
+      "branchesOnSourceMode": false,
+      "fixtures": [
+        "tests/bundled-providers.test.cjs"
+      ],
+      "auditNote": "Vendored CodexBar provider with a bounded native asynchronous host adapter and explicit credential/endpoint routing. Disabled by default. Adapter fixtures do not qualify real credentials, browser import, or every optional upstream workflow; cache TTL is not persisted."
     },
     {
       "id": "sakana",
@@ -2158,10 +2623,37 @@
       "auditNote": "Manual cookies/full-cURL capture fixtures on all OS conventions. Challenge preserves credentials and gives full-cURL guidance. Real browser/device-bound sessions unverified."
     },
     {
-      "id": "venice",
-      "manifest": "plugins/venice/plugin.json",
-      "entry": "plugins/venice/plugin.js",
-      "entrySha256": "f78492dc5cdda206bbd273acd251ee6dd250df414c80b8a9ef4090112b3293bb",
+      "id": "typesafe",
+      "manifest": "plugins/typesafe/plugin.json",
+      "entry": "plugins/typesafe/plugin.js",
+      "entrySha256": "a74a28013260d9e309f27144b5984931ba712077952206d5146c32226aaf3904",
+      "declaredModes": [
+        "web"
+      ],
+      "autoMode": "web",
+      "osStatus": {
+        "linux": "I",
+        "macos": "I",
+        "windows": "I"
+      },
+      "liveCredentialQualification": "unverified",
+      "methods": [
+        "manual web credential",
+        "native bundled-provider adapter"
+      ],
+      "hostCalls": [],
+      "literalPathEvidence": [],
+      "branchesOnSourceMode": false,
+      "fixtures": [
+        "tests/bundled-providers.test.cjs"
+      ],
+      "auditNote": "Vendored CodexBar provider with a bounded native asynchronous host adapter and explicit credential/endpoint routing. Disabled by default. Adapter fixtures do not qualify real credentials, browser import, or every optional upstream workflow; cache TTL is not persisted."
+    },
+    {
+      "id": "v0",
+      "manifest": "plugins/v0/plugin.json",
+      "entry": "plugins/v0/plugin.js",
+      "entrySha256": "4ab946fb6306df4cca4502bebfd1a40fe392cd142f4dd3a0c87e8840cd880ff4",
       "declaredModes": [
         "api"
       ],
@@ -2173,15 +2665,74 @@
       },
       "liveCredentialQualification": "unverified",
       "methods": [
-        "configured token/key"
+        "configured token/key",
+        "native bundled-provider adapter"
       ],
-      "hostCalls": [
-        "env.get"
-      ],
+      "hostCalls": [],
       "literalPathEvidence": [],
       "branchesOnSourceMode": false,
-      "fixtures": [],
+      "fixtures": [
+        "tests/bundled-providers.test.cjs"
+      ],
+      "auditNote": "Vendored CodexBar provider with a bounded native asynchronous host adapter and explicit credential/endpoint routing. Disabled by default. Adapter fixtures do not qualify real credentials, browser import, or every optional upstream workflow; cache TTL is not persisted."
+    },
+    {
+      "id": "venice",
+      "manifest": "plugins/venice/plugin.json",
+      "entry": "plugins/venice/plugin.js",
+      "entrySha256": "b7540af711096db284f1304cbf34f57c78b95e547626b98bba4a3ef5946fdac2",
+      "declaredModes": [
+        "api",
+        "web"
+      ],
+      "autoMode": "api",
+      "osStatus": {
+        "linux": "I",
+        "macos": "I",
+        "windows": "I"
+      },
+      "liveCredentialQualification": "unverified",
+      "methods": [
+        "configured token/key",
+        "manual web credential"
+      ],
+      "hostCalls": [
+        "env.get",
+        "http.request"
+      ],
+      "literalPathEvidence": [],
+      "branchesOnSourceMode": true,
+      "fixtures": [
+        "tests/inspo-sync-20260927.test.cjs"
+      ],
       "auditNote": "Configured credentials and HTTP request code inspected; real credentials, API responses and provider/account behavior remain unverified on each OS."
+    },
+    {
+      "id": "vercel",
+      "manifest": "plugins/vercel/plugin.json",
+      "entry": "plugins/vercel/plugin.js",
+      "entrySha256": "f4c5d08582ce45f38141aa093fe6c7607a4c65e3f9a0fe59cad8c7d314e3f7be",
+      "declaredModes": [
+        "api"
+      ],
+      "autoMode": "api",
+      "osStatus": {
+        "linux": "I",
+        "macos": "I",
+        "windows": "I"
+      },
+      "liveCredentialQualification": "unverified",
+      "methods": [
+        "configured token/key",
+        "native bundled-provider adapter"
+      ],
+      "hostCalls": [],
+      "literalPathEvidence": [],
+      "branchesOnSourceMode": false,
+      "fixtures": [
+        "tests/bundled-providers.test.cjs"
+      ],
+      "auditNote": "Vendored CodexBar provider with a bounded native asynchronous host adapter and explicit credential/endpoint routing. Disabled by default. Adapter fixtures do not qualify real credentials, browser import, or every optional upstream workflow; cache TTL is not persisted."
     },
     {
       "id": "vertex-ai",
@@ -2337,6 +2888,33 @@
         "tests/quota-regressions.test.cjs"
       ],
       "auditNote": "Configured credentials and HTTP request code inspected; real credentials, API responses and provider/account behavior remain unverified on each OS."
+    },
+    {
+      "id": "xkiro",
+      "manifest": "plugins/xkiro/plugin.json",
+      "entry": "plugins/xkiro/plugin.js",
+      "entrySha256": "d9f0a3557116dc014a65f43444cf3b6bb44066262436ac9b0ad0094b32c39c95",
+      "declaredModes": [
+        "api"
+      ],
+      "autoMode": "api",
+      "osStatus": {
+        "linux": "I",
+        "macos": "I",
+        "windows": "I"
+      },
+      "liveCredentialQualification": "unverified",
+      "methods": [
+        "configured token/key",
+        "native bundled-provider adapter"
+      ],
+      "hostCalls": [],
+      "literalPathEvidence": [],
+      "branchesOnSourceMode": false,
+      "fixtures": [
+        "tests/bundled-providers.test.cjs"
+      ],
+      "auditNote": "Vendored CodexBar provider with a bounded native asynchronous host adapter and explicit credential/endpoint routing. Disabled by default. Adapter fixtures do not qualify real credentials, browser import, or every optional upstream workflow; cache TTL is not persisted."
     },
     {
       "id": "zai",

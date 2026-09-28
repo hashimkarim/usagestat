@@ -7,6 +7,7 @@ for (const platform of ['linux', 'macos', 'windows']) {
   test(`${platform}: OpenCode uses upstream XDG roots and one selected persisted history`, () => {
     const root = platform === 'windows' ? 'D:\\Redirected data 使用' : '/redirected data 使用';
     const h = providerHarness('opencode-go', {platform, env: {XDG_DATA_HOME: root}});
+    h.ctx.nowIso = new Date().toISOString();
     const db = h.normalize(root + '/opencode/opencode.db');
     h.databases.set(db, [{createdMs: Date.now() - 60000, cost: 3}]);
     assert.equal(h.probe().lines[0].used, 25);
@@ -32,6 +33,7 @@ for (const platform of ['linux', 'macos', 'windows']) {
   test(`${platform}: OpenCode database and inline auth overrides cannot select a fallback account`, () => {
     const env = {OPENCODE_DB: 'channel.db', OPENCODE_AUTH_CONTENT: '{"opencode-go":{"type":"api","key":"synthetic"}}'};
     const h = providerHarness('opencode-go', {platform, env});
+    h.ctx.nowIso = new Date().toISOString();
     h.ctx.sourceMode = 'local';
     const db = h.normalize(h.home + '/.local/share/opencode/channel.db');
     h.databases.set(db, [{createdMs: Date.now() - 60000, cost: 1.2}]);

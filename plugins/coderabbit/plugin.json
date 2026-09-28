@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "id": "coderabbit",
+  "name": "CodeRabbit",
+  "version": "0.1.0",
+  "entry": "plugin.js",
+  "enabledByDefault": false,
+  "supportedModes": ["cli"],
+  "autoMode": "cli",
+  "usageDashboardUrl": "https://app.coderabbit.ai",
+  "envVars": ["CODERABBIT_CLI_PATH"]
+}

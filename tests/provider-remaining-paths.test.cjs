@@ -72,6 +72,81 @@ for (const platform of ['linux', 'macos', 'windows']) {
     assert.throws(() => h.probe(), e => /Multiple Antigravity processes/.test(e.message));
   });
 
+  test(`${platform}: Antigravity falls back to agy login when the IDE database is stale`, () => {
+    // agy's keyring payload: expired access token nested under token, plus a top-level ID token.
+    const agy = JSON.stringify({token: {access_token: 'agy-expired', refresh_token: 'agy-refresh', expiry: '2020-01-01T00:00:00Z'}, id_token: 'agy-id-token'});
+    const h = providerHarness('antigravity', {platform, http: request => {
+      const auth = request.headers && request.headers.Authorization;
+      if (/oauth2\.googleapis\.com/.test(request.url)) {
+        // The stale IDE refresh token is revoked; agy's refresh token works.
+        return /refresh_token=agy-refresh/.test(request.bodyText) ? json({access_token: 'agy-fresh', expires_in: 3600}) : {status: 400, bodyText: '{"error":"invalid_grant"}'};
+      }
+      if (auth !== 'Bearer agy-fresh') return {status: 401, bodyText: '{}'};
+      if (/loadCodeAssist/.test(request.url)) return json({allowedTiers: []});
+      // Consumer accounts have no project: the quota endpoint refuses with 403.
+      if (/retrieveUserQuota/.test(request.url)) return {status: 403, bodyText: '{"error":{"code":403,"message":"no valid license"}}'};
+      return json(models);
+    }, host: {ls: {discoverStatus: () => ({status: 'missing'})}, keychain: {readGenericPassword: (service, account) => service === 'gemini' && account === 'antigravity' ? agy : null}}});
+    h.ctx.app.pluginDataDir = h.home + '/agy plugin state';
+    h.databases.set(h.normalize(h.ctx.host.fs.appSupportPath('Antigravity/User/globalStorage/state.vscdb')), oauthRow('stale-ide', 'stale-ide-refresh'));
+    assert.equal(h.probe().lines[0].used, 25);
+    assert(!h.calls.http.some(request => request.headers && request.headers.Authorization === 'Bearer agy-id-token'));
+    assert(!h.calls.http.some(request => request.headers && request.headers.Authorization === 'Bearer agy-expired'));
+    const refreshes = token => h.calls.http.filter(r => /oauth2\.googleapis\.com/.test(r.url) && r.bodyText.includes('refresh_token='+token)).length;
+    assert.equal(h.probe().lines[0].used,25);
+    assert.equal(refreshes('stale-ide-refresh'),1,'revoked DB refresh is not retried on every poll');
+    assert.equal(refreshes('agy-refresh'),1,'agy uses its cached access token');
+    const cooldown = [...h.files.keys()].find(path=>path.includes('oauth-retry-'));
+    h.files.set(cooldown,JSON.stringify({retryAfterMs:Date.now()-1}));
+    assert.equal(h.probe().lines[0].used,25);
+    assert.equal(refreshes('stale-ide-refresh'),2,'cooldown expires');
+    h.databases.set(h.normalize(h.ctx.host.fs.appSupportPath('Antigravity/User/globalStorage/state.vscdb')),oauthRow('stale-ide','replacement-refresh'));
+    assert.equal(h.probe().lines[0].used,25);
+    assert.equal(refreshes('replacement-refresh'),1,'new login bypasses old token cooldown');
+
+  });
+
+  test(`${platform}: Antigravity keeps independent profile caches and reads matching legacy caches`, () => {
+    const h = providerHarness('antigravity', {platform, settings:{ideVariant:'antigravity'}, http:req=>{
+      if (/oauth2\.googleapis\.com/.test(req.url)) return json({access_token:req.bodyText.includes('refresh_token=refresh-a')?'fresh-a':'fresh-b',expires_in:3600});
+      return /^Bearer (fresh-[ab]|legacy)$/.test(req.headers.Authorization)?json(models):{status:401,bodyText:'{}'};
+    }});
+    h.ctx.app.pluginDataDir=h.home+'/independent caches';
+    const db=h.normalize(h.ctx.host.fs.appSupportPath('Antigravity/User/globalStorage/state.vscdb'));
+    for(const profile of ['a','b','a']){
+      h.databases.set(db,oauthRow('stale-'+profile,'refresh-'+profile));
+      assert.equal(h.probe().lines[0].used,25);
+    }
+    assert.equal(h.calls.http.filter(r=>/oauth2\.googleapis\.com/.test(r.url)).length,2);
+    assert.equal([...h.files.keys()].filter(p=>/auth-[a-f0-9]+\.json$/.test(p)).length,2);
+    h.databases.set(db,oauthRow('stale-c','refresh-c'));
+    const originalPath=h.ctx.host.fs.appSupportPath('Antigravity/User/globalStorage/state.vscdb');
+    const key=h.ctx.host.crypto.sha256Hex(originalPath+'\nrefresh-c');
+    h.files.set(h.normalize(h.ctx.app.pluginDataDir+'/auth.json'),JSON.stringify({profileKey:key,accessToken:'legacy',expiresAtMs:Date.now()+3600000}));
+    assert.equal(h.probe().lines[0].used,25);
+    assert.equal(h.calls.http.filter(r=>/oauth2\.googleapis\.com/.test(r.url)).length,2,'matching legacy cache remains usable');
+  });
+
+  test(`${platform}: a consumer license 403 plus model outage does not refresh a valid token`, () => {
+    const h=providerHarness('antigravity',{platform,http:req=>{
+      if(/oauth2\.googleapis\.com/.test(req.url)) throw new Error('Unexpected refresh');
+      if(/loadCodeAssist/.test(req.url)) return json({allowedTiers:[]});
+      return /retrieveUserQuota/.test(req.url)?{status:403,bodyText:'{}'}:{status:503,bodyText:'{}'};
+    },host:{ls:{discoverStatus:()=>({status:'missing'})},keychain:{readGenericPassword:()=>JSON.stringify({token:{access_token:'valid',refresh_token:'refresh',expiry:'2999-01-01T00:00:00Z'}})}}});
+    h.ctx.app.pluginDataDir=h.home+'/outage cache';
+    assert.throws(()=>h.probe());
+    assert(!h.calls.http.some(r=>/oauth2\.googleapis\.com/.test(r.url)));
+  });
+
+  for(const id of ['antigravity','antigravity-cli']) test(`${platform}: ${id} prefers nested bearer over generic and ID tokens`, () => {
+    const h=providerHarness(id,{platform,http:req=>{
+      assert.equal(req.headers.Authorization,'Bearer bearer');
+      return /loadCodeAssist/.test(req.url)?json({}):json(models);
+    },host:{ls:{discoverStatus:()=>({status:'missing'})},keychain:{readGenericPassword:()=>JSON.stringify({token:'generic',id_token:'identity',credentials:{access_token:'bearer'}})}}});
+    h.ctx.app.pluginDataDir=h.home+'/bearer cache';
+    assert.equal(h.probe().lines[0].used,25);
+  });
+
   test(`${platform}: Perplexity cache reader reports its actual platform limitation`, () => {
     const h = providerHarness('perplexity', {platform, settings: {cacheDbPath: 'selected-cache.db'}});
     if (platform === 'macos') {

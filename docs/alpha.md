@@ -1,6 +1,6 @@
 # Try the v2 backend alpha
 
-[v2.0.0-alpha.3 downloads](https://github.com/hashimkarim/usagestat/releases/tag/v2.0.0-alpha.3)
+[v2.0.0-alpha.4 downloads](https://github.com/hashimkarim/usagestat/releases/tag/v2.0.0-alpha.4)
 contain the CLI, daemon, local web dashboard/API and provider plugins for Windows
 x64, macOS Intel/Apple Silicon and Linux x64/ARM64. This is an early backend
 release; the Windows/macOS bar frontends are not included. Choose alpha for testing;
@@ -13,7 +13,7 @@ Codex usage accounting and several other providers.
 Windows/macOS binaries are unsigned and the Mac binaries are not notarized.
 Use the exact repository release and matching checksums. Signing, normal desktop
 login/reboot and real provider authentication still need qualification; see the
-[release notes](releases/v2.0.0-alpha.3.md). Native CI runs on macOS 15 and Windows
+[release notes](releases/v2.0.0-alpha.4.md). Native CI runs on macOS 15 and Windows
 Server 2025. Older candidate OS floors remain unverified. Linux requires glibc
 2.39+; Windows ARM64 and musl/Alpine have no alpha payload.
 
@@ -131,8 +131,8 @@ Before removal, run `usagestat daemon unregister`, then
 
 Chocolatey's [package naming rule](https://docs.chocolatey.org/en-us/community-repository/moderation/package-validator/rules/cpmr0024/)
 requires the ID `usagestat`, with alpha selected through `--pre`. It uses
-`2.0.0-alpha000003` for alpha.3 because its community feed requires SemVer 1
-prerelease syntax; the binaries still report `2.0.0-alpha.3`. After community review,
+`2.0.0-alpha000004` for alpha.4 because its community feed requires SemVer 1
+prerelease syntax; the binaries still report `2.0.0-alpha.4`. After community review,
 installation will be `choco install usagestat --pre` in an elevated shell.
 Updates use `choco upgrade usagestat --pre`; release Windows file
 locks with `daemon disable` first and restore the saved daemon state afterward.
@@ -164,7 +164,7 @@ if ($checksum.Count -ne 2 -or $checksum[1] -cne $archive -or
     (Get-FileHash $archive -Algorithm SHA256).Hash -ine $checksum[0]) {
     throw 'Archive checksum mismatch.'
 }
-$destination = Join-Path ([Environment]::GetFolderPath('LocalApplicationData')) 'Programs\usagestat-v2-alpha.1'
+$destination = Join-Path ([Environment]::GetFolderPath('LocalApplicationData')) 'Programs\usagestat-v2-alpha.4'
 if (Test-Path -LiteralPath $destination) { throw 'Choose a fresh extraction directory.' }
 Expand-Archive -LiteralPath $archive -DestinationPath $destination
 & (Join-Path $destination 'usagestat.exe') --version
@@ -172,7 +172,7 @@ Expand-Archive -LiteralPath $archive -DestinationPath $destination
 & (Join-Path $destination 'usagestat.exe') doctor
 ```
 
-Expect version `2.0.0-alpha.1` and provider manifests with usable icon paths.
+Expect version `2.0.0-alpha.4` and provider manifests with usable icon paths.
 These commands do not register startup or probe provider accounts. Keep both
 executables, the service supervisor and plugin directory together. PATH is not
 changed. A Windows policy prompt is possible for this unsigned alpha.
@@ -194,11 +194,11 @@ on Apple Silicon:
 
 ```sh
 shasum -a 256 -c usagestat-macos-aarch64.tar.gz.sha256
-mkdir usagestat-v2-alpha.1
-tar -xzf usagestat-macos-aarch64.tar.gz -C usagestat-v2-alpha.1
-./usagestat-v2-alpha.1/usagestat --version
-./usagestat-v2-alpha.1/usagestat --json list
-./usagestat-v2-alpha.1/usagestat doctor
+mkdir usagestat-v2-alpha.4
+tar -xzf usagestat-macos-aarch64.tar.gz -C usagestat-v2-alpha.4
+./usagestat-v2-alpha.4/usagestat --version
+./usagestat-v2-alpha.4/usagestat --json list
+./usagestat-v2-alpha.4/usagestat doctor
 ```
 
 For Intel macOS substitute `usagestat-macos-x86_64.tar.gz`. On Linux use the

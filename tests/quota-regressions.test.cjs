@@ -117,7 +117,72 @@ test("Claude malformed web responses cannot poison the quota cache", () => {
   const app = load("claude", { source: "web", provider: { cookieHeader: "sessionKey=token" }, request: (req) => req.url.endsWith("/organizations")
     ? response([{ uuid: "org" }]) : response({}) });
   assert.throws(app.probe, /Web usage response invalid/);
-  assert.equal(app.files.size, 0);
+  const cache = JSON.parse([...app.files.values()][0]);
+  assert.equal(cache.usageData, undefined);
+  assert.ok(cache.webRetryAtMs > Date.parse(NOW));
+});
+
+test("Claude keeps configured clearance cookies and does not mix ambient web accounts", () => {
+  const header = "sessionKey=configured; cf_clearance=clearance; sessionKeyV3=v3";
+  const app = load("claude", { source: "web", env: { CLAUDE_AI_SESSION_KEY: "other-account" },
+    provider: { cookieHeader: header }, request: req => {
+      assert.equal(req.headers.Cookie, header);
+      return response(req.url.endsWith("/organizations") ? [{ uuid: "org" }] : claudeUsage);
+    } });
+  assert.equal(metric(app.probe(), "Session").used, 10);
+});
+
+test("Claude identifies Cloudflare challenges and persists web backoff across probes", () => {
+  const options = { source: "web", provider: { cookieHeader: "sessionKey=token" },
+    request: () => ({ ...response("<title>Just a moment...</title>", 403), headers: { "cf-mitigated": "challenge" } }) };
+  const first = load("claude", options);
+  assert.throws(first.probe, /Cloudflare browser challenge/);
+  const second = load("claude", { ...options, now: "2026-09-05T12:01:00Z", files: Object.fromEntries(first.files),
+    request: () => { throw Error("must not retry during backoff"); } });
+  assert.throws(second.probe, /login has not been rejected/);
+  assert.equal(second.requests.length, 0);
+});
+
+test("Claude web backoff respects Retry-After rather than the general refresh interval", () => {
+  const options = { source: "web", provider: { cookieHeader: "sessionKey=token" } };
+  const first = load("claude", { ...options, request: () => ({ ...response({}, 429), headers: { "retry-after": "3600" } }) });
+  assert.throws(first.probe, /message allowance/);
+  const second = load("claude", { ...options, now: "2026-09-05T12:06:00Z", files: Object.fromEntries(first.files) });
+  assert.throws(second.probe, /message allowance/);
+  assert.equal(second.requests.length, 0);
+});
+
+test("Claude never treats an OAuth reading as a successful web fallback", () => {
+  const options = { credentials: claudeCredentials, provider: { cookieHeader: "sessionKey=token" } };
+  const first = load("claude", { ...options, request: () => response(claudeUsage) });
+  first.probe();
+  const cachePath = "/test/data/claude/live-usage-cache.json";
+  const cached = JSON.parse(first.files.get(cachePath));
+  cached.lastWebUsageFetchMs = Date.parse(NOW);
+  const second = load("claude", { ...options, source: "web", files: { [cachePath]: JSON.stringify(cached) },
+    request: () => response("<title>Just a moment...</title>", 403) });
+  assert.throws(second.probe, /Cloudflare/);
+  assert.equal(second.requests.length, 1);
+});
+
+test("Claude retains valid stored profile credentials when an inference-only setup token is present", () => {
+  const app = load("claude", { env: { CLAUDE_CODE_OAUTH_TOKEN: "inference-only" },
+    files: { "~/.claude/.credentials.json": JSON.stringify({ claudeAiOauth: { ...claudeCredentials, scopes: ["user:profile"], subscriptionType: "pro" } }) },
+    request: req => { assert.equal(req.headers.Authorization, "Bearer token"); return response(claudeUsage); } });
+  assert.equal(metric(app.probe(), "Session").used, 10);
+});
+
+test("Claude OAuth transport uses the installed CLI version without sending any prompts", () => {
+  const app = load("claude", {credentials: claudeCredentials, command: req => {
+    assert.equal(req.program, "claude");
+    assert.deepEqual(Array.from(req.args), ["--version"]);
+    assert.equal(req.timeoutMs, 3000);
+    return {status: 0, stdout: "2.1.283 (Claude Code)\n"};
+  }, request: req => {
+    if (req.url.includes("/oauth/usage")) assert.equal(req.headers["User-Agent"], "claude-code/2.1.283");
+    return response(claudeUsage);
+  }});
+  assert.equal(metric(app.probe(), "Weekly").used, 25);
 });
 
 test("OpenCode Go saves daily local costs without replacing official quotas", () => {
@@ -162,6 +227,8 @@ test("Claude persists successful quotas, honors Retry-After, and keeps the origi
   assert.equal(metric(limited, "Session").used, 10);
   assert.equal(limited.fetchedAt, "2026-09-05T12:00:00.000Z");
   assert.equal(limited.source, "cached");
+  assert.equal(limited.state, "failed");
+  assert.match(metric(limited, "Note").value, /not your message allowance/);
   const third = load("claude", { credentials: claudeCredentials, now: "2026-09-05T12:07:00Z", files: Object.fromEntries(second.files),
     request: () => { throw new Error("must respect cooldown"); } });
   assert.equal(metric(third.probe(), "Weekly").used, 25);
@@ -174,7 +241,23 @@ test("Claude never reuses quotas after switching credentials", () => {
   const second = load("claude", { credentials: { ...claudeCredentials, accessToken: "different" }, files: Object.fromEntries(first.files),
     request: () => response({ five_hour: { utilization: 2 }, seven_day: { utilization: 5 } }) });
   assert.equal(metric(second.probe(), "Session").used, 2);
-  assert.equal(second.requests.length, 1);
+  assert.equal(second.requests.filter(req => req.url.includes('/api/oauth/usage')).length, 1);
+  assert.equal(second.requests.filter(req => req.url.endsWith('/api/oauth/profile')).length, 1);
+});
+
+test("Claude preserves quota history and backs off on in-band rate-limit errors", () => {
+  const first = load("claude", { credentials: claudeCredentials, request: () => response(claudeUsage) });
+  first.probe();
+  const second = load("claude", { credentials: claudeCredentials, now: "2026-09-05T12:06:00Z", files: Object.fromEntries(first.files),
+    request: () => response({type:"error",error:{type:"rate_limit_error",message:"Too many requests"}}) });
+  const snapshot = second.probe();
+  assert.equal(snapshot.source, "cached");
+  assert.equal(snapshot.state, "failed");
+  assert.equal(snapshot.fetchedAt, "2026-09-05T12:00:00.000Z");
+  assert.equal(metric(snapshot, "Session").used, 10);
+  const third = load("claude", {credentials:claudeCredentials, now:"2026-09-05T12:07:00Z",files:Object.fromEntries(second.files)});
+  assert.equal(metric(third.probe(), "Weekly").used, 25);
+  assert.equal(third.requests.length, 0);
 });
 
 test("Claude rejects malformed successful quota responses", () => {

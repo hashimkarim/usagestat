@@ -56,6 +56,11 @@ class NativeArtifactTests(unittest.TestCase):
         selected = artifacts.runtime_resource_names(ROOT, list(filter(None, tracked)))
         self.assertEqual(sum(name.endswith('/plugin.json') for name in selected), len(list((ROOT / 'plugins').glob('*/plugin.json'))))
         self.assertFalse(any(name.endswith('.test.js') for name in selected))
+        self.assertIn('plugins/_provider-icons/NOTICE', selected)
+        self.assertIn('plugins/_provider-icons/LICENSE', selected)
+        self.assertIn('plugins/_provider-icons/provenance.json', selected)
+        self.assertTrue(any('/licenses/' in name for name in selected))
+        self.assertFalse(any('/scripts/' in name for name in selected))
 
     def test_packaging_rejects_untracked_providers_and_retains_upstream_notices(self):
         with tempfile.TemporaryDirectory() as temporary:

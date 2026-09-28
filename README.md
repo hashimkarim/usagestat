@@ -4,9 +4,9 @@ Track AI provider quotas, token usage, and costs through a scriptable CLI,
 a local dashboard, and an HTTP API.
 
 <p>
-  <a href="https://github.com/hashimkarim/usagestat/releases/tag/v2.0.0-alpha.3"><picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://shieldcn.dev/badge/Preview-v2.0.0--alpha.3-B45309.svg?variant=outline&amp;size=sm&amp;logo=github&amp;mode=dark">
-    <img alt="v2.0.0-alpha.3 backend preview" src="https://shieldcn.dev/badge/Preview-v2.0.0--alpha.3-B45309.svg?variant=outline&amp;size=sm&amp;logo=github&amp;mode=light">
+  <a href="https://github.com/hashimkarim/usagestat/releases/tag/v2.0.0-alpha.4"><picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://shieldcn.dev/badge/Preview-v2.0.0--alpha.4-B45309.svg?variant=outline&amp;size=sm&amp;logo=github&amp;mode=dark">
+    <img alt="v2.0.0-alpha.4 backend preview" src="https://shieldcn.dev/badge/Preview-v2.0.0--alpha.4-B45309.svg?variant=outline&amp;size=sm&amp;logo=github&amp;mode=light">
   </picture></a>
   <a href="https://github.com/Hashim-K/usagestat/releases/latest"><picture>
     <source media="(prefers-color-scheme: dark)" srcset="https://shieldcn.dev/github/Hashim-K/usagestat/release.svg?variant=outline&amp;size=sm&amp;logo=github&amp;mode=dark">
@@ -42,7 +42,7 @@ a local dashboard, and an HTTP API.
 
 ## Install
 
-**[Try v2.0.0-alpha.3 on Windows, macOS or Linux](docs/alpha.md).** The unsigned
+**[Try v2.0.0-alpha.4 on Windows, macOS or Linux](docs/alpha.md).** The unsigned
 backend alpha includes native archives and a Windows per-user installer. Native
 bar frontends, desktop acceptance and signing remain pending. Stable package-manager instructions follow below.
 
@@ -199,7 +199,7 @@ Plugins are discovered from:
 3. Installed `share/usagestat/plugins` and `lib/usagestat/plugins` under the binary prefix
 4. `./plugins`
 
-The source tree bundles **77 providers**:
+The source tree bundles **97 providers**:
 
 - `abacus-ai`, `aiand`, `alibaba`, `alibaba-token-plan`, `amp`, `antigravity`, `antigravity-cli`
 - `antigravity-ide`, `augment`, `aws-bedrock`, `azure-openai`, `chutes`, `claude`, `clawrouter`
@@ -212,15 +212,21 @@ The source tree bundles **77 providers**:
 - `opencode-go`, `openrouter`, `perplexity`, `poe`, `qoder`, `qwencloud`, `sakana`
 - `stepfun`, `sub2api`, `synthetic`, `t3chat`, `venice`, `vertex-ai`, `warp`
 - `wayfinder`, `windsurf`, `xai`, `zai`, `zed`, `zenmux`, `zoommate`
+- `aixy`, `atlascloud`, `bifrost`, `coderabbit`, `devpass`, `gemini-apps`, `gitkraken`
+- `helmcode`, `huggingface`, `hyper`, `llmman`, `muse`, `nous`, `pi`, `raycast`
+- `replicate`, `typesafe`, `v0`, `vercel`, `xkiro`
 
-All 77 plugins ship in `v2.0.0-alpha.3`, including the 16 additions from the
-September provider sync. Those additions are disabled by default. See the
+All 97 plugins ship in `v2.0.0-alpha.4`. The 20 new providers are disabled by
+default; enable only the ones you use. See the
 [provider compatibility reference](docs/provider-compatibility.md) for supported
 data sources and validation coverage.
 
 `usagestat --json list` includes provider-owned UI metadata. Icon paths are
 resolved to absolute SVG paths; `icon.path` is the monochrome/default icon and
 `icon.colorPath` is present only when a separate color SVG is available.
+Shared artwork comes from `@agenticdriver/provider-icons`, pinned and vendored
+under `plugins/_provider-icons`; custom provider icons still take precedence.
+Run `node tools/provider-icons.mjs --check` to verify the selected assets.
 
 <details>
 <summary>Configuration paths and advanced example</summary>
@@ -291,6 +297,14 @@ the next package release. History adds provider/date filters, daily/weekly/month
 charts, previous-period comparisons, and CSV export of saved daily reports.
 Quota-only providers retain their snapshot charts. See
 [CLI and dashboard documentation](docs/cli.md).
+
+The dashboard also has Used/Remaining quotas, month-to-date and all-time
+history ranges, daily ledger rows, partial/unpriced cost indicators, and portable
+display preferences. Saved daily usage is available through JSON cost reports
+and `/v1/history/daily/<provider>/<period>` (`month`, `all`, or a day count).
+`/metrics` exports provider health and quota gauges for Prometheus without
+credential or account labels. See [history accounting](docs/history-accounting.md)
+for source precedence, model estimates, cache savings, and pricing coverage.
 
 ## Development
 

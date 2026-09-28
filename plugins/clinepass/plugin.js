@@ -14,7 +14,23 @@
   }
 
   function apiKey(ctx) {
-    return clean(ctx.provider && ctx.provider.apiKey) || env(ctx, "CLINEPASS_API_KEY") || env(ctx, "CLINE_API_KEY");
+    const provider = ctx.provider || {};
+    if (Object.prototype.hasOwnProperty.call(provider, "apiKey")) return clean(provider.apiKey);
+    const scoped = provider.instanceId && provider.instanceId !== 'clinepass';
+    if (scoped) return null;
+    const explicit = env(ctx, "CLINEPASS_API_KEY") || env(ctx, "CLINE_API_KEY");
+    if (explicit) return explicit;
+    const settings = provider.settings || {};
+    const dir = env(ctx, 'CLINE_DATA_DIR') || (env(ctx, 'CLINE_DIR') || ctx.host.fs.homeDir + '/.cline') + '/data';
+    const file = clean(settings.authPath) || env(ctx, 'CLINE_PROVIDER_SETTINGS_PATH') || dir + '/settings/providers.json';
+    let saved;
+    try { saved = JSON.parse(ctx.host.fs.readText(file))?.providers?.cline?.settings; } catch (_) { return null; }
+    const access = clean(saved?.auth?.accessToken);
+    if (access) {
+      ctx.clineAuthSource = 'oauth';
+      return access.startsWith('workos:') ? access : 'workos:' + access;
+    }
+    return clean(saved?.apiKey) || clean(saved?.auth?.apiKey);
   }
 
   function windowFor(ctx, entry) {
@@ -39,7 +55,7 @@
 
   function probe(ctx) {
     var key = apiKey(ctx);
-    if (!key) throw "ClinePass API key not found. Set CLINEPASS_API_KEY, CLINE_API_KEY, or provider apiKey.";
+    if (!key) throw "ClinePass credentials missing. Set an API key or run cline auth to sign in.";
 
     var result = ctx.util.requestJson({
       method: "GET",
@@ -64,7 +80,7 @@
       }
     }
     if (!metrics.length) throw "ClinePass response missing five_hour window.";
-    return { displayName: "ClinePass", source: "api", plan: "API key", lines: metrics };
+    return { displayName: "ClinePass", source: ctx.clineAuthSource || "api", plan: ctx.clineAuthSource ? "Browser" : "API key", lines: metrics };
   }
 
   globalThis.__openusage_plugin = { id: "clinepass", probe: probe };

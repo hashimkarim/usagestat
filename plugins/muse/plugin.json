@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "id": "muse",
+  "name": "Muse Code",
+  "version": "0.1.0",
+  "entry": "plugin.js",
+  "enabledByDefault": false,
+  "supportedModes": [
+    "api"
+  ],
+  "autoMode": "api",
+  "usageDashboardUrl": "https://dev.meta.ai",
+  "webUrl": "https://dev.meta.ai",
+  "envVars": [
+    "MUSE_DEVICE_TOKEN",
+    "MUSE_WEB_TEAM_ID",
+    "MUSE_COOKIE"
+  ],
+  "upstream": {
+    "repository": "https://github.com/steipete/CodexBar",
+    "revision": "78ba5a1e65e6859da59a21b799df95ab91bc0b89",
+    "path": "Sources/CodexBarCore/Resources/Plugins/muse.js",
+    "sha256": "80ddeae2d6f2fb90b22b3a978dfdd5f8904a1766687a19bc93c8108fd5a7dc41",
+    "license": "MIT"
+  }
+}

@@ -377,6 +377,7 @@
     if (!rawPlan) return null
     if (rawPlan.toLowerCase() === "prolite") return "Pro 5x"
     if (rawPlan.toLowerCase() === "pro") return "Pro 20x"
+    if (rawPlan.toLowerCase() === "self_serve_business_prolite") return "Business Premium"
     return ctx.fmt.planLabel(rawPlan) || null
   }
 
