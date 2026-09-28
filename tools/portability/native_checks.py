@@ -73,6 +73,10 @@ def main() -> int:
         try:
             built = command("build", ["cargo", "build", "--locked", "--workspace", "--target", args.target])
             command("rust-tests", ["cargo", "test", "--locked", "--workspace", "--target", args.target])
+            target_dir = Path(os.environ.get("CARGO_TARGET_DIR", ROOT / "target")).resolve()
+            suffix = ".exe" if os.name == "nt" else ""
+            env["USAGESTAT_TEST_CLI"] = str(target_dir / args.target / "debug" / ("usagestat" + suffix))
+            env["USAGESTAT_TEST_DAEMON"] = str(target_dir / args.target / "debug" / ("usagestatd" + suffix))
             node_tests = sorted(ROOT.glob("tests/*.test.cjs")) + sorted(ROOT.glob("crates/ai-usage-daemon/tests/*.test.cjs")) + sorted(ROOT.glob("npm/*.test.cjs"))
             if node_tests:
                 # Expand here: Windows subprocess does not expand shell globs.
@@ -80,9 +84,7 @@ def main() -> int:
             command("python-tests", [sys.executable, "-m", "unittest", "discover", "-s", "tools/tests", "-p", "test_*.py"])
             command("provider-inventory", [sys.executable, "tools/portability/provider_inventory.py", "--check"])
             if built:
-                target_dir = Path(os.environ.get("CARGO_TARGET_DIR", ROOT / "target")).resolve()
                 report["smoke"] = smoke(target_dir / args.target / "debug", temp_dir=args.smoke_temp_dir)
-                suffix = ".exe" if os.name == "nt" else ""
                 report["probe_cancellation"] = check_probe_cancellation(target_dir / args.target / "debug" / ("usagestat" + suffix))
                 report["daemon_lifecycle"] = check_daemon_lifecycle(target_dir / args.target / "debug")
                 report["diagnostics"] = check_diagnostics(target_dir / args.target / "debug", args.smoke_temp_dir)
