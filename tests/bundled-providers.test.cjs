@@ -214,6 +214,41 @@ test('TypeSafe discovers its billing action and posts structured JSON',async()=>
   assert.equal(metric(await app.probe(),'Balance').value,'USD 4.98');
 });
 
+test('TypeSafe distinguishes Cloudflare protection from expired login without exposing response contents', async () => {
+  const blocked = [
+    {...response('<html><title>Attention Required! | Cloudflare</title><div>private-response</div></html>', 403), headers: {'Content-Type': 'text/html; charset=UTF-8', Server: 'cloudflare'}},
+    {...response('private-response', 403), headers: {'CF-Mitigated': 'challenge'}},
+    response('<html><title>Just a moment...</title><script src="/cdn-cgi/challenge-platform/check.js"></script></html>', 200),
+    {...response('', 503), headers: {'cf-mitigated': 'challenge'}},
+  ];
+  for (const result of blocked) {
+    const app = load('typesafe', {provider: {cookieHeader: 'session=private-cookie'}, request: () => result});
+    await assert.rejects(app.probe, error => {
+      assert.equal(error.code, 'failed');
+      assert.match(error.message, /TypeSafe.*Cloudflare/);
+      assert.doesNotMatch(error.message, /private-|expired/i);
+      return true;
+    });
+    assert.equal(app.requests.length, 1, 'Do not retry a blocked request');
+  }
+  for (const status of [401, 403, 302]) {
+    const app = load('typesafe', {provider: {cookieHeader: 'session=fixture'},
+      request: () => ({...response('', status), headers: {server: 'cloudflare'}})});
+    await assert.rejects(app.probe, error => error.code === 'missing-auth');
+  }
+});
+
+test('TypeSafe detects protection on the billing POST after successful action discovery', async () => {
+  const action = 'b'.repeat(40);
+  const app = load('typesafe', {provider: {cookieHeader: 'session=fixture'}, request: req => {
+    if (req.method === 'POST') return {...response('', 403), headers: {'cf-mitigated': 'challenge'}};
+    if (req.url.includes('/_next/')) return response(`"${action}",c.callServer,void 0,c.findSourceMapURL,"getBillingOverviewResult"`);
+    return response('<script src="/_next/static/chunks/app.js"></script>');
+  }});
+  await assert.rejects(app.probe, error => error.code === 'failed' && /Cloudflare/.test(error.message));
+  assert.equal(app.requests.length, 3);
+});
+
 test('v0 keeps billing and rate limits independent',async()=>{
   const app=load('v0',{provider:{apiKey:'fixture'},request:req=>response(req.url.includes('/user/billing')
     ? {billingType:'token',data:{balance:{total:100,remaining:80},billingCycle:{end:1790800000}}}

@@ -604,6 +604,23 @@ mod provider_sync_tests {
     }
 
     #[test]
+    fn typesafe_browser_protection_is_failed_not_missing_auth() {
+        let script = format!(
+            r#"__usagestat_ctx.provider = {{cookieHeader:'session=fixture'}};
+            __usagestat_ctx.host.http.request = function() {{
+                return {{status:403, headers:{{'cf-mitigated':'challenge'}}, bodyText:'private-response'}};
+            }}; {}"#,
+            include_str!("../../../plugins/typesafe/plugin.js")
+        );
+        let snapshot = probe_provider(&fixture(&script), "web", None);
+        assert_eq!(snapshot.state, Some(usagestat_core::model::ProviderState::Failed), "{snapshot:?}");
+        let json = serde_json::to_string(&snapshot).unwrap();
+        assert!(json.contains("Cloudflare"), "{snapshot:?}");
+        assert!(!json.contains("private-response"));
+        assert!(!json.contains("expired"));
+    }
+
+    #[test]
     fn rejected_async_probes_preserve_typed_errors_and_do_not_poison_retries() {
         let provider = fixture("globalThis.__usagestat_plugin = {probe: async function() { await Promise.resolve(); throw {code:'missing-auth',message:'Sign in to the selected account.'}; }};");
         let snapshot = probe_provider(&provider, "auto", None);

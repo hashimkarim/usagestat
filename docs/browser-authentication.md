@@ -70,6 +70,15 @@ also reject manually copied values; use the provider's supported OAuth/API route
 when applicable. A raw cookie is not guaranteed to survive anti-bot challenges.
 Existing T3 Chat full-cURL guidance remains available through `auth curl`.
 
+The bundled provider adapter distinguishes recognized Cloudflare protection
+pages from an expired login. A challenged request reports `failed` and a
+Cloudflare message; it does not establish whether the saved session is valid.
+This includes TypeSafe's console billing route, where a protection page could
+previously be reported as “session expired.” Open the provider website to check
+access. If browser access works but the backend remains blocked, use a
+provider-supported automated access route; refreshing a cookie is not a
+guaranteed fix. The adapter neither retries nor bypasses the protection.
+
 The database reader opens a read-only SQLite transaction with a 250 ms busy
 limit. It reads committed WAL data directly, never marks an active store immutable,
 and creates no temporary cookie database or sidecar copies. It filters exact
