@@ -81,9 +81,17 @@ impl Daemon {
     }
     fn start(&mut self) {
         assert!(self.child.is_none());
+        let mut command = Command::new(env!("CARGO_BIN_EXE_usagestatd"));
+        command.env_clear();
+        // Windows networking needs the system directory even in an otherwise
+        // isolated child environment. Do not inherit provider credentials.
+        #[cfg(windows)]
+        if let Some(root) = std::env::var_os("SystemRoot") {
+            command.env("SystemRoot", root);
+        }
+        let log = self.directory.join("daemon.log");
         self.child = Some(
-            Command::new(env!("CARGO_BIN_EXE_usagestatd"))
-                .env_clear()
+            command
                 .env("USAGESTAT_CONFIG_DIR", self.directory.join("config"))
                 .env("USAGESTAT_DATA_DIR", self.directory.join("data"))
                 .args([
@@ -94,11 +102,23 @@ impl Daemon {
                 ])
                 .arg(self.directory.join("run-usage.json"))
                 .stdout(Stdio::null())
-                .stderr(Stdio::null())
+                .stderr(fs::File::create(&log).unwrap())
                 .spawn()
                 .unwrap(),
         );
-        wait_for(|| client().get(format!("{}/health", self.url)).send().is_ok());
+        let deadline = Instant::now() + Duration::from_secs(12);
+        loop {
+            let exited = self.child.as_mut().unwrap().try_wait().unwrap();
+            assert!(
+                exited.is_none() && Instant::now() < deadline,
+                "daemon failed to become ready (exit: {exited:?}): {}",
+                fs::read_to_string(&log).unwrap_or_default()
+            );
+            if client().get(format!("{}/health", self.url)).send().is_ok() {
+                break;
+            }
+            thread::sleep(Duration::from_millis(30));
+        }
     }
     fn stop(&mut self) {
         if let Some(mut child) = self.child.take() {
