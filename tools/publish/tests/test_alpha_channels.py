@@ -92,6 +92,7 @@ class AlphaChannelsTests(unittest.TestCase):
             self.assertIn('_upstream_version=2.0.0-alpha.1', aur)
             rpm = (output / 'usagestat.spec').read_text()
             self.assertIn('Version:        2.0.0~alpha.1', rpm)
+            self.assertIn('%global usagestat_alpha 1\n', rpm)
             self.assertIn('v%{upstream_version}.tar.gz', rpm)
             self.assertTrue((output / 'usagestat_2.0.0~alpha.1.orig.tar.gz').is_file())
             brew = (output / 'usagestat.rb').read_text()

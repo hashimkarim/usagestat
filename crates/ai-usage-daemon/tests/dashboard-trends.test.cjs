@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
 const trends = require('../src/dashboard-trends.js');
+const settings = require('../src/dashboard-settings.js');
 
 const row = (date, totalTokens, cost = 0, providerId = 'codex') => ({
   date, providerId, displayName: providerId, totalTokens, cost,
@@ -120,6 +121,7 @@ test('all token components survive grouping and invalid numbers cannot poison to
 test('dashboard scripts compile and the browser trends asset is referenced', () => {
   const html = fs.readFileSync(require.resolve('../src/dashboard.html'), 'utf8');
   assert.match(html, /src="\/dashboard\/trends\.js"/);
+  assert.match(html, /src="\/dashboard\/settings\.js"/);
   for (const script of html.matchAll(/<script>([\s\S]*?)<\/script>/g)) new vm.Script(script[1]);
 });
 
@@ -133,7 +135,7 @@ function dashboard(rows = [], prefs = {}) {
       addEventListener: (event, fn) => { element(id)[event] = fn; } });
     return elements.get(id);
   };
-  const context = vm.createContext({ UsageTrends: trends, fixture: rows,
+  const context = vm.createContext({ UsageTrends: trends, UsageDashboardSettings: settings, fixture: rows,
     setInterval: () => 0, localStorage: { getItem: () => JSON.stringify({ trends: prefs }), setItem: () => {} },
     document: { getElementById: element } });
   vm.runInContext(script, context);

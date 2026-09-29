@@ -7,6 +7,7 @@
   const SESSION_EXPIRED_MESSAGE =
     "Google sign-in expired. Run `agy` and complete Google sign-in again."
   const REQUEST_FAILED_MESSAGE = "Antigravity CLI quota request failed. Check your connection and try again."
+  const QUOTA_DENIED_MESSAGE = "Google denied Antigravity quota access for this account. Open the latest Antigravity or agy client and check account access."
   const GOOGLE_OAUTH_URL = "https://oauth2.googleapis.com/token"
   const GOOGLE_CLIENT_ID =
     "1071006060591-tmhssin2h21lcre235vtolojh4g403ep.apps.googleusercontent.com"
@@ -307,7 +308,11 @@
       if (opts.optional) return null
       throw REQUEST_FAILED_MESSAGE
     }
-    if (ctx.util.isAuthStatus(resp.status)) {
+    if (resp.status === 403) {
+      if (opts.optional) return null
+      throw QUOTA_DENIED_MESSAGE
+    }
+    if (resp.status === 401) {
       if (opts.optional) {
         ctx.host.log.warn(
           "antigravity-cli optional request HTTP " +

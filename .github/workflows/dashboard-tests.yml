@@ -1,4 +1,4 @@
-name: Test dashboard history
+name: Test dashboard and service updates
 
 on:
   push:
@@ -7,12 +7,16 @@ on:
       - 'crates/**'
       - 'Cargo.toml'
       - 'Cargo.lock'
+      - 'tools/updates/**'
+      - 'packaging/rpm/**'
       - '.github/workflows/dashboard-tests.yml'
   pull_request:
     paths:
       - 'crates/**'
       - 'Cargo.toml'
       - 'Cargo.lock'
+      - 'tools/updates/**'
+      - 'packaging/rpm/**'
       - '.github/workflows/dashboard-tests.yml'
 
 permissions:
@@ -31,3 +35,6 @@ jobs:
       - name: Build daemon for HTTP integration tests
         run: cargo build --locked -p usagestat-daemon
       - run: node --test crates/ai-usage-daemon/tests/*.test.cjs
+      - name: Test owned service update synchronization
+        run: |
+          python3 -m unittest discover -s tools/updates -p 'test_*.py' -v

@@ -100,7 +100,7 @@ def prepare(tag, assets, output, root, channel='stable'):
     rpm = (root / 'packaging/rpm/usagestat.spec').read_text()
     rpm = replace_one(r'^Version:.*$', f'Version:        {package_version}', rpm)
     if channel == 'alpha':
-        rpm = f'%global upstream_version {version}\n' + rpm
+        rpm = f'%global usagestat_alpha 1\n%global upstream_version {version}\n' + rpm
         rpm = rpm.replace('v%{version}.tar.gz', 'v%{upstream_version}.tar.gz').replace('%autosetup -n usagestat-%{version}', '%autosetup -n usagestat-%{upstream_version}')
     (output / 'usagestat.spec').write_text(rpm)
     source = output / f'usagestat-{package_version}'

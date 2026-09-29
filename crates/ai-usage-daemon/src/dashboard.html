@@ -566,6 +566,44 @@ header{
 .card-name,.dh-name{display:flex;align-items:center;min-width:0;overflow-wrap:anywhere}
 .quota-display{height:32px;max-width:130px;padding:0 8px;background:var(--s1);color:var(--tx);border:1px solid var(--bd2);border-radius:6px;font:12px var(--mono);cursor:pointer;color-scheme:dark}
 .quota-display:hover{border-color:var(--blue)}
+
+/* Dashboard-only appearance and settings. */
+html[data-theme="light"]{--bg:#f3f4fa;--s0:#fff;--s1:#edf0f7;--s2:#e1e5f0;--s3:#dce1ef;--bd:#24304b22;--bd2:#24304b35;--bd3:#24304b30;--tx:#293249;--hi:#152038;--mu:#536079;--su:#66728a;--bright:#485da5;--green:#247652;--yellow:#856400;--orange:#985226;--red:#ae3535;background:var(--bg)}
+html[data-theme="light"] body::before{background:radial-gradient(ellipse 70% 45% at 50% -8%,color-mix(in srgb,var(--blue) 10%,transparent),transparent 62%),linear-gradient(180deg,var(--bg),var(--s1))}
+html[data-theme="light"] select{color-scheme:light}
+html[data-density="compact"] .grid{gap:10px;grid-template-columns:repeat(auto-fill,minmax(min(270px,100%),1fr))}
+html[data-density="compact"] .card-head{padding:10px 12px 7px 15px}
+html[data-density="compact"] .card-body{padding-top:0}
+html[data-density="compact"] .metric{padding-top:7px;padding-bottom:7px}
+html[data-density="compact"] .overview-panel{padding:12px 14px}
+.settings-heading{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin:8px 0 20px}
+.settings-heading h1{font-size:24px;line-height:1.25;color:var(--hi);margin-bottom:7px}
+.settings-description{color:var(--mu);font-size:13px;max-width:700px}
+.settings-layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;align-items:start}
+.settings-section{background:var(--s0);border:1px solid var(--bd);border-radius:var(--r);padding:20px;min-width:0}
+.settings-section h2{font-size:16px;color:var(--hi);margin-bottom:6px}
+.settings-section>p{font-size:13px;color:var(--mu);margin-bottom:16px}
+.settings-section.providers{grid-column:1/-1}
+.setting-row{display:flex;justify-content:space-between;gap:18px;align-items:center;padding:12px 0;border-top:1px solid var(--bd)}
+.setting-row>label{font-size:13px;color:var(--tx)}
+.setting-row select{max-width:210px;min-width:145px}
+.setting-row input[type="checkbox"],.provider-setting input[type="checkbox"]{width:18px;height:18px;accent-color:var(--blue);flex-shrink:0;cursor:pointer}
+.setting-hint{display:block;font-size:12px;color:var(--mu);margin-top:3px}
+.provider-setting{display:grid;grid-template-columns:minmax(180px,1.1fr) minmax(160px,1fr) minmax(140px,.85fr) auto;gap:16px;align-items:center;padding:16px 0;border-top:1px solid var(--bd)}
+.provider-setting-title{display:flex;gap:10px;align-items:flex-start;min-width:0}
+.provider-setting-title label{min-width:0;cursor:pointer}
+.provider-setting-name{display:flex;align-items:center;font-weight:600;font-size:13px;color:var(--tx)}
+.provider-setting-state{display:block;font-size:12px;color:var(--mu);margin-top:4px;overflow-wrap:anywhere}
+.provider-setting-field{min-width:0}
+.provider-setting-field label{display:block;font-size:11px;color:var(--mu);margin-bottom:5px}
+.provider-setting-field input,.provider-setting-field select{width:100%;max-width:none}
+.provider-order-actions{display:flex;gap:5px}
+.action-btn:disabled{opacity:.4;cursor:default}
+.settings-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:16px}
+.settings-note{font-size:12px;color:var(--mu);margin-top:14px}
+.settings-status{font-size:12px;color:var(--green);min-height:20px;margin-top:10px}
+.settings-status.is-error{color:var(--red)}
+@media(max-width:800px){.settings-layout{grid-template-columns:1fr}.provider-setting{grid-template-columns:minmax(0,1fr) auto;gap:12px}.provider-setting-title{grid-column:1}.provider-order-actions{grid-column:2;grid-row:1}.provider-setting-field{grid-column:1/-1}.settings-section{padding:16px}.settings-heading{flex-wrap:wrap}}
 </style>
 </head>
 <body>
@@ -580,6 +618,7 @@ header{
     <nav id="tabs" class="tab-bar">
       <button class="tab active" data-tab="overview" onclick="switchTab('overview')">Overview</button>
       <button class="tab" data-tab="history" onclick="switchTab('history')">History</button>
+      <button class="tab" data-tab="settings" onclick="switchTab('settings')">Settings</button>
     </nav>
     <div class="hend">
       <select id="quota-display" class="quota-display" aria-label="Quota display"><option value="used">Used</option><option value="remaining">Remaining</option></select>
@@ -614,10 +653,12 @@ header{
       </div>
     </div>
     <div id="panel-history" class="panel"></div>
+    <div id="panel-settings" class="panel"></div>
   </div>
 
 </div>
 <script src="/dashboard/trends.js"></script>
+<script src="/dashboard/settings.js"></script>
 <script>
 // ── state ─────────────────────────────────────────────────────────────────────
 const S = {
@@ -634,20 +675,21 @@ const S = {
 };
 const quotaDisplay = document.getElementById('quota-display');
 quotaDisplay.value = S.prefs.quotaDisplay === 'remaining' ? 'remaining' : 'used';
-quotaDisplay.onchange = () => { S.prefs.quotaDisplay = quotaDisplay.value; savePrefs(); renderOverview(); if(!['overview','history'].includes(S.active)) renderProvider(S.active); };
+quotaDisplay.onchange = () => { S.prefs.quotaDisplay = quotaDisplay.value; savePrefs(); renderOverview(); renderActive(); };
 function displayPct(used){return S.prefs.quotaDisplay === 'remaining' ? Math.max(0,100-used) : used;}
 function providerIcon(id){
+  if(S.prefs.icons===false) return '';
   return S.providers.find(p=>p.id===id)?.icon ? `<img class="provider-icon" alt="" src="/v1/icons/${encodeURIComponent(id)}" onerror="this.remove()">` : '';
 }
 
 // ── countdown ring ────────────────────────────────────────────────────────────
-const INTERVAL = 30;
+function refreshInterval(){ return S.prefs.refreshSeconds || 30; }
 const Rr = 11, Rc = +(2*Math.PI*Rr).toFixed(3);
 const ringEl = document.getElementById('ring');
 ringEl.style.strokeDasharray = Rc;
-let tick = INTERVAL, tickTimer = null, busy = false;
-function setRing(s){ ringEl.style.strokeDashoffset = (Rc*(1-s/INTERVAL)).toFixed(3); }
-function startTick(){ clearInterval(tickTimer); tick=INTERVAL; setRing(INTERVAL);
+let tick = refreshInterval(), tickTimer = null, busy = false;
+function setRing(s){ ringEl.style.strokeDashoffset = (Rc*(1-s/refreshInterval())).toFixed(3); }
+function startTick(){ clearInterval(tickTimer); tick=refreshInterval(); setRing(tick);
   tickTimer = setInterval(()=>{ tick--; setRing(tick); if(tick<=0) load(); },1000); }
 function updAgo(){ const el=document.getElementById('ago');
   if(!S.loadedAt){el.textContent='';return;}
@@ -730,11 +772,13 @@ function switchTab(id){
   document.querySelectorAll('.panel').forEach(p=>p.classList.toggle('active',p.id===`panel-${id}`));
   applyTabVisibility();
   renderActive();
+  if(typeof history!=='undefined') history.replaceState(null,'',id==='overview'?'#overview':'#'+encodeURIComponent(id));
 }
 
 function renderActive(){
   if(S.active==='overview') renderOverview();
   else if(S.active==='history') renderTrends();
+  else if(S.active==='settings') renderSettings();
   else renderProvider(S.active);
 }
 
@@ -749,7 +793,7 @@ function orderedSnapshots(){
   for(const snap of S.snapshots){
     if(!seen.has(snap.providerId)) ordered.push(snap);
   }
-  return ordered;
+  return UsageDashboardSettings.order(ordered, S.prefs, s=>s.providerId);
 }
 
 // ── tabs ──────────────────────────────────────────────────────────────────────
@@ -773,7 +817,7 @@ function buildTabs(){
     const b=document.createElement('button');
     b.className='tab'+(S.active===p.id?' active':'');
     b.dataset.tab=p.id; b.onclick=()=>switchTab(p.id);
-    b.innerHTML=`${providerIcon(p.id)}<span class="tab-dot" style="background:${accent}"></span>${esc(p.name)}`;
+    b.innerHTML=`${providerIcon(p.id)}<span class="tab-dot" style="background:${accent}"></span>${esc(providerName(p.id))}`;
     bar.appendChild(b);
 
     // ensure panel exists
@@ -782,6 +826,12 @@ function buildTabs(){
       div.id=`panel-${p.id}`; div.className='panel';
       document.querySelector('.panels').appendChild(div);
     }
+  }
+  for(const p of UsageDashboardSettings.order(S.providers,S.prefs,p=>p.id)){
+    const tab=[...bar.querySelectorAll('.tab')].find(t=>t.dataset.tab===p.id);
+    const snap=S.snapshots.find(s=>s.providerId===p.id);
+    const accent=snap?.pace?paceColor(snap.pace.stage):'#484f58';
+    if(tab){tab.innerHTML=`${providerIcon(p.id)}<span class="tab-dot" style="background:${accent}"></span>${esc(providerName(p.id))}`;bar.appendChild(tab);}
   }
 }
 
@@ -800,13 +850,13 @@ function renderOverview(){
   overview.forEach((s,i)=>{
     const isErr=snapshotHasError(s);
     const pace=s.pace;
-    const primM=s.metrics?.find(m=>m.type==='progress'&&m.format?.kind==='percent'&&m.limit>0);
+    const primM=UsageDashboardSettings.primary(s,S.prefs);
     const primP=primM?pct(primM):null;
     const accent=pace?paceColor(pace.stage):primP!=null?barCol(primP):'#484f58';
     const roll = providerWindowTotals(s.providerId, 30);
     html+=`<div class="card${isErr?' is-error':''}" style="--accent:${accent}">`;
     html+=`<div class="card-head"><div class="card-meta">`;
-    html+=`<div class="card-name">${providerIcon(s.providerId)}${esc(s.displayName||s.providerId)}</div>`;
+    html+=`<div class="card-name">${providerIcon(s.providerId)}${esc(providerName(s.providerId))}</div>`;
     html+=`<div class="card-tags">`;
     if(s.source) html+=`<span class="badge b-${s.source||'local'}">${esc(s.source)}</span>`;
     if(s.plan)   html+=`<span class="plan-tag">${esc(s.plan)}</span>`;
@@ -871,7 +921,7 @@ function renderOverviewControls(){
       ${selectOption('tracked','Tracked usage',S.prefs.status)}
     </select>
     <select id="overviewSort" class="ctrl-select" aria-label="Sort providers">
-      ${selectOption('order','Configured order',S.prefs.sort)}
+      ${selectOption('order','My provider order',S.prefs.sort)}
       ${selectOption('pressure','Quota pressure',S.prefs.sort)}
       ${selectOption('cost30','30d cost',S.prefs.sort)}
       ${selectOption('tokens30','30d tokens',S.prefs.sort)}
@@ -879,7 +929,7 @@ function renderOverviewControls(){
       ${selectOption('name','Name',S.prefs.sort)}
     </select>
     <span class="result-count">${shown.length}/${all.length}</span>
-    ${inactive.length?`<button class="action-btn" type="button" id="toggleInactive" aria-pressed="${showInactive()}" title="${esc(inactive.map(s=>s.displayName||s.providerId).join(', '))}">${showInactive()?'Hide':'Show'} inactive (${inactive.length})</button>`:''}
+    ${inactive.length?`<button class="action-btn" type="button" id="toggleInactive" aria-pressed="${showInactive()}" title="${esc(inactive.map(s=>providerName(s.providerId)).join(', '))}">${showInactive()?'Hide':'Show'} inactive (${inactive.length})</button>`:''}
   </div>
   <div class="ctrl-group">
     <button class="action-btn" type="button" id="exportDaily">
@@ -892,6 +942,7 @@ function renderOverviewControls(){
       <svg viewBox="0 0 16 16"><path d="M8 2v7"/><path d="M5 6l3 3 3-3"/><path d="M3 13h10"/></svg>JSON
     </button>
     <span class="ctrl-sep" aria-hidden="true"></span>
+    <button class="action-btn" type="button" onclick="switchTab('settings')">Settings</button>
     <button class="action-btn" type="button" id="exportPrefs" title="Export dashboard preferences">
       <svg viewBox="0 0 16 16"><path d="M8 2v7"/><path d="M5 6l3 3 3-3"/><path d="M3 13h10"/></svg>Prefs
     </button>
@@ -927,7 +978,7 @@ function renderOverviewControls(){
 }
 
 function selectOption(value,label,current){
-  return `<option value="${esc(value)}"${(current||'all')===value?' selected':''}>${esc(label)}</option>`;
+  return `<option value="${esc(value)}"${(current??'all')===value?' selected':''}>${esc(label)}</option>`;
 }
 
 function overviewSnapshots(){
@@ -936,7 +987,7 @@ function overviewSnapshots(){
   const status = S.prefs.status || 'all';
   const filtered = ordered.filter(s=>{
     if(query){
-      const hay = [s.providerId, s.displayName, s.plan, s.source, ...(s.metrics||[]).map(m=>m.label)].join(' ').toLowerCase();
+      const hay = [s.providerId, providerName(s.providerId), s.plan, s.source, ...(s.metrics||[]).map(m=>m.label)].join(' ').toLowerCase();
       if(!hay.includes(query)) return false;
     }
     const prim = primaryPercentOf(s);
@@ -951,7 +1002,7 @@ function overviewSnapshots(){
   const sorted = filtered.slice();
   const sort = S.prefs.sort || 'order';
   sorted.sort((a,b)=>{
-    if(sort==='name') return String(a.displayName||a.providerId).localeCompare(String(b.displayName||b.providerId));
+    if(sort==='name') return providerName(a.providerId).localeCompare(providerName(b.providerId));
     if(sort==='recent') return (+new Date(b.fetchedAt||0)) - (+new Date(a.fetchedAt||0));
     if(sort==='pressure') return (primaryPercentOf(b)||0) - (primaryPercentOf(a)||0);
     if(sort==='cost30') return providerWindowTotals(b.providerId,30).cost - providerWindowTotals(a.providerId,30).cost;
@@ -971,10 +1022,14 @@ function isInactiveProvider(s){
   return !(roll.totalTokens>0 || roll.cost>0);
 }
 function showInactive(){ return S.prefs.inactive==='show'; }
-function visibleSnapshots(){ return orderedSnapshots().filter(s=>showInactive() || !isInactiveProvider(s)); }
-function hiddenInactive(){ return showInactive() ? [] : orderedSnapshots().filter(isInactiveProvider); }
+function providerSetting(id){ return UsageDashboardSettings.provider(S.prefs,id); }
+function providerName(id){
+  return providerSetting(id).name || S.snapshots.find(s=>s.providerId===id)?.displayName || S.providers.find(p=>p.id===id)?.name || id;
+}
+function visibleSnapshots(){ return orderedSnapshots().filter(s=>providerSetting(s.providerId).visible && (showInactive() || !isInactiveProvider(s))); }
+function hiddenInactive(){ return showInactive() ? [] : orderedSnapshots().filter(s=>providerSetting(s.providerId).visible && isInactiveProvider(s)); }
 function applyTabVisibility(){
-  const hidden = new Set(hiddenInactive().map(s=>s.providerId));
+  const hidden = new Set([...hiddenInactive().map(s=>s.providerId),...S.providers.filter(p=>!providerSetting(p.id).visible).map(p=>p.id)]);
   document.querySelectorAll?.('#tabs .tab').forEach(t=>{ t.hidden = hidden.has(t.dataset.tab) && S.active!==t.dataset.tab; });
 }
 
@@ -984,13 +1039,14 @@ function snapshotHasError(s){
 }
 
 function primaryPercentOf(s){
-  const m = (s.metrics||[]).find(row=>row.type==='progress' && row.format?.kind==='percent' && row.limit>0);
+  const m = UsageDashboardSettings.primary(s,S.prefs);
   return m ? pct(m) : null;
 }
 
 function renderOverviewSummary(){
   const el = document.getElementById('overviewSummary');
   if(!el) return;
+  if(S.prefs.summary===false){el.innerHTML='';return;}
   const snaps = visibleSnapshots(), hidden = hiddenInactive();
   if(!snaps.length){ el.innerHTML=''; return; }
 
@@ -998,7 +1054,7 @@ function renderOverviewSummary(){
     .filter(m=>m.type==='progress' && m.format?.kind==='percent' && m.limit>0)
     .map(m=>({ snap:s, metric:m, percent:pct(m) })));
   const primaryRows = snaps.map(s=>{
-    const m = (s.metrics||[]).find(row=>row.type==='progress' && row.format?.kind==='percent' && row.limit>0);
+    const m = UsageDashboardSettings.primary(s,S.prefs);
     return m ? { snap:s, metric:m, percent:pct(m) } : null;
   }).filter(Boolean);
   const pressure = primaryRows.slice().sort((a,b)=>b.percent-a.percent);
@@ -1022,7 +1078,7 @@ function renderOverviewSummary(){
     alerts.push({
       level:'pace',
       color:paceColor(p.stage),
-      text:`${s.displayName||s.providerId} is ${stageLbl(p.stage)}`,
+      text:`${providerName(s.providerId)} is ${stageLbl(p.stage)}`,
       sub:`${fmtDelta(p.deltaPercent)} - ETA ${fmtEta(p.etaSeconds,p.stage)}`
     });
   }
@@ -1030,7 +1086,7 @@ function renderOverviewSummary(){
     alerts.push({
       level:highest.percent >= 95 ? 'limit' : 'watch',
       color:barCol(highest.percent),
-      text:`${highest.snap.displayName||highest.snap.providerId} has the tightest quota`,
+      text:`${providerName(highest.snap.providerId)} has the tightest quota`,
       sub:`${highest.metric.label}: ${highest.percent.toFixed(1)}% used`
     });
   }
@@ -1038,7 +1094,7 @@ function renderOverviewSummary(){
     alerts.push({
       level:'reset',
       color:'#7289da',
-      text:`Next reset: ${nextReset.snap.displayName||nextReset.snap.providerId}`,
+      text:`Next reset: ${providerName(nextReset.snap.providerId)}`,
       sub:`${nextReset.metric.label} ${fmtReset(nextReset.metric.resetsAt)}`
     });
   }
@@ -1055,7 +1111,7 @@ function renderOverviewSummary(){
       level:'hidden',
       color:'#8e9297',
       text:`${hidden.length} inactive provider${hidden.length===1?'':'s'} hidden`,
-      sub:`${hidden.map(s=>s.displayName||s.providerId).join(', ')} · use Show inactive to display`
+      sub:`${hidden.map(s=>providerName(s.providerId)).join(', ')} · use Show inactive to display`
     });
   }
 
@@ -1080,7 +1136,7 @@ function renderOverviewSummary(){
   html+=`<div class="overview-sub">${nextReset ? esc(fmtReset(nextReset.metric.resetsAt)) : 'no reset window'} · ${updated ? esc(fmtAgo(new Date(updated).toISOString())) : 'not updated'}</div>`;
   html+=`<div class="pressure-list">`;
   for(const row of pressure.slice(0,5)){
-    const name = row.snap.displayName || row.snap.providerId;
+    const name = providerName(row.snap.providerId);
     const col = row.snap.pace ? paceColor(row.snap.pace.stage) : barCol(row.percent);
     html+=`<div class="pressure-row">`;
     html+=`<div class="pressure-name">${esc(name)}</div>`;
@@ -1091,15 +1147,16 @@ function renderOverviewSummary(){
   if(!pressure.length) html+=`<div class="cost-unavail" style="padding:18px">No quota data reported</div>`;
   html+=`</div></div>`;
 
-  const r7 = dailyWindowTotals(S.dailyRows, 7);
-  const p7 = dailyWindowTotals(S.dailyRows, 7, 7);
-  const r30 = dailyWindowTotals(S.dailyRows, 30);
-  const p30 = dailyWindowTotals(S.dailyRows, 30, 30);
-  const trend = aggregateDailyTrend(S.dailyRows, 14);
-  const top = topDailyContributors(S.dailyRows, 30, 5);
+  const dailyRows = S.dailyRows.filter(r=>providerSetting(r.providerId).visible);
+  const r7 = dailyWindowTotals(dailyRows, 7);
+  const p7 = dailyWindowTotals(dailyRows, 7, 7);
+  const r30 = dailyWindowTotals(dailyRows, 30);
+  const p30 = dailyWindowTotals(dailyRows, 30, 30);
+  const trend = aggregateDailyTrend(dailyRows, 14);
+  const top = topDailyContributors(dailyRows, 30, 5);
   html+=`<div class="overview-panel">`;
   html+=`<div class="overview-title">Spend & Tokens</div>`;
-  html+=`<div class="overview-sub">${S.dailyRows.length ? `${esc(S.dailyRows.length)} saved daily rows` : 'no saved daily history'}</div>`;
+  html+=`<div class="overview-sub">${dailyRows.length ? `${esc(dailyRows.length)} saved daily rows` : 'no saved daily history'}${Object.values(S.prefs.providers).some(p=>!p.visible)?' · visible providers':''}</div>`;
   html+=`<div class="rollup-grid">`;
   html+=rollupCard(r7.rows?recordedCost(r7):'—','7d spend',r7.costKnown&&p7.costKnown?deltaBadge(deltaPercent(r7.cost,p7.cost)):'');
   html+=rollupCard(fmtTok(r7.totalTokens),'7d tokens',deltaBadge(deltaPercent(r7.totalTokens,p7.totalTokens)));
@@ -1317,7 +1374,7 @@ function shareText(part, whole){ if(!(whole>0)) return '—'; const p=part/whole
 function pricedShare(part, whole){ return whole.cost>0 && part.cost>0 ? shareText(part.cost, whole.cost) : null; }
 function providerDisplayName(id, fallback){
   const p = S.providers.find(x=>String(x.id).toLowerCase()===String(id).toLowerCase());
-  return p?.name || fallback || id;
+  return providerSetting(p?.id || id).name || p?.name || fallback || id;
 }
 function metricShare(part, whole, metric){
   const known=metric==='cost'?'costKnown':'tokensKnown';
@@ -1332,8 +1389,8 @@ function renderTrends(){
   const options = trendsOptions();
   const model = UsageTrends.summarize(S.dailyRows, options);
   // Include saved providers even after they have been disabled or removed.
-  const providers = new Map(S.providers.map(p=>[p.id.toLowerCase(),p.name||p.id]));
-  for(const r of S.dailyRows) providers.set(r.providerId.toLowerCase(), r.displayName||r.providerId);
+  const providers = new Map(S.providers.map(p=>[p.id.toLowerCase(),providerDisplayName(p.id,p.name)]));
+  for(const r of S.dailyRows) providers.set(r.providerId.toLowerCase(), providerDisplayName(r.providerId,r.displayName));
   if(options.provider && !providers.has(options.provider.toLowerCase())) providers.set(options.provider, options.provider);
   const metric = options.metric, info = USAGE_METRICS[metric];
   // Local-log rows may carry raw ids ("codex"); prefer the registry's names.
@@ -1846,42 +1903,141 @@ function csvCell(value){
   return /[",\n\r]/.test(s) ? `"${s.replace(/"/g,'""')}"` : s;
 }
 
+function applyAppearance(){
+  const root=document.documentElement;
+  if(!root)return;
+  const systemLight=typeof matchMedia==='function' && matchMedia('(prefers-color-scheme: light)').matches;
+  root.dataset.theme=S.prefs.theme==='system'?(systemLight?'light':'dark'):S.prefs.theme;
+  root.dataset.density=S.prefs.density;
+  root.style.setProperty('--blue',UsageDashboardSettings.ACCENTS[S.prefs.accent]);
+  root.style.colorScheme=root.dataset.theme;
+}
+function settingsStatus(message,error=false){
+  S.settingsMessage=message;
+  S.settingsMessageError=error;
+  const el=document.getElementById('settings-status');
+  if(el){el.textContent=message;el.className='settings-status'+(error?' is-error':'');}
+}
+function refreshSettings(message='Settings saved.',repaint=true){
+  const focused=document.activeElement?.id;
+  S.prefs=cleanPreferences(S.prefs);
+  savePrefs();applyAppearance();
+  quotaDisplay.value=S.prefs.quotaDisplay;
+  buildTabs();applyTabVisibility();
+  if(S.active==='settings'){if(repaint)renderSettings(true);}else renderActive();
+  startTick();
+  settingsStatus(S.storageError?'Browser storage is unavailable. Changes apply to this session only.':message,!!S.storageError);
+  if(focused)document.getElementById(focused)?.focus?.();
+}
+function setDashboardPref(key,value){S.prefs[key]=value;refreshSettings();}
+function updateProviderSetting(id,key,value){
+  S.prefs.providers[id]={...providerSetting(id),[key]:value};
+  // A name saves on blur. Keep the current form nodes so the click that caused
+  // the blur (for example Back to Overview) still reaches its original target.
+  refreshSettings('Settings saved.',key!=='name');
+}
+function settingsProviderIds(){
+  return UsageDashboardSettings.order([...new Set([...S.providers.map(p=>p.id),...S.snapshots.map(s=>s.providerId)])],S.prefs,id=>id);
+}
+function moveDashboardProvider(id,direction){
+  const order=settingsProviderIds(),index=order.indexOf(id),next=index+direction;
+  if(index<0 || next<0 || next>=order.length)return;
+  [order[index],order[next]]=[order[next],order[index]];
+  S.prefs.providerOrder=order;S.prefs.sort='order';refreshSettings('Provider order saved.');
+}
+function resetDashboardSettings(){
+  S.prefsUndo=cleanPreferences(S.prefs);S.prefs=cleanPreferences({});
+  refreshSettings('Dashboard settings reset. You can undo this below.');
+}
+function undoDashboardReset(){
+  if(!S.prefsUndo)return;
+  S.prefs=S.prefsUndo;S.prefsUndo=null;refreshSettings('Previous dashboard settings restored.');
+}
+function renderSettings(force=false){
+  const root=document.getElementById('panel-settings');
+  // A background refresh must not discard text while the user is editing it.
+  if(!force && root.contains?.(document.activeElement))return;
+  const select=(id,label,value,options,hint='')=>`<div class="setting-row"><label for="${id}">${label}${hint?`<span class="setting-hint">${hint}</span>`:''}</label><select class="ctrl-select" id="${id}">${options.map(([v,text])=>selectOption(v,text,String(value))).join('')}</select></div>`;
+  const check=(id,label,checked,hint='')=>`<div class="setting-row"><label for="${id}">${label}${hint?`<span class="setting-hint">${hint}</span>`:''}</label><input type="checkbox" id="${id}"${checked?' checked':''}></div>`;
+  const ids=settingsProviderIds();
+  root.innerHTML=`<div class="settings-heading"><div><h1>Dashboard settings</h1><p class="settings-description">Make this dashboard your own. These preferences are saved in this browser, independently of UsageStat Bar.</p></div><button class="action-btn" type="button" onclick="switchTab('overview')">Back to Overview</button></div>
+    <div class="settings-layout">
+      <section class="settings-section" aria-labelledby="appearance-heading"><h2 id="appearance-heading">Appearance</h2><p>Choose how the dashboard looks and presents usage.</p>
+        ${select('setting-theme','Theme',S.prefs.theme,[['dark','Comfy dark'],['light','Light'],['system','Follow system']])}
+        ${select('setting-accent','Accent',S.prefs.accent,[['blue','Blue'],['green','Green'],['purple','Purple'],['orange','Orange']])}
+        ${select('setting-density','Card spacing',S.prefs.density,[['comfortable','Comfortable'],['compact','Compact']])}
+        ${select('setting-quota','Quota display',S.prefs.quotaDisplay,[['used','Used'],['remaining','Remaining']])}
+        ${check('setting-icons','Provider icons',S.prefs.icons)}
+        ${check('setting-summary','Overview summary',S.prefs.summary)}
+      </section>
+      <section class="settings-section" aria-labelledby="view-heading"><h2 id="view-heading">View and refresh</h2><p>Set the defaults for this dashboard.</p>
+        ${select('setting-refresh','Refresh this view',S.prefs.refreshSeconds,UsageDashboardSettings.REFRESH_SECONDS.map(v=>[String(v),v<60?`${v} seconds`:`${v/60} minute${v===60?'':'s'}`]),'Reads the latest saved usage. Provider polling follows the backend schedule.')}
+        ${select('setting-sort','Overview order',S.prefs.sort,[['order','My provider order'],['pressure','Quota pressure'],['cost30','30d cost'],['tokens30','30d tokens'],['recent','Last updated'],['name','Name']])}
+        ${check('setting-inactive','Hide inactive providers',!showInactive(),'Automatically hide providers with an error and no quota or recent tracked usage.')}
+        <p class="settings-note">Provider credentials and collection settings belong to the shared backend. Display changes here keep Bar’s setup independent.</p>
+        <div class="settings-actions"><button class="action-btn" id="settings-export" type="button">Export settings</button><button class="action-btn" id="settings-import" type="button">Import settings</button><button class="action-btn" id="settings-reset" type="button">Reset dashboard</button>${S.prefsUndo?'<button class="action-btn" id="settings-undo" type="button">Undo reset</button>':''}</div>
+        <p class="settings-status${S.settingsMessageError?' is-error':''}" id="settings-status" role="status">${esc(S.settingsMessage||'')}</p>
+      </section>
+      <section class="settings-section providers" aria-labelledby="providers-heading"><h2 id="providers-heading">Providers</h2><p>Choose which providers appear in Overview and the tab bar, give them display names, and select the quota shown in their summary. Saved history remains available.</p>
+        <div id="settingsProviders">${ids.length?ids.map((id,index)=>{
+          const pref=providerSetting(id),snap=S.snapshots.find(s=>s.providerId===id);
+          const original=S.providers.find(p=>p.id===id)?.name||snap?.displayName||id;
+          const quotas=(snap?.metrics||[]).filter(m=>m.type==='progress'&&m.format?.kind==='percent'&&m.limit>0);
+          const state=snap?snapshotHasError(snap)?(snap.metrics||[]).find(m=>m.type==='badge'&&/^error$/i.test(m.label))?.text||'Usage unavailable':isInactiveProvider(snap)?'Inactive':'Usage available':'Waiting for usage';
+          return `<div class="provider-setting" data-provider="${esc(id)}">
+            <div class="provider-setting-title"><input id="setting-visible-${esc(id)}" data-provider-option="visible" type="checkbox"${pref.visible?' checked':''}><label for="setting-visible-${esc(id)}"><span class="provider-setting-name">${providerIcon(id)}${esc(original)}</span><span class="provider-setting-state">${esc(state)}</span></label></div>
+            <div class="provider-setting-field"><label for="setting-name-${esc(id)}">Display name</label><input class="ctrl-input" id="setting-name-${esc(id)}" data-provider-option="name" maxlength="80" value="${esc(pref.name)}" placeholder="${esc(original)}"></div>
+            <div class="provider-setting-field"><label for="setting-primary-${esc(id)}">Summary quota</label><select class="ctrl-select" id="setting-primary-${esc(id)}" data-provider-option="primaryQuota">${selectOption('','Automatic',pref.primaryQuota)}${quotas.map(m=>selectOption(m.label,m.label,pref.primaryQuota)).join('')}</select></div>
+            <div class="provider-order-actions"><button class="action-btn" type="button" data-move="-1" aria-label="Move ${esc(original)} up"${index===0?' disabled':''}>↑</button><button class="action-btn" type="button" data-move="1" aria-label="Move ${esc(original)} down"${index===ids.length-1?' disabled':''}>↓</button></div>
+          </div>`;
+        }).join(''):'<p class="settings-note">Providers appear here once the backend has loaded them. Appearance settings are available now.</p>'}</div>
+      </section>
+    </div>`;
+  for(const [id,key] of [['setting-theme','theme'],['setting-accent','accent'],['setting-density','density'],['setting-quota','quotaDisplay'],['setting-sort','sort']]){
+    root.querySelector('#'+id).addEventListener('change',event=>setDashboardPref(key,event.target.value));
+  }
+  root.querySelector('#setting-refresh').addEventListener('change',event=>setDashboardPref('refreshSeconds',Number(event.target.value)));
+  for(const [id,key] of [['setting-icons','icons'],['setting-summary','summary']])root.querySelector('#'+id).addEventListener('change',event=>setDashboardPref(key,event.target.checked));
+  root.querySelector('#setting-inactive').addEventListener('change',event=>setDashboardPref('inactive',event.target.checked?'hide':'show'));
+  root.querySelectorAll('.provider-setting').forEach(row=>{
+    row.querySelectorAll('[data-provider-option]').forEach(input=>input.addEventListener('change',event=>updateProviderSetting(row.dataset.provider,input.dataset.providerOption,input.type==='checkbox'?event.target.checked:event.target.value)));
+    row.querySelectorAll('[data-move]').forEach(button=>button.addEventListener('click',()=>moveDashboardProvider(row.dataset.provider,Number(button.dataset.move))));
+  });
+  root.querySelector('#settings-export').addEventListener('click',exportPreferences);
+  root.querySelector('#settings-import').addEventListener('click',()=>document.getElementById('prefs-file').click());
+  root.querySelector('#settings-reset').addEventListener('click',resetDashboardSettings);
+  root.querySelector('#settings-undo')?.addEventListener('click',undoDashboardReset);
+}
+
 function loadPrefs(){
   try{
-    const raw = localStorage.getItem('usagestat.dashboard.prefs');
+    const raw = localStorage.getItem(UsageDashboardSettings.STORAGE_KEY);
     return cleanPreferences(raw ? JSON.parse(raw) : {});
   }catch{
-    return { search:'', status:'all', sort:'order' };
+    return cleanPreferences({});
   }
 }
 
 function cleanPreferences(value){
-  if(!value || typeof value!=='object' || Array.isArray(value)) throw new Error('Invalid preferences.');
-  const result={search:'',status:'all',sort:'order'};
-  for(const key of ['search','status','sort','quotaDisplay','inactive']) if(typeof value[key]==='string' && value[key].length<=256) result[key]=value[key];
-  if(value.trends && typeof value.trends==='object') {
-    result.trends={};
-    for(const key of ['provider','range','group','metric','breakdown','start','end']) if(typeof value.trends[key]==='string' && value.trends[key].length<=128) result.trends[key]=value.trends[key];
-  }
-  return result;
+  return UsageDashboardSettings.normalize(value);
 }
 function exportPreferences(){downloadText('usagestat-preferences.json',JSON.stringify({version:1,preferences:cleanPreferences(S.prefs)},null,2),'application/json');}
 document.getElementById('prefs-file').addEventListener('change',async event=>{
   const notice=document.getElementById('prefs-notice');
   try{
     const file=event.target.files[0]; if(!file)return;
-    if(file.size>16384)throw new Error('Preferences file is too large.');
+    if(file.size>65536)throw new Error('Preferences file is too large.');
     const data=JSON.parse(await file.text());
     if(data.version!==1)throw new Error('Unsupported preferences version.');
-    S.prefs=cleanPreferences(data.preferences);savePrefs();
-    quotaDisplay.value=S.prefs.quotaDisplay==='remaining'?'remaining':'used';
-    renderActive();notice.textContent='Preferences imported.';
-  }catch(error){notice.textContent=error.message||'Could not import preferences.';}
+    S.prefs=cleanPreferences(data.preferences);refreshSettings('Preferences imported.');
+    notice.textContent=S.storageError?'Preferences imported for this session; browser storage is unavailable.':'Preferences imported.';
+  }catch(error){notice.textContent=error.message||'Could not import preferences.';settingsStatus(notice.textContent,true);}
   event.target.value='';
 });
 
 function savePrefs(){
-  try{ localStorage.setItem('usagestat.dashboard.prefs', JSON.stringify(S.prefs)); }catch{}
+  try{ localStorage.setItem(UsageDashboardSettings.STORAGE_KEY, JSON.stringify(cleanPreferences(S.prefs)));S.storageError=false; }
+  catch{S.storageError=true;settingsStatus('Browser storage is unavailable. Changes apply to this session only.',true);}
 }
 
 function debounce(fn, ms){
@@ -1907,7 +2063,7 @@ async function renderProvider(id){
   // header
   let html=`<div class="detail">`;
   html+=`<div class="detail-header" style="border-left:3px solid ${accent}">`;
-  html+=`<div class="dh-left"><div class="dh-name">${providerIcon(snap.providerId)}${esc(snap.displayName||snap.providerId)}</div>`;
+  html+=`<div class="dh-left"><div class="dh-name">${providerIcon(snap.providerId)}${esc(providerName(snap.providerId))}</div>`;
   html+=`<div class="dh-tags">`;
   if(snap.source) html+=`<span class="badge b-${snap.source}">${esc(snap.source)}</span>`;
   if(snap.plan)   html+=`<span class="plan-tag">${esc(snap.plan)}</span>`;
@@ -3169,6 +3325,19 @@ function animateCompareBars(root){
 }
 
 // ── init ──────────────────────────────────────────────────────────────────────
+applyAppearance();
+if(typeof matchMedia==='function')matchMedia('(prefers-color-scheme: light)').addEventListener?.('change',()=>{if(S.prefs.theme==='system')applyAppearance();});
+if(typeof window!=='undefined')window.addEventListener('storage',event=>{
+  if(event.key!==UsageDashboardSettings.STORAGE_KEY)return;
+  try{S.prefs=cleanPreferences(event.newValue?JSON.parse(event.newValue):{});applyAppearance();quotaDisplay.value=S.prefs.quotaDisplay;buildTabs();applyTabVisibility();renderActive();startTick();}catch{}
+});
+function openDashboardHash(){
+  if(typeof location==='undefined')return;
+  const tab=location.hash.slice(1);
+  if(['overview','settings','history'].includes(tab))switchTab(tab);
+}
+if(typeof window!=='undefined')window.addEventListener('hashchange',openDashboardHash);
+openDashboardHash();
 load();
 </script>
 </body>

@@ -7,9 +7,11 @@ RUN dnf install -y \
     git \
     openssl-devel \
     pkgconf-pkg-config \
+    python3 \
     rpm-build \
     rpmdevtools \
     rust \
+    systemd-rpm-macros \
     && dnf clean all
 
 WORKDIR /work

@@ -101,6 +101,9 @@ for ident in ['antigravity', 'antigravity-cli', 'antigravity-ide', 'mistral', 'z
     FIXTURES.setdefault(ident, []).append('tests/inspo-sync-20260929.test.cjs')
 for ident in ['antigravity', 'antigravity-cli', 'antigravity-ide']:
     NOTES[ident] += ' Grouped session/weekly quota fixtures cover Starter, unknown values, explicit cadence and legacy fallbacks.'
+for ident in ['antigravity', 'antigravity-cli']:
+    FIXTURES.setdefault(ident, []).append('tests/antigravity-access.test.cjs')
+    NOTES[ident] += ' HTTP 403 quota permission denials remain distinct from expired authentication; fixtures preserve model fallback and one 401 refresh.'
 NOTES['mistral'] = 'Manual cookie billing fixtures match prices by event, metric, group, zone and tier; fine-tuning included. Missing rates produce an explicit partial spend total. Real account schemas remain unverified.'
 NOTES['zai'] = 'Configured API quota fixtures preserve recognized windows and explicitly flag unavailable/unknown plan quota shapes. Real account responses remain unverified.'
 NOTES['typesafe'] += ' Cookie billing may be blocked by Cloudflare; challenge fixtures distinguish failed access from expired authentication. Reviewed upstream has no working challenge transport or documented API billing alternative.'

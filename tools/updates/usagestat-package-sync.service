@@ -1,0 +1,8 @@
+[Unit]
+Description=Apply an installed Usagestat RPM upgrade to its running user daemon
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /usr/libexec/usagestat/service-sync.py --rpm
+TimeoutStartSec=90
+UMask=0077

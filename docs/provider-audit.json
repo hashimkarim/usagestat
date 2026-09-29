@@ -173,7 +173,7 @@
       "id": "antigravity",
       "manifest": "plugins/antigravity/plugin.json",
       "entry": "plugins/antigravity/plugin.js",
-      "entrySha256": "9956e232bf6e6fb84047b45b51691a85b0cda59ea1dedff74ca7f744cad44722",
+      "entrySha256": "551e478eec0f66e29ec35809e1264c387cad9b7d201d983300b1b07cfdbb1df9",
       "declaredModes": [
         "oauth",
         "local"
@@ -209,15 +209,16 @@
       "fixtures": [
         "tests/provider-remaining-paths.test.cjs",
         "tools/portability/ide_discovery.py",
-        "tests/inspo-sync-20260929.test.cjs"
+        "tests/inspo-sync-20260929.test.cjs",
+        "tests/antigravity-access.test.cjs"
       ],
-      "auditNote": "Native IDE roots and profile/cache isolation fixtures; private OAuth schema/current app still unverified. Grouped session/weekly quota fixtures cover Starter, unknown values, explicit cadence and legacy fallbacks."
+      "auditNote": "Native IDE roots and profile/cache isolation fixtures; private OAuth schema/current app still unverified. Grouped session/weekly quota fixtures cover Starter, unknown values, explicit cadence and legacy fallbacks. HTTP 403 quota permission denials remain distinct from expired authentication; fixtures preserve model fallback and one 401 refresh."
     },
     {
       "id": "antigravity-cli",
       "manifest": "plugins/antigravity-cli/plugin.json",
       "entry": "plugins/antigravity-cli/plugin.js",
-      "entrySha256": "05f8afa20c932381090074dadda7d615b6dac0da41ba5e337eee1884036eb99d",
+      "entrySha256": "b67252d7497b34397096929b578aa361ee93b1193c3346549144fa29966bd734",
       "declaredModes": [
         "oauth",
         "local"
@@ -244,9 +245,10 @@
       ],
       "branchesOnSourceMode": false,
       "fixtures": [
-        "tests/inspo-sync-20260929.test.cjs"
+        "tests/inspo-sync-20260929.test.cjs",
+        "tests/antigravity-access.test.cjs"
       ],
-      "auditNote": "Exact gemini/antigravity account only; upstream keyring target/encoding and CLI-state versions need verification. Grouped session/weekly quota fixtures cover Starter, unknown values, explicit cadence and legacy fallbacks."
+      "auditNote": "Exact gemini/antigravity account only; upstream keyring target/encoding and CLI-state versions need verification. Grouped session/weekly quota fixtures cover Starter, unknown values, explicit cadence and legacy fallbacks. HTTP 403 quota permission denials remain distinct from expired authentication; fixtures preserve model fallback and one 401 refresh."
     },
     {
       "id": "antigravity-ide",

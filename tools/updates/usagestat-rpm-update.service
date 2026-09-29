@@ -1,0 +1,12 @@
+# Managed by usagestat RPM auto update
+[Unit]
+Description=Install published Usagestat RPM upgrades
+Wants=network-online.target
+After=network-online.target
+ConditionPathExists=/usr/bin/dnf5
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/dnf5 --refresh --assumeyes upgrade --from-repo=copr:copr.fedorainfracloud.org:hashimkarim:usagestat usagestat
+TimeoutStartSec=15min
+UMask=0077

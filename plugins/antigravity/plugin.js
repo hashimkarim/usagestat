@@ -10,6 +10,7 @@
   var FETCH_MODELS_PATH = "/v1internal:fetchAvailableModels"
   var RETRIEVE_QUOTA_PATH = "/v1internal:retrieveUserQuota"
   var LOGIN_MESSAGE = "Start Antigravity or run `agy` and try again."
+  var QUOTA_DENIED_MESSAGE = "Google denied Antigravity quota access for this account. Open the latest Antigravity or agy client and check account access."
   var GOOGLE_OAUTH_URL = "https://oauth2.googleapis.com/token"
   var GOOGLE_CLIENT_ID = "1071006060591-tmhssin2h21lcre235vtolojh4g403ep.apps.googleusercontent.com"
   var GOOGLE_CLIENT_SECRET = "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"
@@ -370,17 +371,17 @@
   // reports per-model quota, so use it before treating the token as rejected.
   function probeAgyToken(ctx, token) {
     var quota = probeAgyCloudCode(ctx, token)
-    if (quota && !quota._authFailed) return quota
+    if (quota && !quota._authFailed && !quota._quotaDenied) return quota
     var models = probeCloudCode(ctx, token, "agy", true)
-    if (models && !models._authFailed) {
+    if (models && !models._authFailed && !models._quotaDenied) {
       if (models._summaryLines) return { plan: null, lines: models._summaryLines }
       var lines = buildModelLines(ctx, parseCloudCodeModels(models))
       if (lines.length > 0) return { plan: null, lines: lines }
-      return null
+      return quota && quota._quotaDenied ? quota : null
     }
     // A quota 403 can mean "no license", not an invalid bearer. If the model
     // endpoint is temporarily unavailable, don't turn that into a token refresh.
-    return models
+    return models || (quota && quota._quotaDenied ? quota : null)
   }
 
   // --- LS discovery ---
@@ -568,7 +569,8 @@
           ctx.host.log.warn("Cloud Code returned invalid response shape (" + CLOUD_CODE_URLS[i] + ")")
           continue
         }
-        if (ctx.util.isAuthStatus(resp.status)) return { _authFailed: true }
+        if (resp.status === 401) return { _authFailed: true }
+        if (resp.status === 403) return { _quotaDenied: true }
         if (resp.status >= 200 && resp.status < 300) {
           var json = ctx.util.tryParseJson(resp.bodyText)
           if (!json || typeof json !== "object") {
@@ -654,7 +656,7 @@
 
   function probeAgyCloudCode(ctx, token) {
     var loadData = requestCloudCodeJson(ctx, LOAD_CODE_ASSIST_PATH, token, "agy", {})
-    if (!loadData || loadData._authFailed) return loadData
+    if (!loadData || loadData._authFailed || loadData._quotaDenied) return loadData
 
     var project =
       typeof loadData.cloudaicompanionProject === "string" && loadData.cloudaicompanionProject.trim()
@@ -667,10 +669,10 @@
     if (project) {
       quotaData = requestCloudCodeJson(ctx, RETRIEVE_QUOTA_PATH, token, "agy", { project: project })
     }
-    if (!quotaData || quotaData._authFailed) {
+    if (!quotaData || quotaData._authFailed || quotaData._quotaDenied) {
       quotaData = requestCloudCodeJson(ctx, RETRIEVE_QUOTA_PATH, token, "agy", {})
     }
-    if (!quotaData || quotaData._authFailed) return quotaData
+    if (!quotaData || quotaData._authFailed || quotaData._quotaDenied) return quotaData || (summary && summary._quotaDenied ? summary : null)
 
     var lines = buildModelLines(ctx, parseAgyQuotaBuckets(quotaData))
     if (lines.length === 0) return null
@@ -830,19 +832,21 @@
     }
 
     // agy's own login also covers users whose IDE database is stale or absent.
-    if (!explicitDb && (!ccData || ccData._authFailed)) {
+    if (!explicitDb && (!ccData || ccData._authFailed || ccData._quotaDenied)) {
       var agyResult = probeAgyCredentials(ctx)
-      if (agyResult && !agyResult._authFailed) return agyResult
+      if (agyResult && !agyResult._authFailed && !agyResult._quotaDenied) return agyResult
+      if (agyResult && agyResult._quotaDenied) ccData = agyResult
       if (agyResult && agyResult._authFailed) ccData = agyResult
     }
 
-    if (ccData && !ccData._authFailed) {
+    if (ccData && !ccData._authFailed && !ccData._quotaDenied) {
       if (ccData._summaryLines) return { plan: null, lines: ccData._summaryLines }
       var configs = parseCloudCodeModels(ccData)
       var lines = buildModelLines(ctx, configs)
       if (lines.length > 0) return { plan: null, lines: lines }
     }
 
+    if (ccData && ccData._quotaDenied) throw QUOTA_DENIED_MESSAGE
     throw LOGIN_MESSAGE
   }
 

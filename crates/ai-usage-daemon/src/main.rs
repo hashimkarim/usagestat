@@ -5,6 +5,7 @@ use usagestat_core::{
 
 const DASHBOARD_HTML: &str = include_str!("dashboard.html");
 const DASHBOARD_TRENDS_JS: &str = include_str!("dashboard-trends.js");
+const DASHBOARD_SETTINGS_JS: &str = include_str!("dashboard-settings.js");
 use anyhow::{Context, Result};
 use chrono::Utc;
 use clap::Parser;
@@ -468,6 +469,15 @@ fn route(
             "OK",
             "text/javascript; charset=utf-8",
             DASHBOARD_TRENDS_JS,
+        );
+    }
+
+    if path == "/dashboard/settings.js" {
+        return response_text(
+            200,
+            "OK",
+            "text/javascript; charset=utf-8",
+            DASHBOARD_SETTINGS_JS,
         );
     }
 

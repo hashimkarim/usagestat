@@ -167,6 +167,11 @@ while the daemon is stopped; `--json` emits `{"dashboardUrl":"..."}`. Both skip
 the browser and health check, so they work over SSH. The dev CLI resolves its
 own service settings with `usagestat-dev dashboard`.
 
+The source dashboard's **Settings** tab controls provider visibility, order,
+display names, summary quotas and appearance independently of UsageStat Bar.
+See [dashboard settings](dashboard-settings.md) for persistence and import/export.
+The existing published v2.0.0 archive predates this settings page.
+
 The dashboard's **History** tab shows saved daily token and cost trends across
 providers, including providers that are no longer enabled. Filter by provider,
 choose 7, 30, 90, or 365 days, month-to-date, all saved history, or custom dates,

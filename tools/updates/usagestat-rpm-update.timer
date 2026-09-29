@@ -1,0 +1,11 @@
+# Managed by usagestat RPM auto update
+[Unit]
+Description=Check for published Usagestat RPM upgrades daily
+
+[Timer]
+OnCalendar=daily
+RandomizedDelaySec=30min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

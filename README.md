@@ -314,6 +314,12 @@ and `/v1/history/daily/<provider>/<period>` (`month`, `all`, or a day count).
 credential or account labels. See [history accounting](docs/history-accounting.md)
 for source precedence, model estimates, cache savings, and pricing coverage.
 
+The source dashboard's **Settings** tab adds provider visibility, custom names,
+ordering and summary quotas, plus themes, accents, card spacing and refresh
+preferences. These settings stay in the browser independently of UsageStat Bar.
+See [dashboard settings](docs/dashboard-settings.md) and
+[automatic service updates](docs/installation.md#automatic-updates-on-fedora).
+
 ## Development
 
 Build and install a separate dev profile with a current stable Rust toolchain
