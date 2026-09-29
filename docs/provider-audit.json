@@ -173,7 +173,7 @@
       "id": "antigravity",
       "manifest": "plugins/antigravity/plugin.json",
       "entry": "plugins/antigravity/plugin.js",
-      "entrySha256": "de6a94dd87cc4196ba0525dd6e8914c5994622870e5ea32225f67a74e8872268",
+      "entrySha256": "9956e232bf6e6fb84047b45b51691a85b0cda59ea1dedff74ca7f744cad44722",
       "declaredModes": [
         "oauth",
         "local"
@@ -208,15 +208,16 @@
       "branchesOnSourceMode": false,
       "fixtures": [
         "tests/provider-remaining-paths.test.cjs",
-        "tools/portability/ide_discovery.py"
+        "tools/portability/ide_discovery.py",
+        "tests/inspo-sync-20260929.test.cjs"
       ],
-      "auditNote": "Native IDE roots and profile/cache isolation fixtures; private OAuth schema/current app still unverified."
+      "auditNote": "Native IDE roots and profile/cache isolation fixtures; private OAuth schema/current app still unverified. Grouped session/weekly quota fixtures cover Starter, unknown values, explicit cadence and legacy fallbacks."
     },
     {
       "id": "antigravity-cli",
       "manifest": "plugins/antigravity-cli/plugin.json",
       "entry": "plugins/antigravity-cli/plugin.js",
-      "entrySha256": "832f94f373aa28595473ce0440b5aabc5014079da7a8d1beb2b2ef4a0e5a3de1",
+      "entrySha256": "05f8afa20c932381090074dadda7d615b6dac0da41ba5e337eee1884036eb99d",
       "declaredModes": [
         "oauth",
         "local"
@@ -242,14 +243,16 @@
         "~/.gemini/antigravity-cli"
       ],
       "branchesOnSourceMode": false,
-      "fixtures": [],
-      "auditNote": "Exact gemini/antigravity account only; upstream keyring target/encoding and CLI-state versions need verification."
+      "fixtures": [
+        "tests/inspo-sync-20260929.test.cjs"
+      ],
+      "auditNote": "Exact gemini/antigravity account only; upstream keyring target/encoding and CLI-state versions need verification. Grouped session/weekly quota fixtures cover Starter, unknown values, explicit cadence and legacy fallbacks."
     },
     {
       "id": "antigravity-ide",
       "manifest": "plugins/antigravity-ide/plugin.json",
       "entry": "plugins/antigravity-ide/plugin.js",
-      "entrySha256": "451675333621529e4c68f9d1e779d7b0dcb4a9f2262b534055ad11fc6f395fd2",
+      "entrySha256": "120e636fe7a7554da35e439ae684d4ccc574b7b8ce05e52d9fd4a5ae3b283f7b",
       "declaredModes": [
         "local"
       ],
@@ -271,9 +274,10 @@
       "literalPathEvidence": [],
       "branchesOnSourceMode": false,
       "fixtures": [
-        "tools/portability/ide_discovery.py"
+        "tools/portability/ide_discovery.py",
+        "tests/inspo-sync-20260929.test.cjs"
       ],
-      "auditNote": "Native discovery/argument fixtures; real IDE version and process permissions pending #12/#20."
+      "auditNote": "Native discovery/argument fixtures; real IDE version and process permissions pending #12/#20. Grouped session/weekly quota fixtures cover Starter, unknown values, explicit cadence and legacy fallbacks."
     },
     {
       "id": "atlascloud",
@@ -1911,7 +1915,7 @@
       "id": "mistral",
       "manifest": "plugins/mistral/plugin.json",
       "entry": "plugins/mistral/plugin.js",
-      "entrySha256": "5473b779cbb612eee2752bc5d4650d07b4236abbb4020576f328a3cea0993d48",
+      "entrySha256": "72673a6f395feb742a434089409dfa500e46e9bf2b10879356c4d23bf496b298",
       "declaredModes": [
         "web"
       ],
@@ -1932,9 +1936,10 @@
       "literalPathEvidence": [],
       "branchesOnSourceMode": false,
       "fixtures": [
-        "tests/inspo-sync-20260927.test.cjs"
+        "tests/inspo-sync-20260927.test.cjs",
+        "tests/inspo-sync-20260929.test.cjs"
       ],
-      "auditNote": "Configured credentials and HTTP request code inspected; real credentials, API responses and provider/account behavior remain unverified on each OS."
+      "auditNote": "Manual cookie billing fixtures match prices by event, metric, group, zone and tier; fine-tuning included. Missing rates produce an explicit partial spend total. Real account schemas remain unverified."
     },
     {
       "id": "moonshot",
@@ -1968,7 +1973,7 @@
       "id": "muse",
       "manifest": "plugins/muse/plugin.json",
       "entry": "plugins/muse/plugin.js",
-      "entrySha256": "85bc5e0c0d12d71d4e08ec5347cb7b60db567445a5e845c2abb879f1d22e8ba4",
+      "entrySha256": "1bb53d687b1ce19a0a5ac4f58ed7a0d762465e5deff2cdf1b8bf41bfdf049dd1",
       "declaredModes": [
         "api"
       ],
@@ -2421,7 +2426,7 @@
       "id": "raycast",
       "manifest": "plugins/raycast/plugin.json",
       "entry": "plugins/raycast/plugin.js",
-      "entrySha256": "239d60b2111645707fec1a16f03415934b0dd59a8534be123599f9cf9c806651",
+      "entrySha256": "70e92a070c748b435f10a7a65fcca9bdc670a9689d9535e32ea4c4197a706b35",
       "declaredModes": [
         "web"
       ],
@@ -2647,7 +2652,7 @@
       "fixtures": [
         "tests/bundled-providers.test.cjs"
       ],
-      "auditNote": "Vendored CodexBar provider with a bounded native asynchronous host adapter and explicit credential/endpoint routing. Disabled by default. Adapter fixtures do not qualify real credentials, browser import, or every optional upstream workflow; cache TTL is not persisted."
+      "auditNote": "Vendored CodexBar provider with a bounded native asynchronous host adapter and explicit credential/endpoint routing. Disabled by default. Adapter fixtures do not qualify real credentials, browser import, or every optional upstream workflow; cache TTL is not persisted. Cookie billing may be blocked by Cloudflare; challenge fixtures distinguish failed access from expired authentication. Reviewed upstream has no working challenge transport or documented API billing alternative."
     },
     {
       "id": "v0",
@@ -2920,7 +2925,7 @@
       "id": "zai",
       "manifest": "plugins/zai/plugin.json",
       "entry": "plugins/zai/plugin.js",
-      "entrySha256": "4e88d1a07226c08d85ca30c30027a381643ddc71704ad245b09a16ec1c705221",
+      "entrySha256": "f363ca91d2fd28f20a71e7c513847be98859616d4df075992bb8ba3009f4173a",
       "declaredModes": [
         "api"
       ],
@@ -2942,9 +2947,10 @@
       "fixtures": [
         "tests/plugin-contracts.test.cjs",
         "tests/provider-updates.test.cjs",
-        "tests/quota-regressions.test.cjs"
+        "tests/quota-regressions.test.cjs",
+        "tests/inspo-sync-20260929.test.cjs"
       ],
-      "auditNote": "Configured credentials and HTTP request code inspected; real credentials, API responses and provider/account behavior remain unverified on each OS."
+      "auditNote": "Configured API quota fixtures preserve recognized windows and explicitly flag unavailable/unknown plan quota shapes. Real account responses remain unverified."
     },
     {
       "id": "zed",

@@ -16,7 +16,7 @@
   ],
   "upstream": {
     "repository": "https://github.com/steipete/CodexBar",
-    "revision": "78ba5a1e65e6859da59a21b799df95ab91bc0b89",
+    "revision": "25bba9b7fd9ce83c33053958f7366e23b2dc8a82",
     "path": "Sources/CodexBarCore/Resources/Plugins/gitkraken.js",
     "sha256": "c583890b74fc4c054cd818e560b30a17dd716c7611b554bd5b559f533a824ca2",
     "license": "MIT"

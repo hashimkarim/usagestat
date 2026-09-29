@@ -294,7 +294,7 @@
           "User-Agent": "agy",
         },
         bodyText: JSON.stringify(body || {}),
-        timeoutMs: 15000,
+        timeoutMs: opts.timeoutMs || 15000,
       })
     } catch (e) {
       if (opts.optional) {
@@ -539,6 +539,12 @@
     )
     if (!loadData) throw REQUEST_FAILED_MESSAGE
     var plan = readPlan(loadData)
+
+    var project = typeof loadData.cloudaicompanionProject === "string" ? loadData.cloudaicompanionProject.trim() : ""
+    var summary = requestJsonAcrossBases(ctx, "/v1internal:retrieveUserQuotaSummary", authState.token,
+      project ? { project: project } : {}, { optional: true, timeoutMs: 2000 })
+    var summaryLines = ctx.util.groupedQuotaLines(summary)
+    if (summaryLines.length) return { plan: plan || undefined, lines: summaryLines }
 
     var buckets = []
     // fetchAvailableModels rejects `metadata` in the body (HTTP 400); use {} like Antigravity IDE.

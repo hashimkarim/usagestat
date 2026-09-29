@@ -15,7 +15,7 @@
   ],
   "upstream": {
     "repository": "https://github.com/steipete/CodexBar",
-    "revision": "78ba5a1e65e6859da59a21b799df95ab91bc0b89",
+    "revision": "25bba9b7fd9ce83c33053958f7366e23b2dc8a82",
     "path": "Sources/CodexBarCore/Resources/Plugins/llmman.js",
     "sha256": "eb48d35bb101fda0e3bf122eea358c6e16ea937ac72376e6e4ede52e7828d209",
     "license": "MIT"

@@ -18,9 +18,9 @@
   ],
   "upstream": {
     "repository": "https://github.com/steipete/CodexBar",
-    "revision": "78ba5a1e65e6859da59a21b799df95ab91bc0b89",
+    "revision": "25bba9b7fd9ce83c33053958f7366e23b2dc8a82",
     "path": "Sources/CodexBarCore/Resources/Plugins/muse.js",
-    "sha256": "80ddeae2d6f2fb90b22b3a978dfdd5f8904a1766687a19bc93c8108fd5a7dc41",
+    "sha256": "aa5cb7f56d51c03534cd30f45e45fb457e7c2493eb6c318d4929dac33563577d",
     "license": "MIT"
   }
 }

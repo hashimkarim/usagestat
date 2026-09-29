@@ -16,9 +16,9 @@
   ],
   "upstream": {
     "repository": "https://github.com/steipete/CodexBar",
-    "revision": "78ba5a1e65e6859da59a21b799df95ab91bc0b89",
+    "revision": "25bba9b7fd9ce83c33053958f7366e23b2dc8a82",
     "path": "Sources/CodexBarCore/Resources/Plugins/raycast.js",
-    "sha256": "1f93bd240923c8427615b2de3a40d46f167b907864c01475754b115b804c3ee4",
+    "sha256": "df8f6d185cb67fd9ec9b622d2321a6d4e5395576b9ab54b1725aac272c95ecb7",
     "license": "MIT"
   }
 }

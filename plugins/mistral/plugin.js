@@ -29,34 +29,51 @@
     return { month: now.getUTCMonth() + 1, year: now.getUTCFullYear() }
   }
 
-  function aggregateModels(models, prices) {
+  function aggregateModels(models, prices, countsTokens) {
     var total = 0
+    var complete = true
     var inputTokens = 0
     var outputTokens = 0
-    if (!models) return { cost: 0, inputTokens: 0, outputTokens: 0 }
+    if (!models) return { cost: 0, complete: true, inputTokens: 0, outputTokens: 0 }
     var keys = Object.keys(models)
     for (var i = 0; i < keys.length; i++) {
       var data = models[keys[i]]
-      total += sumEntries(data.input, prices)
-      total += sumEntries(data.output, prices)
-      total += sumEntries(data.cached, prices)
-      inputTokens += countEntries(data.input)
-      outputTokens += countEntries(data.output)
+      for (var entries of [data.input, data.output, data.cached]) {
+        var sum = sumEntries(entries, prices)
+        total += sum.cost
+        complete = complete && sum.complete
+      }
+      if (countsTokens !== false) {
+        inputTokens += countEntries(data.input)
+        outputTokens += countEntries(data.output)
+      }
     }
-    return { cost: total, inputTokens: inputTokens, outputTokens: outputTokens }
+    if (!Number.isFinite(total)) throw new Error('Invalid Mistral billing total.')
+    return { cost: total, complete: complete, inputTokens: inputTokens, outputTokens: outputTokens }
+  }
+
+  function priceKey(entry, unqualified) {
+    return JSON.stringify([entry.event_type ?? null, entry.billing_metric ?? null, entry.billing_group ?? null,
+      unqualified ? null : entry.api_zone ?? null, unqualified ? null : entry.service_tier ?? null])
   }
 
   function sumEntries(entries, prices) {
-    if (!entries) return 0
+    if (!entries) return { cost: 0, complete: true }
     var total = 0
+    var complete = true
     for (var i = 0; i < entries.length; i++) {
       var e = entries[i]
       var paid = e.value_paid != null ? e.value_paid : (e.value || 0)
-      var key = e.billing_metric + "::" + e.billing_group
-      var price = prices[key] || 0
-      total += paid * price
+      if (typeof paid !== 'number' || !Number.isFinite(paid) || paid < 0)
+        throw new Error('Invalid Mistral billed quantity.')
+      if (paid === 0) continue
+      // A different event type, region or tier must never supply the price.
+      // Legacy unqualified rows are the only supported fallback.
+      var price = prices.get(priceKey(e, false)) ?? prices.get(priceKey(e, true))
+      if (price === undefined) complete = false
+      else total += paid * price
     }
-    return total
+    return { cost: total, complete: complete }
   }
 
   function countEntries(entries) {
@@ -71,13 +88,14 @@
   }
 
   function buildPriceIndex(prices) {
-    var index = {}
+    var index = new Map()
     if (!prices) return index
     for (var i = 0; i < prices.length; i++) {
       var p = prices[i]
-      if (p.billing_metric && p.billing_group && p.price) {
-        var key = p.billing_metric + "::" + p.billing_group
-        index[key] = parseFloat(p.price) || 0
+      var validPrice = typeof p.price === 'number' || (typeof p.price === 'string' && p.price.trim() !== '')
+      var price = validPrice ? Number(p.price) : NaN
+      if (p.billing_metric && p.billing_group && Number.isFinite(price) && price >= 0) {
+        index.set(priceKey(p, false), price)
       }
     }
     return index
@@ -217,6 +235,7 @@
     var symbol = billing.currency_symbol || "€"
 
     var totalCost = 0
+    var completeCost = true
     var totalInput = 0
     var totalOutput = 0
 
@@ -225,26 +244,39 @@
       if (!completions[c] || !completions[c].models) continue
       var r = aggregateModels(completions[c].models, prices)
       totalCost += r.cost; totalInput += r.inputTokens; totalOutput += r.outputTokens
+      completeCost = completeCost && r.complete
     }
 
     var extras = [billing.ocr, billing.connectors, billing.audio]
     for (var i = 0; i < extras.length; i++) {
       if (extras[i] && extras[i].models) {
-        totalCost += aggregateModels(extras[i].models, prices).cost
+        var extra = aggregateModels(extras[i].models, prices, false)
+        totalCost += extra.cost
+        completeCost = completeCost && extra.complete
       }
     }
 
     if (billing.libraries_api) {
       var lib = billing.libraries_api
-      if (lib.pages && lib.pages.models) totalCost += aggregateModels(lib.pages.models, prices).cost
-      if (lib.tokens && lib.tokens.models) totalCost += aggregateModels(lib.tokens.models, prices).cost
+      for (var category of [lib.pages, lib.tokens]) {
+        var extra = aggregateModels(category && category.models, prices, false)
+        totalCost += extra.cost
+        completeCost = completeCost && extra.complete
+      }
     }
 
-    var costStr = symbol + totalCost.toFixed(4) + " this month (" + currency + ")"
+    if (billing.fine_tuning) for (var category of [billing.fine_tuning.training, billing.fine_tuning.storage]) {
+      var extra = aggregateModels(category, prices, false)
+      totalCost += extra.cost
+      completeCost = completeCost && extra.complete
+    }
+    if (!Number.isFinite(totalCost)) throw new Error('Invalid Mistral billing total.')
+    var costStr = symbol + totalCost.toFixed(4) + (completeCost ? "" : "+") + " this month (" + currency + ")"
     var tokenDetail = totalInput + " in / " + totalOutput + " out tokens"
 
     var lines = [
-      ctx.line.text({ label: "Monthly spend", value: costStr }),
+      ctx.line.text({ label: "Monthly spend", value: costStr,
+        subtitle: completeCost ? undefined : "Partial total: some billing rows have no matching price." }),
       ctx.line.text({ label: "Tokens", value: tokenDetail }),
     ]
 

@@ -79,6 +79,16 @@ access. If browser access works but the backend remains blocked, use a
 provider-supported automated access route; refreshing a cookie is not a
 guaranteed fix. The adapter neither retries nor bypasses the protection.
 
+TypeSafe still uses its console billing page and a discovered Next.js server
+action with the selected cookie. The reviewed CodexBar and Win-CodexBar sources
+have no browser-session transport that resolves Cloudflare challenges, and
+crossusage/openusage have no TypeSafe provider to port. TypeSafe's
+[published API schema](https://api.typesafe.ai/openapi.json), checked on
+2026-09-29, lists inference and model discovery but no account billing/balance
+endpoint. An API key therefore cannot replace this cookie path using the
+documented API. Cloudflare detection improves the error message; successful
+TypeSafe billing reads remain unverified and can remain blocked.
+
 The database reader opens a read-only SQLite transaction with a 250 ms busy
 limit. It reads committed WAL data directly, never marks an active store immutable,
 and creates no temporary cookie database or sidecar copies. It filters exact

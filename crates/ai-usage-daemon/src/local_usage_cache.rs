@@ -10,8 +10,8 @@ use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{Duration, Instant, SystemTime};
 use usagestat_core::{paths, provider_paths, usage_daily};
 
-// v5 removes repeated Claude message/request usage before compaction.
-const VERSION: u32 = 5;
+// v6 includes Sonnet 5.5 pricing; v5 removed repeated Claude message/request usage.
+const VERSION: u32 = 6;
 const TTL: Duration = Duration::from_secs(30);
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

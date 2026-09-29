@@ -1256,6 +1256,46 @@ fn inject_utils(ctx: &Ctx<'_>) -> rquickjs::Result<()> {
                     start.setUTCDate(Math.min(day, lastDay));
                     return end.getTime() - start.getTime();
                 },
+                // Shared by Antigravity's IDE and OAuth quota-summary routes.
+                groupedQuotaLines: function(data) {
+                    if (!data || (data.code != null && !["0", "ok", "success"].includes(String(data.code).toLowerCase()))) return [];
+                    var summary = data.response || data.summary || data;
+                    if (!Array.isArray(summary.groups)) return [];
+                    var lines = [], known = false;
+                    var text = function(value) { return typeof value === "string" ? value.trim() : ""; };
+                    for (var group of summary.groups) {
+                        if (!group || !Array.isArray(group.buckets)) continue;
+                        var name = text(group.displayName || group.name) || "Quota";
+                        if (/gemini/i.test(name)) name = "Gemini";
+                        else if (/claude|gpt/i.test(name)) name = "Claude/GPT";
+                        for (var bucket of group.buckets) {
+                            if (!bucket || !text(bucket.bucketId || bucket.id)) continue;
+                            var title = text(bucket.displayName || bucket.name) || text(bucket.bucketId || bucket.id);
+                            // Explicit unknown cadence must not inherit a duration from its label.
+                            var explicit = text(bucket.window);
+                            var cadences = (explicit ? [explicit] : [title, bucket.bucketId || bucket.id]).map(function(value) {
+                                return text(value).toLowerCase().replace(/_/g, "-").replace(/ limit$/, "");
+                            });
+                            var matches = function(aliases) { return cadences.some(function(value) {
+                                return aliases.some(function(alias) { return value === alias || value.endsWith("-" + alias); });
+                            }); };
+                            var period = matches(["session", "5h", "5-hour", "five hour", "five-hour"]) ? 18000000 :
+                                matches(["weekly"]) ? 604800000 : undefined;
+                            var label = name + " " + (period === 604800000 ? "Weekly" : period === 18000000 ? "Session" : title);
+                            var remaining = bucket.remaining;
+                            var fraction = bucket.remainingFraction ?? (remaining && (remaining.remainingFraction ??
+                                (remaining.case === "remainingFraction" ? remaining.value : undefined)));
+                            if (bucket.disabled === true || typeof fraction !== "number" || !Number.isFinite(fraction)) {
+                                lines.push(ctx.line.text({label: label, value: "Unavailable"}));
+                                continue;
+                            }
+                            known = true;
+                            lines.push(ctx.line.progress({label: label, used: Math.max(0, Math.min(100, (1 - fraction) * 100)), limit: 100,
+                                format: {kind: "percent"}, periodDurationMs: period, resetsAt: ctx.util.toIso(bucket.resetTime) || undefined}));
+                        }
+                    }
+                    return known ? lines : [];
+                },
                 retryOnceOnAuth: function(opts) {
                     var first = opts.request(null);
                     var isAuthStatus = opts.isAuthStatus || ctx.util.isAuthStatus;

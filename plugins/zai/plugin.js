@@ -106,7 +106,11 @@
         format: { kind: "count", suffix: "searches" }, periodDurationMs: MONTH_MS,
         resetsAt: reset(ctx, mcp, MONTH_MS) }))
     }
-    if (!lines.length) lines.push(ctx.line.badge({ label: "Status", text: "No usage data", color: "#a3a3a3" }))
+    const recognized = limits.filter((item) => ["TOKENS_LIMIT", "CREDIT_LIMIT", "TIME_LIMIT"].includes(item.type || item.name))
+    if (!quota.length || recognized.length !== limits.length) lines.push(ctx.line.text({
+      label: quota.length ? "Additional quota" : "Coding Plan usage", value: "Unavailable",
+      subtitle: "Check Usage Dashboard for complete plan usage.",
+    }))
 
     if (quota.some((item) => (item.type || item.name) === "CREDIT_LIMIT")) {
       const now = new Date(ctx.nowIso)

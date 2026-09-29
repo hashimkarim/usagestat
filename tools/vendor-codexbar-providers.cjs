@@ -7,7 +7,7 @@ const {createHash} = require('node:crypto');
 const {execFileSync} = require('node:child_process');
 const root = path.resolve(__dirname, '..');
 const upstream = path.join(root, 'inspo/CodexBar');
-const revision = '78ba5a1e65e6859da59a21b799df95ab91bc0b89';
+const revision = '25bba9b7fd9ce83c33053958f7366e23b2dc8a82';
 const catalog = {
   aixy: ['Budget', 'Secondary budget', 'https://dash.aixy-gateway.com', {AIXY_BASE_URL: 'https://api.aixy-gateway.com'}],
   atlascloud: ['Balance', 'Balance', 'https://www.atlascloud.ai/console'],

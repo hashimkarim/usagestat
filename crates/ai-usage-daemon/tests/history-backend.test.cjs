@@ -84,7 +84,7 @@ test('daemon serves compact history and saved model days with source and price c
   assert.equal(days[day].sessions,1);
   assert.equal(days[day].models['gpt-6-astra'].costKnown,true);
   assert.equal(days[day].costSource,'api-rate-estimate');
-  assert.equal(days[day].pricingAsOf,'2026-09-27');
+  assert.equal(days[day].pricingAsOf,'2026-09-29');
   assert.equal(days['2026-09-02'].totalTokens,95);
   assert.equal(days['2026-09-02'].models.unknown.costKnown,false);
   assert.equal(days['2026-09-02'].costKnown,false);
@@ -139,7 +139,7 @@ test('daemon serves compact history and saved model days with source and price c
   assert.deepEqual(sources.find(row=>row.source==='ccusage'),{source:'ccusage',selected:false,ingestedAt:'first',costUsd:2,costKnown:false,
     totalTokens:120,tokensKnown:false,inputTokens:15,cacheReadTokens:70,cacheCreationTokens:15,outputTokens:20});
   const local=sources.find(row=>row.costSource==='api-rate-estimate');
-  assert.equal(local.pricingAsOf,'2026-09-27');
+  assert.equal(local.pricingAsOf,'2026-09-29');
   assert.equal(local.timeZone,'UTC');
   assert.ok(Number.isFinite(Date.parse(local.ingestedAt)));
   assert.ok(sources.filter(row=>row.source!=='local-transcript-v2').every(row=>!('timeZone' in row)),'legacy rows are not assigned a zone');

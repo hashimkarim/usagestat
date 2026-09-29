@@ -18,7 +18,7 @@
   ],
   "upstream": {
     "repository": "https://github.com/steipete/CodexBar",
-    "revision": "78ba5a1e65e6859da59a21b799df95ab91bc0b89",
+    "revision": "25bba9b7fd9ce83c33053958f7366e23b2dc8a82",
     "path": "Sources/CodexBarCore/Resources/Plugins/hyper.js",
     "sha256": "893e1a9a91e7af57522bcc39791d77d6fe3b8ae0d61384aee1768f5f419636cd",
     "license": "MIT"

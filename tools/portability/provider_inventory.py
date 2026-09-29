@@ -97,6 +97,13 @@ NOTES['pi'] = 'Bounded local Pi/OMP transcript collection, profile isolation and
 NOTES['coderabbit'] = 'Bounded read-only coderabbit usage CLI helper and JSON fixtures. Installed CLI versions/authentication remain unverified.'
 NOTES['gemini-apps'] = 'Explicit web-session SAPISID hash authentication and HTTP/1 RPC fixtures. Browser-bound live sessions and current RPC schema remain unverified.'
 NOTES['deepseek'] = 'API balance plus explicitly selected Platform wallet and bounded daily/monthly detail collection. Non-USD spend is never stored as USD. Synthetic fixtures only; live Platform schemas remain unverified.'
+for ident in ['antigravity', 'antigravity-cli', 'antigravity-ide', 'mistral', 'zai']:
+    FIXTURES.setdefault(ident, []).append('tests/inspo-sync-20260929.test.cjs')
+for ident in ['antigravity', 'antigravity-cli', 'antigravity-ide']:
+    NOTES[ident] += ' Grouped session/weekly quota fixtures cover Starter, unknown values, explicit cadence and legacy fallbacks.'
+NOTES['mistral'] = 'Manual cookie billing fixtures match prices by event, metric, group, zone and tier; fine-tuning included. Missing rates produce an explicit partial spend total. Real account schemas remain unverified.'
+NOTES['zai'] = 'Configured API quota fixtures preserve recognized windows and explicitly flag unavailable/unknown plan quota shapes. Real account responses remain unverified.'
+NOTES['typesafe'] += ' Cookie billing may be blocked by Cloudflare; challenge fixtures distinguish failed access from expired authentication. Reviewed upstream has no working challenge transport or documented API billing alternative.'
 
 def inventory():
     records=[]

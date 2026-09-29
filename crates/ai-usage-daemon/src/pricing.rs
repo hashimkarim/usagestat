@@ -1,10 +1,10 @@
-//! Standard API-equivalent estimates, not subscription invoices. Rates verified
-//! 2026-09-27 against the model pages and pricing tables linked in
+//! Standard API-equivalent estimates, not subscription invoices. Table updated
+//! 2026-09-29 using the model pages and pricing tables linked in
 //! docs/history-accounting.md. Unknown model IDs never inherit a family's price.
 use super::local_usage::LocalUsageEvent;
 use usagestat_core::usage_daily::UsageCostComponents;
 
-pub(super) const AS_OF: &str = "2026-09-27";
+pub(super) const AS_OF: &str = "2026-09-29";
 
 #[derive(Clone, Copy)]
 struct Rates {
@@ -50,7 +50,7 @@ fn rates(model: &str) -> Option<Rates> {
         (1.25, 10.0, 1.25, 0.125, false)
     } else if matches("claude-opus-5-5") {
         (4.0, 20.0, 5.0, 0.2, false)
-    } else if matches("claude-sonnet-5") {
+    } else if matches("claude-sonnet-5") || matches("claude-sonnet-5-5") {
         (2.0, 10.0, 2.5, 0.2, false)
     } else if [
         "claude-opus-4-5",
@@ -131,6 +131,28 @@ pub(super) fn apply(event: &mut LocalUsageEvent) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn sonnet_55_has_explicit_rates_without_pricing_unknown_variants() {
+        for model in ["claude-sonnet-5-5", "claude-sonnet-5-5-20260928"] {
+            let mut event = LocalUsageEvent {
+                model: model.into(),
+                input_tokens: 1_000_000,
+                output_tokens: 1_000_000,
+                cache_read_tokens: 1_000_000,
+                cache_creation_tokens: 1_000_000,
+                ..Default::default()
+            };
+            apply(&mut event);
+            assert!(event.cost_known);
+            assert!((event.cost_usd - 14.7).abs() < 1e-9);
+            assert_eq!(event.cost_components.cache_read_cost_usd, Some(0.2));
+            assert_eq!(event.cost_components.cache_write_cost_usd, Some(2.5));
+            event.model = "claude-sonnet-5-5-future".into();
+            apply(&mut event);
+            assert!(!event.cost_known);
+        }
+    }
 
     #[test]
     fn astra_is_priced_unknowns_are_not_guessed_and_long_context_is_per_request() {

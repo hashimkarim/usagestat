@@ -15,7 +15,7 @@
   ],
   "upstream": {
     "repository": "https://github.com/steipete/CodexBar",
-    "revision": "78ba5a1e65e6859da59a21b799df95ab91bc0b89",
+    "revision": "25bba9b7fd9ce83c33053958f7366e23b2dc8a82",
     "path": "Sources/CodexBarCore/Resources/Plugins/bifrost.js",
     "sha256": "b7576d59ccd077c812118cf09d282042589a80df470c621e414583050f03aa07",
     "license": "MIT"

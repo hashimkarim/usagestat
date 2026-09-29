@@ -82,7 +82,7 @@
     return null
   }
 
-  function callLs(ctx, port, scheme, csrf, method, body) {
+  function callLs(ctx, port, scheme, csrf, method, body, timeoutMs) {
     var resp = ctx.host.http.request({
       method: "POST",
       url: scheme + "://127.0.0.1:" + port + "/" + LS_SERVICE + "/" + method,
@@ -92,7 +92,7 @@
         "x-codeium-csrf-token": csrf,
       },
       bodyText: JSON.stringify(body || {}),
-      timeoutMs: 10000,
+      timeoutMs: timeoutMs || 10000,
       dangerouslyIgnoreTls: scheme === "https",
     })
     if (resp.status < 200 || resp.status >= 300) {
@@ -149,7 +149,8 @@
       var label = (typeof c.label === "string") ? c.label.trim() : ""
       if (!label) continue
       var qi = c.quotaInfo
-      var frac = (qi && typeof qi.remainingFraction === "number") ? qi.remainingFraction : 0
+      if (!qi || !Number.isFinite(qi.remainingFraction)) continue
+      var frac = qi.remainingFraction
       var rtime = (qi && qi.resetTime) || undefined
       var pool = poolLabel(normalizeLabel(label))
       if (!deduped[pool] || frac < deduped[pool].remainingFraction) {
@@ -198,7 +199,13 @@
       locale: "en",
     }
 
-    // Try GetUserStatus first, fall back to GetCommandModelConfigs
+    var summaryLines = []
+    try {
+      summaryLines = ctx.util.groupedQuotaLines(callLs(ctx, found.port, found.scheme, discovery.csrf,
+        "RetrieveUserQuotaSummary", { forceRefresh: true }, 2000))
+    } catch (_) {}
+
+    // GetUserStatus also supplies identity when grouped quota is available.
     var data = null
     try {
       data = callLs(ctx, found.port, found.scheme, discovery.csrf, "GetUserStatus", { metadata: metadata })
@@ -207,7 +214,7 @@
     }
     var hasUserStatus = data && data.userStatus
 
-    if (!hasUserStatus) {
+    if (!hasUserStatus && !summaryLines.length) {
       ctx.host.log.warn("GetUserStatus failed, trying GetCommandModelConfigs")
       data = callLs(ctx, found.port, found.scheme, discovery.csrf, "GetCommandModelConfigs", { metadata: metadata })
     }
@@ -218,6 +225,8 @@
       configs = (data.userStatus.cascadeModelConfigData || {}).clientModelConfigs || []
     } else if (data && data.clientModelConfigs) {
       configs = data.clientModelConfigs
+    } else if (summaryLines.length) {
+      configs = []
     } else {
       throw "Start Antigravity IDE and try again."
     }
@@ -229,7 +238,7 @@
       filtered.push(configs[j])
     }
 
-    var lines = buildModelLines(ctx, filtered)
+    var lines = summaryLines.length ? summaryLines : buildModelLines(ctx, filtered)
     if (lines.length === 0) throw "Start Antigravity IDE and try again."
 
     var plan = null

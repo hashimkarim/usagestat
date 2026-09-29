@@ -6,7 +6,7 @@ ccusage rows. A provider-day with local transcript data selects that whole row,
 even when some model costs are unknown; ccusage is the fallback when local data
 is absent. A newer estimate does not overwrite a billing value. All source rows
 remain retained for provenance, and `includeSources` marks the selected source.
-The local Claude rows use cache-v5 message/request deduplication.
+The local Claude rows use message/request deduplication introduced in cache-v5.
 
 The dashboard headline uses this selected daily history. The Model table uses
 saved daily rows with model detail, applying the same source precedence among
@@ -138,7 +138,10 @@ session to its last active day.
 ## Estimate pricing
 
 Local `costSource: "api-rate-estimate"` values use standard API rates verified on
-2026-09-27. The dated current rate schedule is applied to local logs, including
+2026-09-27, with Sonnet 5.5 added from its published rates on 2026-09-29.
+The table is dated 2026-09-29. Local-cache version 6 reparses unchanged logs to
+include this new model; retained billing and ccusage rows are unaffected.
+The dated current rate schedule is applied to local logs, including
 historical events; it does not reconstruct past price changes. Saved billing and
 ccusage costs are retained. These estimates represent API-equivalent usage, not subscription charges or an
 invoice. `costKnown` means that the model's base rates are available; it does not
@@ -160,6 +163,7 @@ Unknown aliases remain unpriced. Sources:
 - [GPT-5.4](https://developers.openai.com/api/docs/models/gpt-5.4)
 - [GPT-5](https://developers.openai.com/api/docs/models/gpt-5)
 - [Claude pricing](https://platform.claude.com/docs/en/about-claude/pricing)
+- [Claude Sonnet 5.5](https://www.anthropic.com/claude-sonnet-5-5)
 
 ## Verification
 

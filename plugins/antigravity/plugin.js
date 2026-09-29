@@ -371,8 +371,9 @@
   function probeAgyToken(ctx, token) {
     var quota = probeAgyCloudCode(ctx, token)
     if (quota && !quota._authFailed) return quota
-    var models = probeCloudCode(ctx, token)
+    var models = probeCloudCode(ctx, token, "agy", true)
     if (models && !models._authFailed) {
+      if (models._summaryLines) return { plan: null, lines: models._summaryLines }
       var lines = buildModelLines(ctx, parseCloudCodeModels(models))
       if (lines.length > 0) return { plan: null, lines: lines }
       return null
@@ -447,7 +448,7 @@
     return null
   }
 
-  function callLs(ctx, port, scheme, csrf, method, body) {
+  function callLs(ctx, port, scheme, csrf, method, body, timeoutMs) {
     var resp = ctx.host.http.request({
       method: "POST",
       url: scheme + "://127.0.0.1:" + port + "/" + LS_SERVICE + "/" + method,
@@ -457,7 +458,7 @@
         "x-codeium-csrf-token": csrf,
       },
       bodyText: JSON.stringify(body || {}),
-      timeoutMs: 10000,
+      timeoutMs: timeoutMs || 10000,
       dangerouslyIgnoreTls: scheme === "https",
     })
     if (resp.status < 200 || resp.status >= 300) {
@@ -514,7 +515,8 @@
       var label = (typeof c.label === "string") ? c.label.trim() : ""
       if (!label) continue
       var qi = c.quotaInfo
-      var frac = (qi && typeof qi.remainingFraction === "number") ? qi.remainingFraction : 0
+      if (!qi || !Number.isFinite(qi.remainingFraction)) continue
+      var frac = qi.remainingFraction
       var rtime = (qi && qi.resetTime) || undefined
       var pool = poolLabel(normalizeLabel(label))
       if (!deduped[pool] || frac < deduped[pool].remainingFraction) {
@@ -547,7 +549,7 @@
 
   // --- Cloud Code API ---
 
-  function requestCloudCodeJson(ctx, path, token, userAgent, body) {
+  function requestCloudCodeJson(ctx, path, token, userAgent, body, timeoutMs) {
     for (var i = 0; i < CLOUD_CODE_URLS.length; i++) {
       try {
         var resp = ctx.host.http.request({
@@ -560,7 +562,7 @@
             "User-Agent": userAgent || "antigravity",
           },
           bodyText: JSON.stringify(body || {}),
-          timeoutMs: 15000,
+          timeoutMs: timeoutMs || 15000,
         })
         if (!resp || typeof resp.status !== "number" || !Number.isFinite(resp.status)) {
           ctx.host.log.warn("Cloud Code returned invalid response shape (" + CLOUD_CODE_URLS[i] + ")")
@@ -582,7 +584,12 @@
     return null
   }
 
-  function probeCloudCode(ctx, token, userAgent) {
+  function probeCloudCode(ctx, token, userAgent, skipSummary) {
+    if (!skipSummary) {
+      var summary = requestCloudCodeJson(ctx, "/v1internal:retrieveUserQuotaSummary", token, userAgent, {}, 2000)
+      var lines = ctx.util.groupedQuotaLines(summary)
+      if (lines.length) return { _summaryLines: lines }
+    }
     return requestCloudCodeJson(ctx, FETCH_MODELS_PATH, token, userAgent, {})
   }
 
@@ -603,7 +610,8 @@
         ""
       if (!displayName) continue
       var qi = m.quotaInfo
-      var frac = (qi && typeof qi.remainingFraction === "number") ? qi.remainingFraction : 0
+      if (!qi || !Number.isFinite(qi.remainingFraction)) continue
+      var frac = qi.remainingFraction
       var rtime = (qi && qi.resetTime) || undefined
       configs.push({
         label: displayName,
@@ -634,7 +642,8 @@
       if (!bucket || typeof bucket !== "object") continue
       var modelId = (typeof bucket.modelId === "string" && bucket.modelId.trim()) || ""
       if (!modelId) continue
-      var frac = (typeof bucket.remainingFraction === "number") ? bucket.remainingFraction : 0
+      if (!Number.isFinite(bucket.remainingFraction)) continue
+      var frac = bucket.remainingFraction
       configs.push({
         label: modelId,
         quotaInfo: { remainingFraction: frac, resetTime: bucket.resetTime || undefined },
@@ -652,6 +661,9 @@
         ? loadData.cloudaicompanionProject.trim()
         : null
     var quotaData = null
+    var summary = requestCloudCodeJson(ctx, "/v1internal:retrieveUserQuotaSummary", token, "agy", project ? { project: project } : {}, 2000)
+    var summaryLines = ctx.util.groupedQuotaLines(summary)
+    if (summaryLines.length) return { plan: readAgyPlan(loadData), lines: summaryLines }
     if (project) {
       quotaData = requestCloudCodeJson(ctx, RETRIEVE_QUOTA_PATH, token, "agy", { project: project })
     }
@@ -682,7 +694,13 @@
       locale: "en",
     }
 
-    // Try GetUserStatus first, fall back to GetCommandModelConfigs
+    var summaryLines = []
+    try {
+      summaryLines = ctx.util.groupedQuotaLines(callLs(ctx, found.port, found.scheme, discovery.csrf,
+        "RetrieveUserQuotaSummary", { forceRefresh: true }, 2000))
+    } catch (_) {}
+
+    // GetUserStatus also supplies identity when grouped quota is available.
     var data = null
     try {
       data = callLs(ctx, found.port, found.scheme, discovery.csrf, "GetUserStatus", { metadata: metadata })
@@ -691,7 +709,7 @@
     }
     var hasUserStatus = data && data.userStatus
 
-    if (!hasUserStatus) {
+    if (!hasUserStatus && !summaryLines.length) {
       ctx.host.log.warn("GetUserStatus failed, trying GetCommandModelConfigs")
       data = callLs(ctx, found.port, found.scheme, discovery.csrf, "GetCommandModelConfigs", { metadata: metadata })
     }
@@ -702,6 +720,8 @@
       configs = (data.userStatus.cascadeModelConfigData || {}).clientModelConfigs || []
     } else if (data && data.clientModelConfigs) {
       configs = data.clientModelConfigs
+    } else if (summaryLines.length) {
+      configs = []
     } else {
       return null
     }
@@ -713,7 +733,7 @@
       filtered.push(configs[j])
     }
 
-    var lines = buildModelLines(ctx, filtered)
+    var lines = summaryLines.length ? summaryLines : buildModelLines(ctx, filtered)
     if (lines.length === 0) return null
 
     var plan = null
@@ -817,6 +837,7 @@
     }
 
     if (ccData && !ccData._authFailed) {
+      if (ccData._summaryLines) return { plan: null, lines: ccData._summaryLines }
       var configs = parseCloudCodeModels(ccData)
       var lines = buildModelLines(ctx, configs)
       if (lines.length > 0) return { plan: null, lines: lines }
