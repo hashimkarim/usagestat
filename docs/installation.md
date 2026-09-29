@@ -5,15 +5,21 @@ Use the [published support table](../README.md#install) to choose a channel for
 your system. The package channels below currently serve **v1.0.3**. For work
 from a source checkout, see [development](../README.md#development).
 
-For the Windows/macOS/Linux **v2.0.0-alpha.1** backend downloads, use the separate
-[alpha installation guide](alpha.md). Alpha archives are unsigned and public npm
-publication remains pending; the package-manager commands below install stable.
+For the Windows/macOS/Linux **v2.0.0-alpha.4** backend downloads, use the separate
+[alpha installation guide](alpha.md). Windows/macOS alpha archives are unsigned; alpha npm packages are available.
+The package-manager commands below select stable.
 
 The native macOS Homebrew adapter and installation rehearsal are tracked in
 [macOS distribution](macos-distribution.md). Stable macOS packages and signing
 remain pending; the commands for published Linux packages below retain their scope.
 Windows candidate ZIP and native development instructions are in
 [Windows distribution](windows-distribution.md).
+
+The next stable version is [v2.0.0](releases/v2.0.0.md). Check its
+[publication record](releases/v2.0.0-publication.md) for per-channel availability;
+do not assume a queued feed build is already installable. Stable npm and native
+archives target Linux x64/ARM64 only. See the release notes for upgrade and SDK
+migration details.
 
 ## Arch Linux / AUR
 

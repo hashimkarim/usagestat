@@ -2941,7 +2941,7 @@ dependencies = [
 
 [[package]]
 name = "usagestat-cli"
-version = "2.0.0-alpha.4"
+version = "2.0.0"
 dependencies = [
  "aes",
  "aes-gcm",
@@ -2972,7 +2972,7 @@ dependencies = [
 
 [[package]]
 name = "usagestat-core"
-version = "2.0.0-alpha.4"
+version = "2.0.0"
 dependencies = [
  "chrono",
  "dirs",
@@ -2991,7 +2991,7 @@ dependencies = [
 
 [[package]]
 name = "usagestat-daemon"
-version = "2.0.0-alpha.4"
+version = "2.0.0"
 dependencies = [
  "anyhow",
  "chrono",
@@ -3010,7 +3010,7 @@ dependencies = [
 
 [[package]]
 name = "usagestat-plugins"
-version = "2.0.0-alpha.4"
+version = "2.0.0"
 dependencies = [
  "age",
  "anyhow",
@@ -3037,7 +3037,7 @@ dependencies = [
 
 [[package]]
 name = "usagestat-service"
-version = "2.0.0-alpha.4"
+version = "2.0.0"
 dependencies = [
  "usagestat-core",
  "windows",

@@ -42,6 +42,13 @@ a local dashboard, and an HTTP API.
 
 ## Install
 
+The next stable backend is **[v2.0.0](docs/releases/v2.0.0.md)** for Linux
+x64/ARM64 (glibc 2.39+). Its [release qualification record](docs/releases/v2.0.0-publication.md)
+tracks publication and checks; package feeds can lag the GitHub release.
+It adds optional SDK run ingestion while preserving `/v1/providers` and
+`/v1/usage`. AgenticDriver consumers should read the migration notes before
+configuring capture or account quotas.
+
 **[Try v2.0.0-alpha.4 on Windows, macOS or Linux](docs/alpha.md).** The unsigned
 backend alpha includes native archives and a Windows per-user installer. Native
 bar frontends, desktop acceptance and signing remain pending. Stable package-manager instructions follow below.
