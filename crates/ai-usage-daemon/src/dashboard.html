@@ -63,6 +63,7 @@ header{
   position:relative;transition:color .15s;min-height:50px;flex-shrink:0;
 }
 .tab:hover{color:var(--tx)}
+.tab[hidden]{display:none}
 .tab.active{color:var(--tx)}
 .tab.active::after{
   content:'';position:absolute;bottom:0;left:0;right:0;height:2px;
@@ -672,6 +673,7 @@ async function load(){
     S.online = true; S.loadedAt = Date.now(); updAgo();
     setOnline(true);
     buildTabs();
+    applyTabVisibility();
     renderActive();
   } catch {
     S.online = false; setOnline(false); renderActive();
@@ -726,6 +728,7 @@ function switchTab(id){
   S.active=id;
   document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t.dataset.tab===id));
   document.querySelectorAll('.panel').forEach(p=>p.classList.toggle('active',p.id===`panel-${id}`));
+  applyTabVisibility();
   renderActive();
 }
 
@@ -855,8 +858,9 @@ function renderOverview(){
 function renderOverviewControls(){
   const el = document.getElementById('overviewControls');
   if(!el) return;
-  const all = orderedSnapshots();
+  const all = visibleSnapshots();
   const shown = overviewSnapshots();
+  const inactive = orderedSnapshots().filter(isInactiveProvider);
   el.innerHTML = `<div class="ctrl-group">
     <input id="overviewSearch" class="ctrl-input" type="search" value="${esc(S.prefs.search||'')}" placeholder="Search providers">
     <select id="overviewStatus" class="ctrl-select" aria-label="Status filter">
@@ -875,6 +879,7 @@ function renderOverviewControls(){
       ${selectOption('name','Name',S.prefs.sort)}
     </select>
     <span class="result-count">${shown.length}/${all.length}</span>
+    ${inactive.length?`<button class="action-btn" type="button" id="toggleInactive" aria-pressed="${showInactive()}" title="${esc(inactive.map(s=>s.displayName||s.providerId).join(', '))}">${showInactive()?'Hide':'Show'} inactive (${inactive.length})</button>`:''}
   </div>
   <div class="ctrl-group">
     <button class="action-btn" type="button" id="exportDaily">
@@ -913,6 +918,7 @@ function renderOverviewControls(){
   el.querySelector('#overviewSearch')?.addEventListener('input', debounce(update, 120));
   el.querySelector('#overviewStatus')?.addEventListener('change', update);
   el.querySelector('#overviewSort')?.addEventListener('change', update);
+  el.querySelector('#toggleInactive')?.addEventListener('click', ()=>{ S.prefs.inactive = showInactive() ? 'hide' : 'show'; savePrefs(); applyTabVisibility(); renderOverview(); });
   el.querySelector('#exportDaily')?.addEventListener('click', exportDailyCsv);
   el.querySelector('#exportQuota')?.addEventListener('click', exportQuotaCsv);
   el.querySelector('#exportJson')?.addEventListener('click', exportDashboardJson);
@@ -925,7 +931,7 @@ function selectOption(value,label,current){
 }
 
 function overviewSnapshots(){
-  const ordered = orderedSnapshots();
+  const ordered = visibleSnapshots();
   const query = String(S.prefs.search||'').trim().toLowerCase();
   const status = S.prefs.status || 'all';
   const filtered = ordered.filter(s=>{
@@ -955,6 +961,23 @@ function overviewSnapshots(){
   return sorted;
 }
 
+// A provider is inactive when it is failing and has nothing to show: no quota
+// lines and no tracked usage in the last 30 days (e.g. an expired login).
+// Inactive providers are hidden unless the user chooses to show them.
+function isInactiveProvider(s){
+  if(!snapshotHasError(s)) return false;
+  if((s.metrics||[]).some(m=>m.type==='progress')) return false;
+  const roll = providerWindowTotals(s.providerId, 30);
+  return !(roll.totalTokens>0 || roll.cost>0);
+}
+function showInactive(){ return S.prefs.inactive==='show'; }
+function visibleSnapshots(){ return orderedSnapshots().filter(s=>showInactive() || !isInactiveProvider(s)); }
+function hiddenInactive(){ return showInactive() ? [] : orderedSnapshots().filter(isInactiveProvider); }
+function applyTabVisibility(){
+  const hidden = new Set(hiddenInactive().map(s=>s.providerId));
+  document.querySelectorAll?.('#tabs .tab').forEach(t=>{ t.hidden = hidden.has(t.dataset.tab) && S.active!==t.dataset.tab; });
+}
+
 // Plugins report failures either as source 'error' or as an "Error" badge.
 function snapshotHasError(s){
   return s.source==='error' || (s.metrics||[]).some(m=>m.type==='badge' && /^error$/i.test(String(m.label||'').trim()));
@@ -968,7 +991,7 @@ function primaryPercentOf(s){
 function renderOverviewSummary(){
   const el = document.getElementById('overviewSummary');
   if(!el) return;
-  const snaps = orderedSnapshots();
+  const snaps = visibleSnapshots(), hidden = hiddenInactive();
   if(!snaps.length){ el.innerHTML=''; return; }
 
   const progressRows = snaps.flatMap(s=>(s.metrics||[])
@@ -1025,6 +1048,14 @@ function renderOverviewSummary(){
       color:'#d25050',
       text:`${errorCount} provider${errorCount===1?' needs':'s need'} attention`,
       sub:'Open the provider tab for setup or login details'
+    });
+  }
+  if(hidden.length){
+    alerts.push({
+      level:'hidden',
+      color:'#8e9297',
+      text:`${hidden.length} inactive provider${hidden.length===1?'':'s'} hidden`,
+      sub:`${hidden.map(s=>s.displayName||s.providerId).join(', ')} · use Show inactive to display`
     });
   }
 
@@ -1827,7 +1858,7 @@ function loadPrefs(){
 function cleanPreferences(value){
   if(!value || typeof value!=='object' || Array.isArray(value)) throw new Error('Invalid preferences.');
   const result={search:'',status:'all',sort:'order'};
-  for(const key of ['search','status','sort','quotaDisplay']) if(typeof value[key]==='string' && value[key].length<=256) result[key]=value[key];
+  for(const key of ['search','status','sort','quotaDisplay','inactive']) if(typeof value[key]==='string' && value[key].length<=256) result[key]=value[key];
   if(value.trends && typeof value.trends==='object') {
     result.trends={};
     for(const key of ['provider','range','group','metric','breakdown','start','end']) if(typeof value.trends[key]==='string' && value.trends[key].length<=128) result.trends[key]=value.trends[key];

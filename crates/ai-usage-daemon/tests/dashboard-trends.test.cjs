@@ -549,3 +549,20 @@ test('partial pricing shows an approximate share of priced cost and registry nam
   assert.doesNotMatch(html,/[\d.]+% of cost/);
   assert.match(html,/>Codex</);
 });
+
+test('inactive providers are hidden until the user chooses to show them',()=>{
+  const ui=dashboard([row(today,10,1,'codex')]);
+  ui.run(`S.snapshots=[
+    {providerId:'codex',displayName:'Codex',metrics:[{type:'progress',label:'Session',used:10,limit:100,format:{kind:'percent'}}]},
+    {providerId:'gemini',displayName:'Gemini',source:'local',metrics:[{type:'badge',label:'Error',text:'Gemini session expired'}]},
+    {providerId:'claude',displayName:'Claude',source:'error',metrics:[]}];
+    S.providers=[{id:'codex',name:'Codex'},{id:'gemini',name:'Gemini'},{id:'claude',name:'Claude'}];`);
+  // Claude errors but has tracked usage in the last 30 days, so it stays visible.
+  ui.run(`S.dailyRows.push({providerId:'claude',date:'${today}',totalTokens:5,cost:0,inputTokens:5,outputTokens:0,cacheReadTokens:0,cacheCreationTokens:0,reasoningOutputTokens:0})`);
+  assert.deepEqual(Array.from(ui.run('visibleSnapshots()'),s=>s.providerId),['codex','claude']);
+  assert.deepEqual(Array.from(ui.run('hiddenInactive()'),s=>s.providerId),['gemini']);
+  ui.run("S.prefs.inactive='show'");
+  assert.equal(ui.run('visibleSnapshots().length'),3);
+  assert.equal(ui.run('hiddenInactive().length'),0);
+  assert.equal(ui.run("cleanPreferences({inactive:'show'}).inactive"),'show');
+});
