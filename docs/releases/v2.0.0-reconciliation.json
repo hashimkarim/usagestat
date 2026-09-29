@@ -1,0 +1,137 @@
+{
+  "recordedAt": "2026-09-29T17:11:23.393Z",
+  "sdkSource": "6da01d47aba828dfb78bd342963c734824e55b20",
+  "binarySha256": "dc3338f29b111e629191ac1d196dc39c51f71ac016881dd3f960add59af3acb9",
+  "version": "2.0.0",
+  "protocol": {
+    "schema": "usagestat.run-ingestion.v1",
+    "eventSchemas": [
+      "agenticdriver.usage.v2"
+    ],
+    "receiptSchema": "usagestat.run-receipt.v1",
+    "maxEventBytes": 65536,
+    "requiresAccount": true
+  },
+  "records": [
+    {
+      "vendor": "codex",
+      "model": "gpt-6-luna",
+      "source": "cli-report",
+      "operation": "execution",
+      "recordSha256": "2823a56b9e2b9547c3b4951e6c1385c6364d8993ddbb55f9b4fce5a0499c9aaf",
+      "usage": {
+        "inputTokens": 21427,
+        "outputTokens": 479,
+        "cachedInputTokens": 5888,
+        "reasoningTokens": 0
+      },
+      "observedUsage": {
+        "inputTokens": 21427,
+        "outputTokens": 479,
+        "cachedInputTokens": 5888,
+        "reasoningTokens": 0
+      },
+      "coverage": {
+        "startedSteps": 2,
+        "completedSteps": 2,
+        "reportedSteps": {
+          "inputTokens": 2,
+          "outputTokens": 2,
+          "cachedInputTokens": 2,
+          "reasoningTokens": 2
+        }
+      },
+      "accepted": true,
+      "duplicate": true,
+      "exactReadback": true,
+      "crossCredentialReadDenied": true,
+      "crossCredentialWriteDenied": true
+    },
+    {
+      "vendor": "huggingface",
+      "model": "Xenova/all-MiniLM-L6-v2:751bff37182d3f1213fa05d7196b954e230abad9:q8:mean",
+      "source": "adapter-report",
+      "operation": "embedding",
+      "recordSha256": "81697cf5e8a3b17f3362e3150197e3bb97737e81363bf2b37ffc71d4d09892ec",
+      "usage": {
+        "inputTokens": 2387
+      },
+      "observedUsage": {
+        "inputTokens": 2387
+      },
+      "coverage": {
+        "startedSteps": 1,
+        "completedSteps": 1,
+        "reportedSteps": {
+          "inputTokens": 1
+        }
+      },
+      "accepted": true,
+      "duplicate": true,
+      "exactReadback": true,
+      "crossCredentialReadDenied": true,
+      "crossCredentialWriteDenied": true
+    }
+  ],
+  "restartPersistence": true,
+  "nativeEmptyReadback": true,
+  "httpStatuses": [
+    200,
+    200,
+    200,
+    201,
+    200,
+    200,
+    404,
+    403,
+    201,
+    200,
+    200,
+    404,
+    403,
+    200,
+    200
+  ],
+  "newModelCalls": 0,
+  "productionBindingsChanged": false,
+  "releaseTag": "v2.0.0",
+  "sourceCommit": "fbf84796d80fd5567516cec2e11b0784e7c187db",
+  "archiveSha256": "adabb318a816967f269dd1fded375ff594794e4d6d8d8d998691607843444c75",
+  "provenance": {
+    "execution": "https://github.com/agenticdriver/agenticdriver/blob/6da01d47aba828dfb78bd342963c734824e55b20/docs/validation/security-real-2026-09-29.md",
+    "embedding": "https://github.com/agenticdriver/agenticdriver/blob/6da01d47aba828dfb78bd342963c734824e55b20/docs/validation/local-retrieval-2026-09-29.md",
+    "embeddingReceiptSha256": "e215418f50f9f097c48e1c3f6f2b106f49b674adf09ecd34d8639ff77a1b19ce"
+  },
+  "upgradeRollback": {
+    "scenarios": [
+      {
+        "stage": "previous",
+        "version": "1.0.3",
+        "cli": "usagestat 1.0.3",
+        "health": "ok",
+        "emptyNativeReadback": true,
+        "retainedProfileMarkers": true,
+        "daemonSha256": "d4ccabe093f928b26aff0e13d622bc14a2dd7a048f953a97b8699a050ef590f3"
+      },
+      {
+        "stage": "upgrade",
+        "version": "2.0.0",
+        "cli": "usagestat 2.0.0",
+        "health": "ok",
+        "emptyNativeReadback": true,
+        "retainedProfileMarkers": true,
+        "daemonSha256": "dc3338f29b111e629191ac1d196dc39c51f71ac016881dd3f960add59af3acb9"
+      },
+      {
+        "stage": "rollback",
+        "version": "1.0.3",
+        "cli": "usagestat 1.0.3",
+        "health": "ok",
+        "emptyNativeReadback": true,
+        "retainedProfileMarkers": true,
+        "daemonSha256": "d4ccabe093f928b26aff0e13d622bc14a2dd7a048f953a97b8699a050ef590f3"
+      }
+    ],
+    "scope": "Isolated standalone native binary replacement and rollback; no system service or production profile modified."
+  }
+}

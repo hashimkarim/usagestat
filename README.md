@@ -42,7 +42,7 @@ a local dashboard, and an HTTP API.
 
 ## Install
 
-The next stable backend is **[v2.0.0](docs/releases/v2.0.0.md)** for Linux
+The stable backend is **[v2.0.0](docs/releases/v2.0.0.md)** for Linux
 x64/ARM64 (glibc 2.39+). Its [release qualification record](docs/releases/v2.0.0-publication.md)
 tracks publication and checks; package feeds can lag the GitHub release.
 It adds optional SDK run ingestion while preserving `/v1/providers` and
@@ -89,10 +89,12 @@ each channel's actual availability.
 
 Choose a package manager already available on your system. Published packages
 and stable release downloads target **Linux**; the stable Homebrew formula is also
-Linux-only. Stable availability below was checked against release **v1.0.3**.
+Linux-only. See the [v2.0.0 publication record](docs/releases/v2.0.0-publication.md)
+for current versions and feed publication status.
 
 | Channel | Published OS / CPU support | Package |
 | --- | --- | --- |
+| [npm](https://www.npmjs.com/package/@hashimkarim/usagestat) | Linux with glibc 2.39+ · x86-64, ARM64; Node 24+ | `@hashimkarim/usagestat@2.0.0` |
 | [Arch Linux / AUR](https://aur.archlinux.org/packages/usagestat-bin) | Arch Linux · x86-64 | `usagestat-bin` — release binaries |
 | [Homebrew](https://github.com/hashimkarim/homebrew-tap/blob/main/Formula/usagestat.rb) | Linux with system glibc 2.39+ · x86-64, ARM64 | `hashimkarim/tap/usagestat` |
 | [Fedora COPR](https://copr.fedorainfracloud.org/coprs/hashimkarim/usagestat/) | Fedora 43, 44, 45, Rawhide · x86-64 | `usagestat` |
@@ -223,7 +225,7 @@ The source tree bundles **97 providers**:
 - `helmcode`, `huggingface`, `hyper`, `llmman`, `muse`, `nous`, `pi`, `raycast`
 - `replicate`, `typesafe`, `v0`, `vercel`, `xkiro`
 
-All 97 plugins ship in `v2.0.0-alpha.4`. The 20 new providers are disabled by
+All 97 plugins ship in `v2.0.0`. The 20 new providers are disabled by
 default; enable only the ones you use. See the
 [provider compatibility reference](docs/provider-compatibility.md) for supported
 data sources and validation coverage.
@@ -299,8 +301,7 @@ cargo run -p usagestat-daemon -- --config ./config.toml --refresh-sec 30
 
 ## Source checkout features
 
-The dedicated **History** tab is available in the source/dev build and is pending
-the next package release. History adds provider/date filters, daily/weekly/monthly
+The dedicated **History** tab is included in v2.0.0. History adds provider/date filters, daily/weekly/monthly
 charts, previous-period comparisons, and CSV export of saved daily reports.
 Quota-only providers retain their snapshot charts. See
 [CLI and dashboard documentation](docs/cli.md).
