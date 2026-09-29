@@ -100,6 +100,16 @@
       const timeout = Math.max(1, Math.min(90, Number(requestOptions.timeoutSeconds) || 15)) * 1000;
       const result = ctx.host.http.request({method, url: validated, headers, bodyText,
         timeoutMs: Math.max(1, Math.min(timeout, 90000 - (Date.now() - start)))});
+      // A browser protection page is not evidence that the provider rejected the
+      // credential. Detect it before upstream parsers interpret 403 as expiry.
+      const responseHeaders = Object.fromEntries(Object.entries(result.headers || {}).map(([k, v]) => [k.toLowerCase(), String(v)]));
+      const body = String(result.bodyText || '').slice(0, 65536);
+      const html = /^text\/html\b/i.test(responseHeaders['content-type'] || '') || /^\s*(?:<!doctype html[^>]*>\s*)?<html\b/i.test(body);
+      const cloudflare = responseHeaders['cf-mitigated']?.trim().toLowerCase() === 'challenge' || html && (
+        /<title>\s*Attention Required!\s*\|\s*Cloudflare\s*<\/title>/i.test(body) ||
+        /<title>\s*Just a moment\b/i.test(body) && body.includes('/cdn-cgi/challenge-platform/'));
+      if (cloudflare)
+        throw failure('error', `${definition.name} usage is blocked by Cloudflare browser protection. Open the provider's website to check access; the saved login has not been verified.`);
       return {url: validated, status: result.status, headers: result.headers || {}, bodyText: result.bodyText || ''};
     }
     const cache = new Map();
