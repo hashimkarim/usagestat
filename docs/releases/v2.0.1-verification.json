@@ -181,7 +181,11 @@
     "buildId": 33801828,
     "buildUrl": "https://launchpad.net/~hashimkarim/+archive/ubuntu/usagestat/+build/33801828",
     "status": "Uploading build",
-    "binaryPublicationVerified": false
+    "binaryPublicationVerified": false,
+    "publicationWait": "timed_out",
+    "publicationWaitEndedAt": "2026-09-30T02:53:56Z",
+    "latestVerifiedAptVersion": "2.0.0-1ppa1",
+    "resubmitted": false
   },
   "compatibility": {
     "runUsageProtocol": "agenticdriver.usage.v2",
@@ -192,5 +196,10 @@
     "productionBindingsChanged": false
   },
   "immutablePreviousReleasePreserved": true,
-  "systemInstallationChanged": false
+  "systemInstallationChanged": false,
+  "releaseWorkflow": {
+    "url": "https://github.com/hashimkarim/usagestat/actions/runs/36656906324",
+    "conclusion": "failure",
+    "cause": "Ubuntu archive publication wait timed out while Launchpad reports Uploading build; all build/install and other publication jobs passed"
+  }
 }
