@@ -1,0 +1,196 @@
+{
+  "schemaVersion": 1,
+  "releaseTag": "v2.0.1",
+  "sourceCommit": "84bfa891782e1228dd6d2c179f7108e83c5b5aa7",
+  "publishedAt": "2026-09-30T02:06:42Z",
+  "github": {
+    "releaseUrl": "https://github.com/hashimkarim/usagestat/releases/tag/v2.0.1",
+    "verifiedAssets": [
+      {
+        "name": "usagestat-artifacts.json",
+        "size": 166112,
+        "sha256": "a6283e3d6160f5fa1ebae4cac99a63d85d20f25b1d0a705c2bb040a02359c0e5"
+      },
+      {
+        "name": "usagestat-artifacts.json.sha256",
+        "size": 91,
+        "sha256": "584ea333e57b0748951e9a0edcba58231343595df7b5c909b995419dde894e07"
+      },
+      {
+        "name": "usagestat-linux-aarch64",
+        "size": 15100872,
+        "sha256": "0c09c4b1536510c95f986b7b5c0d115ebc0669fb9ea63e6b070933099e7c5a72"
+      },
+      {
+        "name": "usagestat-linux-aarch64.manifest.json",
+        "size": 73523,
+        "sha256": "860bc6a24572fb284c12ed32fc963b0b7c0bfcc4a40b270119a60e9fcc759947"
+      },
+      {
+        "name": "usagestat-linux-aarch64.manifest.json.sha256",
+        "size": 104,
+        "sha256": "6553ebe66526277e7c792f85c66cadd25c14060a3e66ca496b83cb442f50a0dc"
+      },
+      {
+        "name": "usagestat-linux-aarch64.sha256",
+        "size": 90,
+        "sha256": "1dfe1860692c7a1b2799efd512473a59dfd2d81cd3201e3d0978cc1732a10728"
+      },
+      {
+        "name": "usagestat-linux-aarch64.tar.gz",
+        "size": 12775294,
+        "sha256": "1c5ed1202ba6ea3e49db789a8e6db02cf73da75d3db290013602faccf07809ad"
+      },
+      {
+        "name": "usagestat-linux-aarch64.tar.gz.sha256",
+        "size": 97,
+        "sha256": "a374f138cac2326c2b16ac6cc05e26af17dc00a4f9ea8a605a9177b703ad3b94"
+      },
+      {
+        "name": "usagestat-linux-x86_64",
+        "size": 15324256,
+        "sha256": "bd2368651f3f8f12dd7ac51b30dfb8aa09b83f19e7a584a430334b5b38a3ac30"
+      },
+      {
+        "name": "usagestat-linux-x86_64.manifest.json",
+        "size": 73515,
+        "sha256": "3f14e1662b969d6af5435a29c2df0c9eae14baff5491304434f6700844ca57de"
+      },
+      {
+        "name": "usagestat-linux-x86_64.manifest.json.sha256",
+        "size": 103,
+        "sha256": "7e13c14865f0bea63f43604c23df4f038c931dc51b1d4aaccf10fc613d1b4751"
+      },
+      {
+        "name": "usagestat-linux-x86_64.sha256",
+        "size": 89,
+        "sha256": "fbf13ed9e04f26315b93483be896a7a9e16e2b3d93b5bdf73cdab44d62231797"
+      },
+      {
+        "name": "usagestat-linux-x86_64.tar.gz",
+        "size": 13141302,
+        "sha256": "14639690fcba5ed5038628bb6cfd684076e0c494fe6087fd6e01ddbddd299942"
+      },
+      {
+        "name": "usagestat-linux-x86_64.tar.gz.sha256",
+        "size": 96,
+        "sha256": "6e93d7104788746f1b92651c2f8531b15194e9aac513491f47ca8c17ec901c38"
+      }
+    ],
+    "candidateBytesMatchPublic": true
+  },
+  "native": {
+    "linuxX64DaemonSha256": "a5e23806972fa7284f3d471880c1ebc1d3254c6c16c28c95f63871a0de8f4542",
+    "publicCollectionTestsPassed": 3,
+    "browserCandidateMatchedPublicArchive": true,
+    "modelCalls": 0,
+    "productionConfigurationWrites": 0
+  },
+  "npm": {
+    "version": "2.0.1",
+    "sourceCommit": "84bfa891782e1228dd6d2c179f7108e83c5b5aa7",
+    "distTags": {
+      "alpha": "2.0.0-alpha.4",
+      "latest": "2.0.1"
+    },
+    "packages": [
+      {
+        "name": "@hashimkarim/usagestat-linux-x64-gnu",
+        "sha256": "1b717bf5eb3c509c69ee5886cdfd2167931ac7ff407ec610b733fc56ba50fe60",
+        "integrity": "sha512-lV3nDapDdlzXQfzat18yK6yTMJfahg4hDSYsU6WjTeuj8TvsSt7RQSoRJu8Ptp6sGjR/kIAAAjtsHCI+mYg6sw=="
+      },
+      {
+        "name": "@hashimkarim/usagestat-linux-arm64-gnu",
+        "sha256": "ce353b8be76156e153518a5be0ed3feab2ff5f0b59dde4186e802eae8262edc8",
+        "integrity": "sha512-UcBrPX5l1UGdWtSZMjGNPvHw/iNlxsLbr3w6GG7FIn5sKdK/UgY/yYBVT61g8cOPnit6U9ogemBRhmGTAvHkGw=="
+      },
+      {
+        "name": "@hashimkarim/usagestat",
+        "sha256": "ba0c9621be9c58b73ee76004318e641c3cfdedd01a6821b12cbd4bc15b958652",
+        "integrity": "sha512-IwtRKrWM5xpCo0Xp5xnX96YabUabmrL0NUO0ELu0p82eHS/sFnqvLj1hB4UaMVy1K2Wh0HzLkPOf/AmIeoLyfA=="
+      }
+    ],
+    "exactPublicContentsMatch": true,
+    "publicRegistryInstall": {
+      "checks": [
+        "global-install-scripts-disabled-no-profile-or-service-setup",
+        "installed-cli-daemon-versions-resources-validation-and-npm-shims",
+        "packaged-daemon-health-graceful-stop-and-wrapper-exit",
+        "project-local-npm-exec",
+        "one-off-npm-exec-rejects-ephemeral-autostart",
+        "omitted-optional-dependencies-actionable-failure",
+        "stopped-reinstall-and-uninstall-retain-user-data"
+      ],
+      "registry": "public npm"
+    },
+    "immutable2.0.0Preserved": true
+  },
+  "aur": {
+    "version": "2.0.1-1",
+    "commit": "3c949aec6e4e71b506df906d0913705d4c35a022",
+    "archiveSha256": "14639690fcba5ed5038628bb6cfd684076e0c494fe6087fd6e01ddbddd299942"
+  },
+  "homebrew": {
+    "path": "Formula/usagestat.rb",
+    "blobSha": "ec2b7513e7feaf43630e054d9b01dd30f3c56f08",
+    "version": "2.0.1",
+    "verifiedPublishedArchiveDigests": true
+  },
+  "copr": {
+    "buildId": 11052758,
+    "version": "2.0.1-1",
+    "successfulChroots": [
+      "fedora-43-x86_64",
+      "fedora-44-x86_64",
+      "fedora-45-x86_64",
+      "fedora-rawhide-x86_64"
+    ],
+    "fedora44": {
+      "package": "usagestat-2.0.1-1.fc44.x86_64.rpm",
+      "sha256": "734aa78834f217d002b84c246830058d954d2df28519fc84fc64bc343bdba3c1",
+      "daemonSha256": "3f15261d63a8a2179bd65a880d37398a14dd8719a67449b541b61b99c928f7ad",
+      "coprSignatureVerified": true,
+      "packagedUpdateFiles": [
+        "/usr/libexec/usagestat/service-sync.py",
+        "/usr/libexec/usagestat/rpm-service-sync.py",
+        "/usr/lib/systemd/user/usagestat-package-sync.service",
+        "/usr/lib/systemd/system/usagestat-rpm-update.timer",
+        "/usr/lib/systemd/system/usagestat-rpm-update.service",
+        "/etc/yum.repos.d/_copr:copr.fedorainfracloud.org:hashimkarim:usagestat.repo"
+      ],
+      "postTransactionHook": true,
+      "stableFeedConfigNoReplace": true,
+      "repositoryPackages": [
+        {
+          "version": {
+            "epoch": "0",
+            "ver": "2.0.1",
+            "rel": "1.fc44"
+          },
+          "architecture": "x86_64",
+          "location": "Packages/u/usagestat-2.0.1-1.fc44.x86_64.rpm",
+          "sha256": "734aa78834f217d002b84c246830058d954d2df28519fc84fc64bc343bdba3c1"
+        }
+      ],
+      "nativeCollectionTestsPassed": 3,
+      "systemInstallationChanged": false
+    }
+  },
+  "ppa": {
+    "version": "2.0.1-1ppa1",
+    "buildId": 33801828,
+    "buildUrl": "https://launchpad.net/~hashimkarim/+archive/ubuntu/usagestat/+build/33801828",
+    "status": "Uploading build",
+    "binaryPublicationVerified": false
+  },
+  "compatibility": {
+    "runUsageProtocol": "agenticdriver.usage.v2",
+    "httpMajor": "v1",
+    "runIngestionSourceUnchangedFrom": "v2.0.0",
+    "providerIcons": "0.1.0-alpha.1",
+    "applicationAuthenticationMigration": false,
+    "productionBindingsChanged": false
+  },
+  "immutablePreviousReleasePreserved": true,
+  "systemInstallationChanged": false
+}
