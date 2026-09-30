@@ -587,7 +587,31 @@ html[data-density="compact"] .overview-panel{padding:12px 14px}
 .setting-row{display:flex;justify-content:space-between;gap:18px;align-items:center;padding:12px 0;border-top:1px solid var(--bd)}
 .setting-row>label{font-size:13px;color:var(--tx)}
 .setting-row select{max-width:210px;min-width:145px}
-.setting-row input[type="checkbox"],.provider-setting input[type="checkbox"]{width:18px;height:18px;accent-color:var(--blue);flex-shrink:0;cursor:pointer}
+#panel-settings input[type="checkbox"]{
+  appearance:none;display:inline-grid;place-content:center;width:19px;height:19px;min-width:19px;
+  margin:0;flex-shrink:0;border:1px solid color-mix(in srgb,var(--mu) 55%,var(--s1));
+  border-radius:5px;background:var(--s1);color:#fff;cursor:pointer;vertical-align:middle;
+  transition:background .15s,border-color .15s,box-shadow .15s;
+}
+#panel-settings input[type="checkbox"]::before{
+  content:"";width:11px;height:11px;background:currentColor;
+  clip-path:polygon(14% 44%,0 59%,36% 94%,100% 20%,86% 6%,34% 67%);
+  transform:scale(.7);opacity:0;transition:transform .15s,opacity .15s;
+}
+#panel-settings input[type="checkbox"]:checked,#panel-settings input[type="checkbox"]:indeterminate{background:var(--blue);border-color:var(--blue);box-shadow:inset 0 1px 0 #ffffff20}
+#panel-settings input[type="checkbox"]:checked::before,#panel-settings input[type="checkbox"]:indeterminate::before{transform:scale(1);opacity:1}
+#panel-settings input[type="checkbox"]:indeterminate::before{clip-path:inset(42% 0)}
+#panel-settings input[type="checkbox"]:hover:not(:disabled){border-color:var(--blue);box-shadow:0 0 0 3px color-mix(in srgb,var(--blue) 12%,transparent)}
+#panel-settings input[type="checkbox"]:focus{outline:2px solid var(--blue);outline-offset:3px}
+#panel-settings input[type="checkbox"]:disabled{opacity:.45;cursor:not-allowed}
+#panel-settings label:has(>input[type="checkbox"]){display:flex;align-items:center;gap:9px;min-height:32px;line-height:1.5;cursor:pointer}
+.provider-setting-title>input[type="checkbox"]{margin-top:3px!important}
+#panel-settings .ctrl-input,#panel-settings .ctrl-select{height:36px;border-radius:7px;font:12px var(--sans)}
+#panel-settings .action-btn{height:36px;border-radius:7px;font:500 12px var(--sans);color:var(--tx)}
+#panel-settings input[type="color"]{height:36px;padding:4px;border:1px solid var(--bd2);border-radius:7px;background:var(--s1);cursor:pointer}
+#panel-settings input[type="color"]::-webkit-color-swatch-wrapper{padding:0}
+#panel-settings input[type="color"]::-webkit-color-swatch{border:0;border-radius:4px}
+#panel-settings input[type="color"]::-moz-color-swatch{border:0;border-radius:4px}
 .setting-hint{display:block;font-size:12px;color:var(--mu);margin-top:3px}
 .provider-setting{display:grid;grid-template-columns:minmax(180px,1.1fr) minmax(160px,1fr) minmax(140px,.85fr) auto;gap:16px;align-items:center;padding:16px 0;border-top:1px solid var(--bd)}
 .provider-setting-title{display:flex;gap:10px;align-items:flex-start;min-width:0}
@@ -605,14 +629,15 @@ html[data-density="compact"] .overview-panel{padding:12px 14px}
 .settings-status.is-error{color:var(--red)}
 .settings-nav{display:flex;gap:8px;margin:0 0 18px}
 .settings-nav .active{background:var(--blue);color:#fff}
-.provider-extra{grid-column:1/-1;display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;border-top:1px solid var(--bd);padding-top:14px}
+.provider-extra{grid-column:1/-1;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px;border-top:1px solid var(--bd);padding-top:14px}
+.provider-extra>div{min-width:0}
 .provider-extra label,.collection-field label{display:block;color:var(--mu);font-size:12px;margin-bottom:5px}
 .provider-extra .ctrl-select,.provider-extra .ctrl-input,.collection-field input,.collection-field select,.collection-field textarea{width:100%;min-width:0}
-.collection-field input[type=checkbox]{width:auto}
 .settings-section code{overflow-wrap:anywhere}
-#collection-key-file{display:block;max-width:100%;margin-top:12px}
 .metric-choices{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:12px}
-.metric-choices label{display:flex;align-items:center;gap:6px}
+.metric-choices label{padding:6px 10px;border:1px solid var(--bd);border-radius:7px;background:var(--s1)}
+.metric-choices label:has(input:checked){border-color:color-mix(in srgb,var(--blue) 35%,var(--bd));background:color-mix(in srgb,var(--blue) 8%,var(--s1))}
+.provider-extra>label:has(input[type="checkbox"]){align-self:start;margin-top:23px}
 .collection-provider{margin-bottom:16px}
 .collection-provider summary{cursor:pointer;display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-weight:600;font-size:15px}
 .collection-fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin-top:16px}
@@ -625,7 +650,22 @@ html[data-density="compact"] .overview-panel{padding:12px 14px}
 @media(max-width:520px){.setting-table tr{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));border-bottom:1px solid var(--bd)}.setting-table td{min-width:0}}
 .settings-section details{margin-top:16px}
 .settings-section details summary{cursor:pointer;font-size:13px;color:var(--tx)}
-.custom-icon-input{font-size:11px;max-width:100%}
+.upload-control{position:relative;display:flex!important;align-items:center;gap:12px;min-height:44px;width:100%;margin:0!important;padding:5px;
+  border:1px solid var(--bd2);border-radius:8px;background:var(--s1);overflow:hidden;cursor:pointer;transition:border-color .15s,box-shadow .15s}
+.upload-control:hover{border-color:var(--blue)}
+.upload-control:focus-within{border-color:var(--blue);outline:2px solid var(--blue);outline-offset:2px}
+.upload-control .upload-native{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;z-index:1}
+.upload-button{display:inline-flex;align-items:center;justify-content:center;gap:7px;flex-shrink:0;min-height:32px;padding:0 10px;border-radius:5px;
+  background:color-mix(in srgb,var(--blue) 15%,var(--s2));color:var(--tx);font:600 12px var(--sans)}
+.upload-button svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.upload-state{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font:12px var(--sans);color:var(--mu)}
+.upload-footer{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:8px}
+.upload-footer .setting-hint{margin:0;font-size:11px}
+#panel-settings .upload-footer .action-btn{height:30px;padding:0 8px;font-size:11px}
+@media(max-width:1000px){.provider-extra{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:520px){.provider-extra{grid-template-columns:minmax(0,1fr)}.provider-extra>label:has(input[type="checkbox"]){margin-top:0}}
+@media(prefers-reduced-motion:reduce){#panel-settings input[type="checkbox"],#panel-settings input[type="checkbox"]::before,.upload-control{transition:none}}
+@media(forced-colors:active){#panel-settings input[type="checkbox"]{appearance:auto}#panel-settings input[type="checkbox"]::before{display:none}.upload-button{border:1px solid ButtonText}}
 .provider-icon.monochrome{display:inline-block;background:var(--icon-neutral,var(--tx));mask-image:var(--icon-url);mask-size:contain;mask-repeat:no-repeat;mask-position:center}
 .provider-icon.icon-usage{position:relative;display:inline-block;margin-right:8px}
 .provider-icon.icon-usage .provider-icon{position:absolute;inset:0;margin:0;width:100%;height:100%}
@@ -2097,19 +2137,22 @@ function providerDisplayExtras(id,snapshot,pref){
   const choices=UsageDashboardSettings.iconChoices(S.iconCatalog,base);
   return `<div class="provider-extra"><div><label for="setting-icon-style-${esc(id)}">Icon style</label><select class="ctrl-select" id="setting-icon-style-${esc(id)}" data-provider-option="iconStyle">${[['inherit','Dashboard default'],['monochrome','Monochrome'],['color','Colour']].map(([v,n])=>selectOption(v,n,pref.iconStyle||'inherit')).join('')}</select></div>
     ${choices.length>1?`<div><label for="setting-icon-source-${esc(id)}">Logo variant</label><select class="ctrl-select" id="setting-icon-source-${esc(id)}" data-provider-option="iconSource">${selectOption('',choices[0].name,pref.iconSource===choices[0].id?'':pref.iconSource||'')}${choices.slice(1).map(icon=>selectOption(icon.id,icon.name,pref.iconSource)).join('')}</select></div>`:''}
-    <div><label for="setting-icon-file-${esc(id)}">Custom logo · PNG, JPEG or WebP</label><input class="custom-icon-input" type="file" id="setting-icon-file-${esc(id)}" data-custom-icon="${esc(id)}" accept="image/png,image/jpeg,image/webp"><button class="action-btn" type="button" data-clear-icon="${esc(id)}"${pref.customIcon?'':' disabled'}>Use bundled logo</button></div>
-    <label><input type="checkbox" data-provider-option="pinned"${pref.pinned?' checked':''}> Pin near the start</label>
-    <div class="metric-choices" aria-label="Displayed usage trackers">${(snapshot?.metrics||[]).map(m=>`<label><input type="checkbox" data-metric-key="${esc(UsageDashboardSettings.metricKey(m))}"${(pref.hiddenMetrics||[]).includes(UsageDashboardSettings.metricKey(m))?'':' checked'}>${esc(m.label||m.type)}</label>`).join('')||'<span class="setting-hint">Tracker controls appear after a measurement.</span>'}</div></div>`;
+    <div><label for="setting-icon-file-${esc(id)}">Custom logo</label>${fileUploadControl('setting-icon-file-'+id,'Upload logo','image/png,image/jpeg,image/webp',pref.customIcon?'Custom logo saved':'Choose an image',`data-custom-icon="${esc(id)}"`)}<div class="upload-footer"><span class="setting-hint">PNG, JPEG or WebP · up to 380 KB</span><button class="action-btn" type="button" data-clear-icon="${esc(id)}"${pref.customIcon?'':' disabled'}>Use bundled logo</button></div></div>
+    <label><input type="checkbox" id="setting-pin-${esc(id)}" data-provider-option="pinned"${pref.pinned?' checked':''}> Pin near the start</label>
+    <div class="metric-choices" aria-label="Displayed usage trackers">${(snapshot?.metrics||[]).map(m=>`<label><input type="checkbox" id="setting-metric-${esc(id)}-${esc(encodeURIComponent(UsageDashboardSettings.metricKey(m)))}" data-metric-key="${esc(UsageDashboardSettings.metricKey(m))}"${(pref.hiddenMetrics||[]).includes(UsageDashboardSettings.metricKey(m))?'':' checked'}>${esc(m.label||m.type)}</label>`).join('')||'<span class="setting-hint">Tracker controls appear after a measurement.</span>'}</div></div>`;
+}
+function fileUploadControl(id,label,accept,state,attributes=''){
+  return `<label class="upload-control" for="${esc(id)}"><input class="upload-native" type="file" id="${esc(id)}" accept="${esc(accept)}" aria-label="${esc(label)}" ${attributes}><span class="upload-button" aria-hidden="true"><svg viewBox="0 0 20 20"><path d="M10 13V3m-4 4 4-4 4 4M4 12v4a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1v-4"/></svg>${esc(label)}</span><span class="upload-state" title="${esc(state)}">${esc(state)}</span></label>`;
 }
 function displayAdvancedHtml(){return `<section class="settings-section" aria-labelledby="details-heading"><h2 id="details-heading">Usage details and interaction</h2><p>These controls affect the dashboard, including hover details. Measurements and saved history remain available.</p>
     ${preferenceCheck('showPace','Show pace')}${preferenceCheck('showReset','Show reset times')}
     ${preferenceSelect('resetTimeFormat','Reset time format',[['smart','Smart'],['relative','Time remaining'],['absolute','Date and time'],['both','Both']])}
     ${preferenceCheck('showStatusLinks','Provider status links')}${preferenceCheck('showDashboardLinks','Provider usage links')}
     ${preferenceCheck('scrollToSwitch','Scroll on provider tabs to switch')}
-    <details><summary>Card components and order</summary><div class="settings-note">${S.prefs.components.concat(UsageDashboardSettings.COMPONENTS.filter(c=>!S.prefs.components.includes(c))).map((key,index)=>`<div class="setting-row"><label><input type="checkbox" data-component="${key}"${S.prefs.components.includes(key)?' checked':''}> ${esc(key)}</label><span><button class="action-btn" data-component-move="${key}" data-direction="-1">↑</button> <button class="action-btn" data-component-move="${key}" data-direction="1">↓</button></span></div>`).join('')}</div></details>
+    <details><summary>Card components and order</summary><div class="settings-note">${S.prefs.components.concat(UsageDashboardSettings.COMPONENTS.filter(c=>!S.prefs.components.includes(c))).map((key,index)=>`<div class="setting-row"><label><input type="checkbox" id="setting-component-${key}" data-component="${key}"${S.prefs.components.includes(key)?' checked':''}> ${esc(key)}</label><span><button class="action-btn" data-component-move="${key}" data-direction="-1">↑</button> <button class="action-btn" data-component-move="${key}" data-direction="1">↓</button></span></div>`).join('')}</div></details>
     <details><summary>Dashboard keyboard shortcuts</summary><p class="settings-note">Shortcuts apply while this page is active and never intercept typing in a form.</p>${Object.entries(S.prefs.shortcuts).map(([key,value])=>`<div class="setting-row"><label for="shortcut-${key}">${esc(key)}</label><input class="ctrl-input" maxlength="1" id="shortcut-${key}" data-shortcut="${key}" value="${esc(value)}"></div>`).join('')}</details>
   </section><section class="settings-section" aria-labelledby="threshold-heading"><h2 id="threshold-heading">Usage thresholds</h2><p>Set names, percentages used, colours and crossing notifications. Notifications use fresh quota observations only.</p>
-    <div id="threshold-rows">${S.prefs.thresholds.map(t=>`<div class="collection-fields" data-threshold="${esc(t.id)}"><div class="collection-field"><label>Name</label><input class="ctrl-input" data-threshold-field="name" value="${esc(t.name)}"></div><div class="collection-field"><label>Percent used</label><input class="ctrl-input" type="number" min="0" max="1000" data-threshold-field="percent" value="${t.percent}"></div><div class="collection-field"><label>Colour</label><input type="color" data-threshold-field="color" value="${t.color}"></div><label><input type="checkbox" data-threshold-field="notify"${t.notify?' checked':''}> Notify on crossing</label><button class="action-btn" data-delete-threshold="${esc(t.id)}">Delete threshold</button></div>`).join('')}</div>
+    <div id="threshold-rows">${S.prefs.thresholds.map(t=>`<div class="collection-fields" data-threshold="${esc(t.id)}"><div class="collection-field"><label>Name</label><input class="ctrl-input" data-threshold-field="name" value="${esc(t.name)}"></div><div class="collection-field"><label>Percent used</label><input class="ctrl-input" type="number" min="0" max="1000" data-threshold-field="percent" value="${t.percent}"></div><div class="collection-field"><label>Colour</label><input type="color" data-threshold-field="color" value="${t.color}"></div><label><input type="checkbox" id="setting-notify-${esc(t.id)}" data-threshold-field="notify"${t.notify?' checked':''}> Notify on crossing</label><button class="action-btn" data-delete-threshold="${esc(t.id)}">Delete threshold</button></div>`).join('')}</div>
     <div class="settings-actions"><button class="action-btn" id="add-threshold">Add threshold</button><button class="action-btn" id="enable-notifications">${S.prefs.notifications?'Disable':'Enable'} browser notifications</button></div><p class="settings-note">${S.prefs.notifications?'Notifications enabled for this dashboard.':'Browser notifications are off.'}</p>
   </section>`;}
 function bindDisplayExtras(root){
@@ -2139,7 +2182,7 @@ function renderCollectionSettings(root){
   bindSettingsNavigation(root);
   root.querySelector('#reload-collection').addEventListener('click',()=>{S.collectionDirty=false;S.collectionDrafts=null;loadCollectionSettings();});
   if(!data&&S.collectionKeyFile){
-    root.insertAdjacentHTML('beforeend',`<section class="settings-section"><h2>Unlock collection settings</h2><p>Choose this backend’s private setup key file: <code>${esc(S.collectionKeyFile)}</code></p><p class="settings-note">This proves access to your local profile. It is separate from provider API keys. The file contents stay out of display preferences; access lasts until this backend restarts.</p><label for="collection-key-file">Choose local setup key</label><input type="file" id="collection-key-file" accept=".key,text/plain"></section>`);
+    root.insertAdjacentHTML('beforeend',`<section class="settings-section"><h2>Unlock collection settings</h2><p>Choose this backend’s private setup key file: <code>${esc(S.collectionKeyFile)}</code></p><p class="settings-note">This proves access to your local profile. It is separate from provider API keys. The file contents stay out of display preferences; access lasts until this backend restarts.</p>${fileUploadControl('collection-key-file','Choose setup key','.key,text/plain','Private local file')}</section>`);
     root.querySelector('#collection-key-file').addEventListener('change',async event=>{
       const input=event.currentTarget,file=input.files?.[0];input.value='';if(!file)return;
       try{
