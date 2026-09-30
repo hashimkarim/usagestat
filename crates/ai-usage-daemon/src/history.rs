@@ -141,6 +141,10 @@ struct ChartRecord {
     provider_id: String,
     #[serde(alias = "display_name")]
     display_name: String,
+    #[serde(default)]
+    source: Option<String>,
+    #[serde(default)]
+    state: Option<String>,
     plan: Option<String>,
     #[serde(alias = "primary_percent")]
     primary_percent: f64,
@@ -167,6 +171,8 @@ impl From<ChartRecord> for SnapshotRecord {
             ts: row.ts,
             provider_id: row.provider_id,
             display_name: row.display_name,
+            source: row.source,
+            state: row.state,
             plan: row.plan,
             primary_percent: row.primary_percent,
             input_tokens: row.input_tokens,

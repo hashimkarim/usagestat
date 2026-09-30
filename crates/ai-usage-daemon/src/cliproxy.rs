@@ -351,6 +351,8 @@ mod tests {
         let mut state = AppState::default();
         for id in ["claude", "codex", "gemini"] {
             state.providers.push(ProviderSummary {
+                plugin_id: None,
+                tab_parent: None,
                 id: id.to_string(),
                 name: id.to_string(),
                 enabled: true,

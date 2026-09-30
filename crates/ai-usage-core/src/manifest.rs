@@ -290,6 +290,11 @@ pub struct LoadedProvider {
 #[serde(rename_all = "camelCase")]
 pub struct ProviderSummary {
     pub id: String,
+    /// Base plugin for an explicitly configured source instance.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub plugin_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tab_parent: Option<String>,
     pub name: String,
     pub enabled: bool,
     /// Supported source modes declared by the plugin manifest.

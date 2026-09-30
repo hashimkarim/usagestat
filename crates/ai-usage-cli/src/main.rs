@@ -2130,6 +2130,8 @@ fn provider_summaries(providers: &[LoadedProvider], config: &AppConfig) -> Vec<P
         .iter()
         .map(|p| ProviderSummary {
             id: p.manifest.id.clone(),
+            plugin_id: None,
+            tab_parent: None,
             name: p.manifest.name.clone(),
             enabled: config.is_enabled(&p.manifest.id, p.manifest.enabled_by_default),
             supported_modes: p.manifest.supported_modes.clone(),

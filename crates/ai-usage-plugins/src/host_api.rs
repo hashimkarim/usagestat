@@ -341,6 +341,7 @@ pub fn inject<'js>(
     ctx: &Ctx<'js>,
     probe_ctx: &Object<'js>,
     plugin_id: &str,
+    usage_id: &str,
 ) -> rquickjs::Result<()> {
     let host = Object::new(ctx.clone())?;
     inject_log(ctx, &host, plugin_id)?;
@@ -388,7 +389,7 @@ pub fn inject<'js>(
     inject_aws(ctx, &host)?;
     inject_sqlite(ctx, &host)?;
     inject_ccusage(ctx, &host, plugin_id)?;
-    inject_usage_daily(ctx, &host, plugin_id)?;
+    inject_usage_daily(ctx, &host, usage_id)?;
     inject_cursor_logs(ctx, &host)?;
     inject_cursor_usage_export(ctx, &host)?;
     inject_fireworks(ctx, &host, plugin_id)?;

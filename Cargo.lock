@@ -2997,6 +2997,7 @@ dependencies = [
  "chrono",
  "clap",
  "env_logger",
+ "getrandom 0.2.17",
  "hmac",
  "log",
  "reqwest",
@@ -3004,6 +3005,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2 0.10.9",
+ "toml 0.8.23",
  "usagestat-core",
  "usagestat-plugins",
 ]

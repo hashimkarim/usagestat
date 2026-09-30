@@ -1,12 +1,101 @@
 use crate::host_api;
 use chrono::{DateTime, Utc};
-use rquickjs::{Array, Context, Ctx, Object, Runtime, Value, context::EvalOptions, promise::MaybePromise};
+use rquickjs::{
+    Array, Context, Ctx, Object, Runtime, Value, context::EvalOptions, promise::MaybePromise,
+};
 use usagestat_core::{
     BarChartPoint, LoadedProvider, MetricLine, ProgressFormat, ProviderConfig, ProviderManifest,
     UsageSnapshot, paths,
 };
 
 pub fn probe_provider(
+    provider: &LoadedProvider,
+    source_mode: &str,
+    provider_config: Option<&ProviderConfig>,
+) -> UsageSnapshot {
+    let mut snapshot = if source_mode == "custom" {
+        probe_custom(provider, provider_config)
+    } else {
+        probe_native(provider, source_mode, provider_config)
+    };
+    if let Some(config) = provider_config {
+        if let Some(id) = &config.instance_id {
+            snapshot.provider_id = id.clone();
+        }
+        if let Some(name) = &config.display_name {
+            snapshot.display_name = name.clone();
+        }
+    }
+    snapshot
+}
+
+fn probe_custom(provider: &LoadedProvider, config: Option<&ProviderConfig>) -> UsageSnapshot {
+    let failure = || {
+        UsageSnapshot::error(
+            provider.manifest.id.clone(),
+            provider.manifest.name.clone(),
+            "Custom usage command failed or did not return valid usage JSON",
+        )
+    };
+    let Some(command) = config
+        .and_then(|c| c.custom_command.as_deref())
+        .filter(|s| !s.trim().is_empty())
+    else {
+        return failure();
+    };
+    let result = (|| -> Result<_, ()> {
+        #[cfg(windows)]
+        let mut shell = usagestat_core::process::command("cmd.exe").map_err(|_| ())?;
+        #[cfg(windows)]
+        shell.args(["/D", "/S", "/C", command]);
+        #[cfg(not(windows))]
+        let mut shell = usagestat_core::process::command("sh").map_err(|_| ())?;
+        #[cfg(not(windows))]
+        shell.args(["-c", command]);
+        let output = usagestat_core::process::run(
+            shell,
+            std::time::Duration::from_secs(90),
+            4 * 1024 * 1024,
+        )
+        .map_err(|_| ())?;
+        if !output.status.success() {
+            return Err(());
+        }
+        let mut body: serde_json::Value = serde_json::from_slice(&output.stdout).map_err(|_| ())?;
+        if body.is_array() {
+            body = body.as_array().and_then(|v| v.first()).cloned().ok_or(())?;
+        }
+        let metrics = body
+            .get("metrics")
+            .or_else(|| body.get("lines"))
+            .cloned()
+            .ok_or(())?;
+        let mut snapshot = UsageSnapshot::error(
+            provider.manifest.id.clone(),
+            provider.manifest.name.clone(),
+            "invalid custom data",
+        );
+        snapshot.metrics = serde_json::from_value(metrics).map_err(|_| ())?;
+        if snapshot.metrics.iter().any(|m| matches!(m, MetricLine::Progress { used, limit, .. } if !used.is_finite() || !limit.is_finite() || *used < 0.0 || *limit < 0.0)) { return Err(()); }
+        snapshot.state = match body.get("state") {
+            Some(value) => Some(serde_json::from_value(value.clone()).map_err(|_| ())?),
+            None => Some(if snapshot.metrics.iter().any(|m| matches!(m, MetricLine::Badge {label, ..} if label.eq_ignore_ascii_case("error"))) {
+                usagestat_core::model::ProviderState::Failed
+            } else if snapshot.metrics.is_empty() { usagestat_core::model::ProviderState::NoData } else { usagestat_core::model::ProviderState::Ready }),
+        };
+        snapshot.source = Some("custom".into());
+        if body.get("source").and_then(serde_json::Value::as_str) == Some("error")
+            || snapshot.metrics.iter().any(|m| matches!(m, MetricLine::Badge {label, ..} if label.eq_ignore_ascii_case("error"))) {
+            snapshot.state = Some(usagestat_core::model::ProviderState::Failed);
+        }
+        if let Some(value) = body.get("fetchedAt") { snapshot.fetched_at = serde_json::from_value(value.clone()).map_err(|_| ())?; }
+        snapshot.plan = body.get("plan").and_then(|v| v.as_str()).map(str::to_owned);
+        Ok(snapshot)
+    })();
+    result.unwrap_or_else(|_| failure())
+}
+
+fn probe_native(
     provider: &LoadedProvider,
     source_mode: &str,
     provider_config: Option<&ProviderConfig>,
@@ -196,7 +285,14 @@ fn inject_context(
     app.set("platform", std::env::consts::OS)?;
     let app_data_dir = paths::data_dir()
         .map_err(|error| rquickjs::Exception::throw_message(ctx, &error.to_string()))?;
-    let plugin_data_dir = app_data_dir.join("plugins").join(&manifest.id);
+    let data_key = provider_config
+        .and_then(|c| c.instance_id.as_deref())
+        .map(|id| {
+            use sha2::Digest;
+            format!("instance-{:x}", sha2::Sha256::digest(id.as_bytes()))
+        })
+        .unwrap_or_else(|| manifest.id.clone());
+    let plugin_data_dir = app_data_dir.join("plugins").join(data_key);
     usagestat_core::storage::private_directory(&plugin_data_dir)
         .map_err(|error| rquickjs::Exception::throw_message(ctx, &error.to_string()))?;
     app.set("appDataDir", app_data_dir.to_string_lossy().to_string())?;
@@ -257,7 +353,14 @@ fn inject_context(
     globals.set("__ai_usage_ctx", probe_ctx.clone())?;
     globals.set("__openusage_ctx", probe_ctx.clone())?;
     globals.set("__OPENUSAGE_PLUGIN_REGISTRATION_ID__", manifest.id.as_str())?;
-    host_api::inject(ctx, &probe_ctx, &manifest.id)?;
+    host_api::inject(
+        ctx,
+        &probe_ctx,
+        &manifest.id,
+        provider_config
+            .and_then(|c| c.instance_id.as_deref())
+            .unwrap_or(&manifest.id),
+    )?;
     Ok(())
 }
 

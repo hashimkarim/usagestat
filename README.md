@@ -314,9 +314,13 @@ and `/v1/history/daily/<provider>/<period>` (`month`, `all`, or a day count).
 credential or account labels. See [history accounting](docs/history-accounting.md)
 for source precedence, model estimates, cache savings, and pricing coverage.
 
-The source dashboard's **Settings** tab adds provider visibility, custom names,
-ordering and summary quotas, plus themes, accents, card spacing and refresh
-preferences. These settings stay in the browser independently of UsageStat Bar.
+The source dashboard's **Settings** tab separates **Display** preferences from
+shared backend **Collection** setup. Display includes visibility, names, ordering,
+trackers, provider logo variants, monochrome/colour, themes, thresholds and layout.
+Collection configures polling, provider sources and write-only credentials after
+unlocking with the private local setup key. Display stays independent of UsageStat
+Bar. Charts offer hover, focus and tap details for recorded quotas, tokens and costs.
+These changes require a subsequent build; published v2.0.0 binaries are unchanged.
 See [dashboard settings](docs/dashboard-settings.md) and
 [automatic service updates](docs/installation.md#automatic-updates-on-fedora).
 

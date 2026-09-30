@@ -378,7 +378,7 @@ header{
 
 /* tooltip */
 #tip{
-  position:fixed;display:none;z-index:200;pointer-events:none;
+  position:fixed;display:none;z-index:200;pointer-events:auto;
   background:var(--s2);border:1px solid var(--bd);border-radius:7px;
   padding:8px 12px;min-width:140px;
   box-shadow:0 4px 16px rgba(0,0,0,.4);
@@ -603,11 +603,50 @@ html[data-density="compact"] .overview-panel{padding:12px 14px}
 .settings-note{font-size:12px;color:var(--mu);margin-top:14px}
 .settings-status{font-size:12px;color:var(--green);min-height:20px;margin-top:10px}
 .settings-status.is-error{color:var(--red)}
+.settings-nav{display:flex;gap:8px;margin:0 0 18px}
+.settings-nav .active{background:var(--blue);color:#fff}
+.provider-extra{grid-column:1/-1;display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;border-top:1px solid var(--bd);padding-top:14px}
+.provider-extra label,.collection-field label{display:block;color:var(--mu);font-size:12px;margin-bottom:5px}
+.provider-extra .ctrl-select,.provider-extra .ctrl-input,.collection-field input,.collection-field select,.collection-field textarea{width:100%;min-width:0}
+.collection-field input[type=checkbox]{width:auto}
+.settings-section code{overflow-wrap:anywhere}
+#collection-key-file{display:block;max-width:100%;margin-top:12px}
+.metric-choices{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:12px}
+.metric-choices label{display:flex;align-items:center;gap:6px}
+.collection-provider{margin-bottom:16px}
+.collection-provider summary{cursor:pointer;display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-weight:600;font-size:15px}
+.collection-fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin-top:16px}
+.collection-fields .full{grid-column:1/-1}
+.collection-field textarea{min-height:70px;padding:9px;background:var(--s1);border:1px solid var(--bd);border-radius:5px;color:var(--tx);font:12px var(--mono)}
+.setting-table{width:100%;border-collapse:collapse}
+.setting-table td{padding:5px 4px;vertical-align:middle}
+.setting-table input,.setting-table select{max-width:100%;min-width:0}
+.setting-table .ctrl-input{width:100%}
+@media(max-width:520px){.setting-table tr{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));border-bottom:1px solid var(--bd)}.setting-table td{min-width:0}}
+.settings-section details{margin-top:16px}
+.settings-section details summary{cursor:pointer;font-size:13px;color:var(--tx)}
+.custom-icon-input{font-size:11px;max-width:100%}
+.provider-icon.monochrome{display:inline-block;background:var(--icon-neutral,var(--tx));mask-image:var(--icon-url);mask-size:contain;mask-repeat:no-repeat;mask-position:center}
+.provider-icon.icon-usage{position:relative;display:inline-block;margin-right:8px}
+.provider-icon.icon-usage .provider-icon{position:absolute;inset:0;margin:0;width:100%;height:100%}
+.provider-icon.icon-usage>.icon-back{opacity:.25}
+.provider-icon.icon-usage>.icon-front{clip-path:inset(var(--icon-clip) 0 0 0)}
+:root[data-metric-layout="horizontal"] .card-body{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px}
+.grid,html[data-density="compact"] .grid{gap:var(--provider-spacing,16px)}
+[data-chart-detail]{cursor:help}
+[data-chart-detail]:focus-visible,.chart-svg:focus-visible{outline:2px solid var(--blue);outline-offset:3px}
+[data-card-component][hidden]{display:none!important}
+.card-body{display:flex;flex-direction:column}
+.card-name{display:flex;align-items:center;gap:8px}
+.card-name>[data-card-component]{display:inline-flex;align-items:center}
+#tip{max-width:min(480px,calc(100vw - 20px));max-height:calc(100vh - 24px);overflow:auto}
+.tt-row{display:flex;gap:10px;justify-content:space-between;font:11px var(--mono);margin-top:5px}
+.tt-row span:first-child{color:var(--mu)}
 @media(max-width:800px){.settings-layout{grid-template-columns:1fr}.provider-setting{grid-template-columns:minmax(0,1fr) auto;gap:12px}.provider-setting-title{grid-column:1}.provider-order-actions{grid-column:2;grid-row:1}.provider-setting-field{grid-column:1/-1}.settings-section{padding:16px}.settings-heading{flex-wrap:wrap}}
 </style>
 </head>
 <body>
-<div id="tip"></div>
+<div id="tip" role="tooltip" tabindex="-1"></div>
 <div class="shell">
 
   <header>
@@ -659,11 +698,15 @@ html[data-density="compact"] .overview-panel{padding:12px 14px}
 </div>
 <script src="/dashboard/trends.js"></script>
 <script src="/dashboard/settings.js"></script>
+<script src="/dashboard/backend.js"></script>
 <script>
 // ── state ─────────────────────────────────────────────────────────────────────
 const S = {
   snapshots:[],
   providers:[],
+  allProviders:[],
+  iconCatalog:null,
+  settingsSection:'display',
   dailyRows:[],
   dailyError:false,
   costs:{},
@@ -673,13 +716,22 @@ const S = {
   online:false,
   prefs:loadPrefs()
 };
+const Backend=typeof UsageDashboardBackend==='object'&&typeof fetch==='function'?UsageDashboardBackend.create((...args)=>fetch(...args)):null;
 const quotaDisplay = document.getElementById('quota-display');
 quotaDisplay.value = S.prefs.quotaDisplay === 'remaining' ? 'remaining' : 'used';
 quotaDisplay.onchange = () => { S.prefs.quotaDisplay = quotaDisplay.value; savePrefs(); renderOverview(); renderActive(); };
 function displayPct(used){return S.prefs.quotaDisplay === 'remaining' ? Math.max(0,100-used) : used;}
 function providerIcon(id){
   if(S.prefs.icons===false) return '';
-  return S.providers.find(p=>p.id===id)?.icon ? `<img class="provider-icon" alt="" src="/v1/icons/${encodeURIComponent(id)}" onerror="this.remove()">` : '';
+  const pref=providerSetting(id);let style=pref.iconStyle&&pref.iconStyle!=='inherit'?pref.iconStyle:S.prefs.iconStyle;
+  const provider=(S.allProviders||S.providers).find(p=>p.id===id)||S.providers.find(p=>p.id===id);
+  if(!provider?.icon&&!pref.customIcon)return '';
+  const family=UsageDashboardSettings.iconChoices(S.iconCatalog,provider?.pluginId||id),source=family.some(icon=>icon.id===pref.iconSource)?pref.iconSource:'',base=source||provider?.pluginId||id,chosen=S.iconCatalog?.aliases?.[base]||base;
+  if(style==='color'&&(S.iconCatalog?.icons?.find(i=>i.id===chosen)?.color===false||(!family.length&&provider?.icon?.monochrome&&!provider.icon.colorPath)))style='monochrome';
+  const url=pref.customIcon||`/v1/icons/${encodeURIComponent(id)}?style=${style}${source?'&source='+encodeURIComponent(source):''}`;
+  const icon=(extra='')=>style==='monochrome'&&!pref.customIcon?`<span class="provider-icon monochrome ${extra}" style="--icon-url:url('${esc(url)}')" role="img" aria-label="${esc(providerName(id))} logo"></span>`:`<img class="provider-icon ${extra}" alt="" src="${esc(url)}" onerror="this.remove()">`;
+  const snap=S.snapshots.find(s=>s.providerId===id),percent=snap&&!snapshotHasError(snap)?primaryPercentOf(snap):null;
+  return S.prefs.iconFill==='usage'&&percent!=null?`<span class="provider-icon icon-usage" style="--icon-clip:${100-Math.min(100,displayPct(percent))}%">${icon('icon-back')}${icon('icon-front')}</span>`:icon();
 }
 
 // ── countdown ring ────────────────────────────────────────────────────────────
@@ -707,7 +759,9 @@ async function load(){
       fetch('/v1/history/daily').then(r=>r.ok?r.json():null).catch(()=>null),
     ]);
     S.snapshots = usage;
+    S.allProviders=providers;
     S.providers = providers.filter(p=>p.enabled);
+    if(!S.iconCatalog)try{S.iconCatalog=await fetch('/v1/icon-catalog').then(r=>r.ok?r.json():null);}catch{}
     S.dailyRows = normalizeDailyRows(daily);
     S.dailyError = !daily || !!daily.error || !(Array.isArray(daily) || Array.isArray(daily.daily));
     S.histories = {};
@@ -717,6 +771,7 @@ async function load(){
     buildTabs();
     applyTabVisibility();
     renderActive();
+    checkThresholdNotifications();
   } catch {
     S.online = false; setOnline(false); renderActive();
   }
@@ -767,6 +822,7 @@ function setOnline(on){
 }
 
 function switchTab(id){
+  if(S.active==='settings'&&S.settingsSection==='collection'&&S.collectionDirty)S.collectionDrafts=captureCollectionDrafts();
   S.active=id;
   document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t.dataset.tab===id));
   document.querySelectorAll('.panel').forEach(p=>p.classList.toggle('active',p.id===`panel-${id}`));
@@ -849,28 +905,30 @@ function renderOverview(){
   let html='';
   overview.forEach((s,i)=>{
     const isErr=snapshotHasError(s);
-    const pace=s.pace;
-    const primM=UsageDashboardSettings.primary(s,S.prefs);
+    const pace=S.prefs.showPace&&S.prefs.components.includes('pace')?s.pace:null;
+    const primM=isErr?null:UsageDashboardSettings.primary(s,S.prefs);
     const primP=primM?pct(primM):null;
     const accent=pace?paceColor(pace.stage):primP!=null?barCol(primP):'#484f58';
     const roll = providerWindowTotals(s.providerId, 30);
     html+=`<div class="card${isErr?' is-error':''}" style="--accent:${accent}">`;
     html+=`<div class="card-head"><div class="card-meta">`;
-    html+=`<div class="card-name">${providerIcon(s.providerId)}${esc(providerName(s.providerId))}</div>`;
+    html+=`<div class="card-name"><span data-card-component="logo">${providerIcon(s.providerId)}</span><span data-card-component="name">${esc(providerName(s.providerId))}</span></div>`;
     html+=`<div class="card-tags">`;
-    if(s.source) html+=`<span class="badge b-${s.source||'local'}">${esc(s.source)}</span>`;
+    if(S.allProviders.find(p=>p.id===s.providerId)?.enabled===false)html+=`<span class="badge">Collection paused · saved usage</span>`;
+    if(isErr)html+=`<span class="badge">Usage unavailable · ${esc(s.state||'failed')}</span>`;
+    if(s.source) html+=`<span class="${srcCls(s.source)}">${esc(s.source)}</span>`;
     if(s.plan)   html+=`<span class="plan-tag">${esc(s.plan)}</span>`;
     html+=`</div></div>`;
-    if(primP!=null) html+=arcSvg(displayPct(primP),barCol(primP));
+    if(primP!=null) html+=arcSvg(displayPct(primP),barCol(primP),snapshotDetail(s,primM));
     html+=`</div><div class="card-body">`;
-    for(const m of (s.metrics||[])){
+    for(const m of UsageDashboardSettings.metrics(s,S.prefs)){
       if(m.type==='progress'){
         const p=pct(m),col=barCol(p);
-        html+=`<div class="metric"><div class="mlabel">${esc(m.label)}</div>`;
-        html+=`<div class="prog-row"><span class="prog-val">${fmtMetric(m)}</span></div>`;
+        html+=`<div class="metric" data-card-component="quota" ${chartDetailAttribute(snapshotDetail(s,m))}><div class="mlabel">${esc(m.label)}</div>`;
+        html+=`<div class="prog-row"><span class="prog-val">${esc(fmtMetric(m))}</span></div>`;
         if(m.detail) html+=`<div class="metric-detail">${esc(m.detail)}</div>`;
         html+=`<div class="track"><div class="bar" style="background:${col}" data-w="${displayPct(p).toFixed(2)}%"></div></div>`;
-        if(m.resetsAt) html+=`<div class="resets">${fmtReset(m.resetsAt)}</div>`;
+        if(m.resetsAt&&S.prefs.showReset&&S.prefs.components.includes('reset')) html+=`<div class="resets">${fmtReset(m.resetsAt)}</div>`;
         html+=`</div>`;
       } else if(m.type==='text'){
         html+=`<div class="metric"><div class="kv"><span class="mlabel" style="margin:0">${esc(m.label)}</span><span class="kv-val">${esc(m.value||'')}</span></div></div>`;
@@ -881,12 +939,12 @@ function renderOverview(){
       }
     }
     if(roll.totalTokens>0 || roll.cost>0){
-      html+=`<div class="metric"><div class="kv"><span class="mlabel" style="margin:0">30d tracked</span><span class="kv-val">${recordedCost(roll)} · ${recordedTokens(roll)} tokens</span></div></div>`;
+      html+=`<div class="metric" data-card-component="cost" ${chartDetailAttribute(dailyDetail(dailyRowsInWindow(S.dailyRows.filter(r=>r.providerId===s.providerId),30),'30d tracked · '+providerName(s.providerId)))}><div class="kv"><span class="mlabel" style="margin:0">30d tracked</span><span class="kv-val">${recordedCost(roll)} · ${recordedTokens(roll)} tokens</span></div></div>`;
     }
     if(pace){
       const pc=paceColor(pace.stage);
       const dCls=pace.deltaPercent>0.5?'pos':pace.deltaPercent<-0.5?'neg':'';
-      html+=`<div class="card-pace">`;
+      html+=`<div class="card-pace" data-card-component="pace" ${chartDetailAttribute(snapshotDetail(s,primM))}>`;
       html+=`<div class="pace-top"><span class="pace-lbl">Pace</span>`;
       html+=`<span class="pace-stage" style="color:${pc};border-color:${pc}55">${stageLbl(pace.stage)}</span></div>`;
       html+=`<div class="pace-grid">`;
@@ -898,10 +956,11 @@ function renderOverview(){
     }
     html+=`</div>`;
     html+=`<div class="card-foot"><span class="foot-ts">${fmtAgo(s.fetchedAt)}</span>`;
-    if(s.statusPageUrl) html+=`<a class="slink" href="${esc(s.statusPageUrl)}" target="_blank" rel="noreferrer"><svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="5" cy="5" r="3.5"/><circle cx="5" cy="5" r="1.2"/></svg>status</a>`;
+    if(S.prefs.showDashboardLinks){const provider=S.allProviders.find(p=>p.id===s.providerId),link=safeWebUrl(provider?.usageDashboardUrl||provider?.webUrl);if(link)html+=`<a class="slink" href="${esc(link)}" target="_blank" rel="noreferrer">usage ↗</a>`;}
+    if(safeWebUrl(s.statusPageUrl)&&S.prefs.showStatusLinks) html+=`<a class="slink" href="${esc(s.statusPageUrl)}" target="_blank" rel="noreferrer"><svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="5" cy="5" r="3.5"/><circle cx="5" cy="5" r="1.2"/></svg>status</a>`;
     html+=`</div></div>`;
   });
-  grid.innerHTML=html;
+  grid.innerHTML=html;applyCardComponents(grid);
   animateBarsAndArcs(grid);
 }
 
@@ -1002,6 +1061,7 @@ function overviewSnapshots(){
   const sorted = filtered.slice();
   const sort = S.prefs.sort || 'order';
   sorted.sort((a,b)=>{
+    const pinA=providerSetting(a.providerId).pinned===true,pinB=providerSetting(b.providerId).pinned===true;if(pinA!==pinB)return Number(pinB)-Number(pinA);
     if(sort==='name') return providerName(a.providerId).localeCompare(providerName(b.providerId));
     if(sort==='recent') return (+new Date(b.fetchedAt||0)) - (+new Date(a.fetchedAt||0));
     if(sort==='pressure') return (primaryPercentOf(b)||0) - (primaryPercentOf(a)||0);
@@ -1024,7 +1084,7 @@ function isInactiveProvider(s){
 function showInactive(){ return S.prefs.inactive==='show'; }
 function providerSetting(id){ return UsageDashboardSettings.provider(S.prefs,id); }
 function providerName(id){
-  return providerSetting(id).name || S.snapshots.find(s=>s.providerId===id)?.displayName || S.providers.find(p=>p.id===id)?.name || id;
+  return providerSetting(id).name || S.snapshots.find(s=>s.providerId===id)?.displayName || S.allProviders.find(p=>p.id===id)?.name || S.providers.find(p=>p.id===id)?.name || id;
 }
 function visibleSnapshots(){ return orderedSnapshots().filter(s=>providerSetting(s.providerId).visible && (showInactive() || !isInactiveProvider(s))); }
 function hiddenInactive(){ return showInactive() ? [] : orderedSnapshots().filter(s=>providerSetting(s.providerId).visible && isInactiveProvider(s)); }
@@ -1035,7 +1095,7 @@ function applyTabVisibility(){
 
 // Plugins report failures either as source 'error' or as an "Error" badge.
 function snapshotHasError(s){
-  return s.source==='error' || (s.metrics||[]).some(m=>m.type==='badge' && /^error$/i.test(String(m.label||'').trim()));
+  return (!!s.state&&s.state!=='ready'&&s.state!=='no-data') || s.source==='error' || (s.metrics||[]).some(m=>m.type==='badge' && /^error$/i.test(String(m.label||'').trim()));
 }
 
 function primaryPercentOf(s){
@@ -1050,10 +1110,10 @@ function renderOverviewSummary(){
   const snaps = visibleSnapshots(), hidden = hiddenInactive();
   if(!snaps.length){ el.innerHTML=''; return; }
 
-  const progressRows = snaps.flatMap(s=>(s.metrics||[])
-    .filter(m=>m.type==='progress' && m.format?.kind==='percent' && m.limit>0)
+  const progressRows = snaps.filter(s=>!snapshotHasError(s)).flatMap(s=>UsageDashboardSettings.metrics(s,S.prefs)
+    .filter(m=>m.type==='progress' && m.limit>0)
     .map(m=>({ snap:s, metric:m, percent:pct(m) })));
-  const primaryRows = snaps.map(s=>{
+  const primaryRows = snaps.filter(s=>!snapshotHasError(s)).map(s=>{
     const m = UsageDashboardSettings.primary(s,S.prefs);
     return m ? { snap:s, metric:m, percent:pct(m) } : null;
   }).filter(Boolean);
@@ -1063,14 +1123,14 @@ function renderOverviewSummary(){
   const nearLimit = progressRows.filter(row=>row.percent>=80).length;
   const live = snaps.filter(s=>!snapshotHasError(s)).length;
   const errorCount = snaps.length - live;
-  const withPace = snaps.filter(s=>s.pace).length;
+  const withPace = S.prefs.showPace?snaps.filter(s=>s.pace).length:0;
   const resets = progressRows
     .filter(row=>row.metric.resetsAt)
     .sort((a,b)=>new Date(a.metric.resetsAt)-new Date(b.metric.resetsAt));
   const nextReset = resets[0];
   const updated = snaps.map(s=>+new Date(s.fetchedAt||0)).filter(Boolean).sort((a,b)=>b-a)[0];
   const riskyPace = snaps
-    .filter(s=>s.pace && (!s.pace.willLastToReset || /over$/.test(String(s.pace.stage||''))))
+    .filter(s=>S.prefs.showPace && s.pace && (!s.pace.willLastToReset || /over$/.test(String(s.pace.stage||''))))
     .sort((a,b)=>(b.pace?.deltaPercent||0)-(a.pace?.deltaPercent||0));
   const alerts = [];
   if(riskyPace.length){
@@ -1090,7 +1150,7 @@ function renderOverviewSummary(){
       sub:`${highest.metric.label}: ${highest.percent.toFixed(1)}% used`
     });
   }
-  if(nextReset){
+  if(nextReset&&S.prefs.showReset){
     alerts.push({
       level:'reset',
       color:'#7289da',
@@ -1133,12 +1193,12 @@ function renderOverviewSummary(){
 
   html+=`<div class="overview-panel">`;
   html+=`<div class="overview-title">Quota Pressure</div>`;
-  html+=`<div class="overview-sub">${nextReset ? esc(fmtReset(nextReset.metric.resetsAt)) : 'no reset window'} · ${updated ? esc(fmtAgo(new Date(updated).toISOString())) : 'not updated'}</div>`;
+  html+=`<div class="overview-sub">${S.prefs.showReset&&nextReset ? esc(fmtReset(nextReset.metric.resetsAt)) : 'quota observations'} · ${updated ? esc(fmtAgo(new Date(updated).toISOString())) : 'not updated'}</div>`;
   html+=`<div class="pressure-list">`;
   for(const row of pressure.slice(0,5)){
     const name = providerName(row.snap.providerId);
     const col = row.snap.pace ? paceColor(row.snap.pace.stage) : barCol(row.percent);
-    html+=`<div class="pressure-row">`;
+    html+=`<div class="pressure-row" ${chartDetailAttribute(snapshotDetail(row.snap,row.metric))}>`;
     html+=`<div class="pressure-name">${esc(name)}</div>`;
     html+=`<div class="pressure-value">${row.percent.toFixed(1)}%</div>`;
     html+=`<div class="pressure-track"><div class="pressure-fill" style="width:${row.percent.toFixed(2)}%;background:${col}"></div></div>`;
@@ -1285,7 +1345,7 @@ function overviewTrendHtml(rows){
     const basis = Math.max(r.cost, r.totalTokens/1000000);
     const h = Math.max(3, Math.round(basis/max*100));
     const color = r.cost>0 ? '#43b581' : '#7289da';
-    return `<div class="trend-bar" style="height:${h}%;background:${color}" title="${esc(r.date)}: ${recordedCost(r)} · ${esc(recordedTokens(r))} tokens"></div>`;
+    return `<div class="trend-bar" style="height:${h}%;background:${color}" ${chartDetailAttribute(dailyDetail(S.dailyRows.filter(d=>d.date===r.date&&providerSetting(d.providerId).visible),r.date))}></div>`;
   }).join('');
   return `<div class="overview-trend"><div class="trend-head"><span class="trend-title">Last 14 days</span><span class="trend-readout">${recordedCost(latest)} · ${esc(recordedTokens(latest))} tokens today</span></div><div class="trend-bars">${bars}</div></div>`;
 }
@@ -1298,7 +1358,7 @@ function topContributorsHtml(rows, totals){
     const max = totals.cost>0 ? totals.cost : totals.totalTokens;
     const p = max>0 ? Math.min(100, basis/max*100) : 0;
     const label = r.cost>0 || r.costKnown===false ? recordedCost(r) : recordedTokens(r);
-    html+=`<div class="contrib-row"><div class="contrib-name">${esc(providerDisplayName(r.providerId, r.displayName))}</div><div class="contrib-value">${esc(label)}</div><div class="pressure-track"><div class="pressure-fill" style="width:${p.toFixed(1)}%;background:#43b581"></div></div></div>`;
+    html+=`<div class="contrib-row" ${chartDetailAttribute(dailyDetail(dailyRowsInWindow(S.dailyRows.filter(d=>d.providerId===r.providerId),30),providerDisplayName(r.providerId,r.displayName)))}><div class="contrib-name">${esc(providerDisplayName(r.providerId, r.displayName))}</div><div class="contrib-value">${esc(label)}</div><div class="pressure-track"><div class="pressure-fill" style="width:${p.toFixed(1)}%;background:#43b581"></div></div></div>`;
   }
   html+=`</div>`;
   return html;
@@ -1791,11 +1851,11 @@ function wireUsageChart(el){
   const tip = document.getElementById('tip');
   if(!svg || !tip || !svg.getBoundingClientRect) return;
   const guide = svg.querySelector('.u-guide');
-  svg.addEventListener('mousemove', e=>{
+  const inspect=(e,forcedIndex)=>{
     const data = S.chartPoints; if(!data?.points.length) return;
     const box = svg.getBoundingClientRect(), scale = 960/box.width;
     const L = +svg.dataset.l, CW = +svg.dataset.cw, n = data.points.length;
-    const i = n===1 ? 0 : Math.max(0, Math.min(n-1, Math.round(((e.clientX-box.left)*scale - L)/CW*(n-1))));
+    const i = forcedIndex??(n===1 ? 0 : Math.max(0, Math.min(n-1, Math.round(((e.clientX-box.left)*scale - L)/CW*(n-1)))));
     const p = data.points[i], gx = n===1 ? L+CW/2 : L+CW*i/(n-1);
     guide.setAttribute('x1',gx); guide.setAttribute('x2',gx); guide.setAttribute('opacity','.7');
     const dots = svg.querySelector('.u-dots');
@@ -1806,14 +1866,16 @@ function wireUsageChart(el){
       c.style.display = v>0 || data.series.length===1 ? '' : 'none';
     }
     const rows = data.series.map((l,li)=>[l,p.parts[li],p.partsKnown[li]]).filter(([,v,k])=>v>0 || k===false).reverse();
-    tip.innerHTML = `<div class="tt-date">${esc(p.start===p.end?fmtDay(p.start):fmtDay(p.start)+' → '+fmtDay(p.end))}</div><div class="tt-cost">${p.recordedDays?esc(fmtMetricValue(data.metric,p.value,p.known)):'No record'}</div>`+
+    const selected=trendsOptions().provider.toLowerCase(),records=S.dailyRows.filter(r=>r.date>=p.start&&r.date<=p.end&&(!selected||r.providerId.toLowerCase()===selected));
+    tip.innerHTML = detailHtml(dailyDetail(records,p.start===p.end?fmtDay(p.start):fmtDay(p.start)+' → '+fmtDay(p.end)))+
       (data.series.length>1 ? rows.map(([l,v,k])=>`<div class="tt-row"><span class="u-dot" style="background:${l.color}"></span><span>${esc(l.name)}</span><b>${esc(fmtMetricValue(data.metric,v,k))}</b></div>`).join('') : '')+
       `<div class="tt-meta">${p.recordedDays}/${p.days} days recorded</div>`;
     tip.style.display = 'block';
-    const left = e.clientX + 16 + tip.offsetWidth > innerWidth ? e.clientX - tip.offsetWidth - 16 : e.clientX + 16;
-    tip.style.left = left+'px'; tip.style.top = Math.max(8, e.clientY - 40)+'px';
-  });
-  svg.addEventListener('mouseleave', ()=>{ tip.style.display='none'; guide.setAttribute('opacity','0'); svg.querySelector('.u-dots').setAttribute('opacity','0'); });
+    positionTooltip(e.clientX,e.clientY);
+  };
+  svg.addEventListener('mousemove',e=>inspect(e));svg.addEventListener('click',e=>inspect(e));
+  wireChartKeyboard(svg,(index,event)=>inspect(event,index),S.chartPoints?.points.length||1);
+  svg.addEventListener('mouseleave', event=>{ if(event.relatedTarget?.closest?.('#tip'))return;tip.style.display='none'; guide.setAttribute('opacity','0'); svg.querySelector('.u-dots').setAttribute('opacity','0'); });
 }
 
 function exportDailyCsv(selectedRows = S.dailyRows, filename){
@@ -1909,7 +1971,10 @@ function applyAppearance(){
   const systemLight=typeof matchMedia==='function' && matchMedia('(prefers-color-scheme: light)').matches;
   root.dataset.theme=S.prefs.theme==='system'?(systemLight?'light':'dark'):S.prefs.theme;
   root.dataset.density=S.prefs.density;
-  root.style.setProperty('--blue',UsageDashboardSettings.ACCENTS[S.prefs.accent]);
+  root.style.setProperty('--blue',S.prefs.customAccent||UsageDashboardSettings.ACCENTS[S.prefs.accent]);
+  root.style.setProperty('--icon-neutral',S.prefs.neutralColor||(root.dataset.theme==='light'?'#29313d':'#e6edf3'));
+  root.style.setProperty('--provider-spacing',S.prefs.providerSpacing+'px');
+  root.dataset.metricLayout=S.prefs.metricLayout;
   root.style.colorScheme=root.dataset.theme;
 }
 function settingsStatus(message,error=false){
@@ -1937,7 +2002,7 @@ function updateProviderSetting(id,key,value){
   refreshSettings('Settings saved.',key!=='name');
 }
 function settingsProviderIds(){
-  return UsageDashboardSettings.order([...new Set([...S.providers.map(p=>p.id),...S.snapshots.map(s=>s.providerId)])],S.prefs,id=>id);
+  return UsageDashboardSettings.order([...new Set([...(S.allProviders||[]).map(p=>p.id),...S.providers.map(p=>p.id),...S.snapshots.map(s=>s.providerId)])],S.prefs,id=>id);
 }
 function moveDashboardProvider(id,direction){
   const order=settingsProviderIds(),index=order.indexOf(id),next=index+direction;
@@ -1956,11 +2021,12 @@ function undoDashboardReset(){
 function renderSettings(force=false){
   const root=document.getElementById('panel-settings');
   // A background refresh must not discard text while the user is editing it.
-  if(!force && root.contains?.(document.activeElement))return;
+  if(!force && (root.contains?.(document.activeElement)||(S.settingsSection==='collection'&&S.collectionDirty)))return;
+  if(S.settingsSection==='collection'){renderCollectionSettings(root);return;}
   const select=(id,label,value,options,hint='')=>`<div class="setting-row"><label for="${id}">${label}${hint?`<span class="setting-hint">${hint}</span>`:''}</label><select class="ctrl-select" id="${id}">${options.map(([v,text])=>selectOption(v,text,String(value))).join('')}</select></div>`;
   const check=(id,label,checked,hint='')=>`<div class="setting-row"><label for="${id}">${label}${hint?`<span class="setting-hint">${hint}</span>`:''}</label><input type="checkbox" id="${id}"${checked?' checked':''}></div>`;
   const ids=settingsProviderIds();
-  root.innerHTML=`<div class="settings-heading"><div><h1>Dashboard settings</h1><p class="settings-description">Make this dashboard your own. These preferences are saved in this browser, independently of UsageStat Bar.</p></div><button class="action-btn" type="button" onclick="switchTab('overview')">Back to Overview</button></div>
+  root.innerHTML=`<div class="settings-heading"><div><h1>Dashboard settings</h1><p class="settings-description">Display settings belong to this browser, independently of UsageStat Bar. Collection settings control what the shared backend measures.</p></div><button class="action-btn" type="button" onclick="switchTab('overview')">Back to Overview</button></div>${settingsNavigation()}
     <div class="settings-layout">
       <section class="settings-section" aria-labelledby="appearance-heading"><h2 id="appearance-heading">Appearance</h2><p>Choose how the dashboard looks and presents usage.</p>
         ${select('setting-theme','Theme',S.prefs.theme,[['dark','Comfy dark'],['light','Light'],['system','Follow system']])}
@@ -1969,29 +2035,32 @@ function renderSettings(force=false){
         ${select('setting-quota','Quota display',S.prefs.quotaDisplay,[['used','Used'],['remaining','Remaining']])}
         ${check('setting-icons','Provider icons',S.prefs.icons)}
         ${check('setting-summary','Overview summary',S.prefs.summary)}
+        ${displayAppearanceHtml()}
       </section>
       <section class="settings-section" aria-labelledby="view-heading"><h2 id="view-heading">View and refresh</h2><p>Set the defaults for this dashboard.</p>
         ${select('setting-refresh','Refresh this view',S.prefs.refreshSeconds,UsageDashboardSettings.REFRESH_SECONDS.map(v=>[String(v),v<60?`${v} seconds`:`${v/60} minute${v===60?'':'s'}`]),'Reads the latest saved usage. Provider polling follows the backend schedule.')}
         ${select('setting-sort','Overview order',S.prefs.sort,[['order','My provider order'],['pressure','Quota pressure'],['cost30','30d cost'],['tokens30','30d tokens'],['recent','Last updated'],['name','Name']])}
         ${check('setting-inactive','Hide inactive providers',!showInactive(),'Automatically hide providers with an error and no quota or recent tracked usage.')}
-        <p class="settings-note">Provider credentials and collection settings belong to the shared backend. Display changes here keep Bar’s setup independent.</p>
+        <p class="settings-note">Hiding a provider or metric changes this view. Use Collection to enable polling, choose a source, or save credentials.</p>
         <div class="settings-actions"><button class="action-btn" id="settings-export" type="button">Export settings</button><button class="action-btn" id="settings-import" type="button">Import settings</button><button class="action-btn" id="settings-reset" type="button">Reset dashboard</button>${S.prefsUndo?'<button class="action-btn" id="settings-undo" type="button">Undo reset</button>':''}</div>
         <p class="settings-status${S.settingsMessageError?' is-error':''}" id="settings-status" role="status">${esc(S.settingsMessage||'')}</p>
       </section>
       <section class="settings-section providers" aria-labelledby="providers-heading"><h2 id="providers-heading">Providers</h2><p>Choose which providers appear in Overview and the tab bar, give them display names, and select the quota shown in their summary. Saved history remains available.</p>
         <div id="settingsProviders">${ids.length?ids.map((id,index)=>{
           const pref=providerSetting(id),snap=S.snapshots.find(s=>s.providerId===id);
-          const original=S.providers.find(p=>p.id===id)?.name||snap?.displayName||id;
-          const quotas=(snap?.metrics||[]).filter(m=>m.type==='progress'&&m.format?.kind==='percent'&&m.limit>0);
+          const original=S.allProviders.find(p=>p.id===id)?.name||S.providers.find(p=>p.id===id)?.name||snap?.displayName||id;
+          const quotas=(snap?.metrics||[]).filter(m=>m.type==='progress'&&m.limit>0);
           const state=snap?snapshotHasError(snap)?(snap.metrics||[]).find(m=>m.type==='badge'&&/^error$/i.test(m.label))?.text||'Usage unavailable':isInactiveProvider(snap)?'Inactive':'Usage available':'Waiting for usage';
           return `<div class="provider-setting" data-provider="${esc(id)}">
             <div class="provider-setting-title"><input id="setting-visible-${esc(id)}" data-provider-option="visible" type="checkbox"${pref.visible?' checked':''}><label for="setting-visible-${esc(id)}"><span class="provider-setting-name">${providerIcon(id)}${esc(original)}</span><span class="provider-setting-state">${esc(state)}</span></label></div>
             <div class="provider-setting-field"><label for="setting-name-${esc(id)}">Display name</label><input class="ctrl-input" id="setting-name-${esc(id)}" data-provider-option="name" maxlength="80" value="${esc(pref.name)}" placeholder="${esc(original)}"></div>
             <div class="provider-setting-field"><label for="setting-primary-${esc(id)}">Summary quota</label><select class="ctrl-select" id="setting-primary-${esc(id)}" data-provider-option="primaryQuota">${selectOption('','Automatic',pref.primaryQuota)}${quotas.map(m=>selectOption(m.label,m.label,pref.primaryQuota)).join('')}</select></div>
             <div class="provider-order-actions"><button class="action-btn" type="button" data-move="-1" aria-label="Move ${esc(original)} up"${index===0?' disabled':''}>↑</button><button class="action-btn" type="button" data-move="1" aria-label="Move ${esc(original)} down"${index===ids.length-1?' disabled':''}>↓</button></div>
+            ${providerDisplayExtras(id,snap,pref)}
           </div>`;
         }).join(''):'<p class="settings-note">Providers appear here once the backend has loaded them. Appearance settings are available now.</p>'}</div>
       </section>
+      ${displayAdvancedHtml()}
     </div>`;
   for(const [id,key] of [['setting-theme','theme'],['setting-accent','accent'],['setting-density','density'],['setting-quota','quotaDisplay'],['setting-sort','sort']]){
     root.querySelector('#'+id).addEventListener('change',event=>setDashboardPref(key,event.target.value));
@@ -2007,6 +2076,166 @@ function renderSettings(force=false){
   root.querySelector('#settings-import').addEventListener('click',()=>document.getElementById('prefs-file').click());
   root.querySelector('#settings-reset').addEventListener('click',resetDashboardSettings);
   root.querySelector('#settings-undo')?.addEventListener('click',undoDashboardReset);
+  bindDisplayExtras(root);
+  bindSettingsNavigation(root);
+}
+
+function settingsNavigation(){
+  return `<nav class="settings-nav" aria-label="Settings scope"><button class="action-btn settings-tab${S.settingsSection==='display'?' active':''}" data-section="display">Display · this browser</button><button class="action-btn settings-tab${S.settingsSection==='collection'?' active':''}" data-section="collection">Collection · shared backend</button></nav>`;
+}
+function bindSettingsNavigation(root){root.querySelectorAll('.settings-tab').forEach(button=>button.addEventListener('click',()=>{if(S.settingsSection==='collection'&&S.collectionDirty)S.collectionDrafts=captureCollectionDrafts();S.settingsSection=button.dataset.section;renderSettings(true);}));}
+function preferenceSelect(key,label,options){return `<div class="setting-row"><label for="pref-${key}">${label}</label><select class="ctrl-select" id="pref-${key}" data-pref="${key}">${options.map(([value,name])=>selectOption(value,name,String(S.prefs[key]))).join('')}</select></div>`;}
+function preferenceCheck(key,label){return `<div class="setting-row"><label for="pref-${key}">${label}</label><input type="checkbox" id="pref-${key}" data-pref="${key}"${S.prefs[key]?' checked':''}></div>`;}
+function displayAppearanceHtml(){return preferenceSelect('iconStyle','Default icon style',[['color','Colour'],['monochrome','Monochrome']])+
+  preferenceSelect('iconFill','Logo fill',[['full','Full logo'],['usage','Follow displayed quota']])+
+  preferenceSelect('metricLayout','Usage meter layout',[['vertical','Vertical'],['horizontal','Side by side']])+
+  `<div class="setting-row"><label for="pref-providerSpacing">Provider spacing</label><input class="ctrl-input" type="number" min="4" max="32" id="pref-providerSpacing" data-pref="providerSpacing" value="${S.prefs.providerSpacing}"></div>`+
+  `<div class="setting-row"><label for="pref-customAccent">Custom meter colour<span class="setting-hint">Leave empty to use the selected accent.</span></label><input class="ctrl-input" id="pref-customAccent" data-pref="customAccent" placeholder="#7289da" value="${esc(S.prefs.customAccent)}"></div>`+
+  `<div class="setting-row"><label for="pref-neutralColor">Monochrome logo colour<span class="setting-hint">Leave empty to follow the theme.</span></label><input class="ctrl-input" id="pref-neutralColor" data-pref="neutralColor" placeholder="#e6edf3" value="${esc(S.prefs.neutralColor)}"></div>`;}
+function providerDisplayExtras(id,snapshot,pref){
+  const provider=(S.allProviders||[]).find(p=>p.id===id)||S.providers.find(p=>p.id===id),base=provider?.pluginId||id;
+  const choices=UsageDashboardSettings.iconChoices(S.iconCatalog,base);
+  return `<div class="provider-extra"><div><label for="setting-icon-style-${esc(id)}">Icon style</label><select class="ctrl-select" id="setting-icon-style-${esc(id)}" data-provider-option="iconStyle">${[['inherit','Dashboard default'],['monochrome','Monochrome'],['color','Colour']].map(([v,n])=>selectOption(v,n,pref.iconStyle||'inherit')).join('')}</select></div>
+    ${choices.length>1?`<div><label for="setting-icon-source-${esc(id)}">Logo variant</label><select class="ctrl-select" id="setting-icon-source-${esc(id)}" data-provider-option="iconSource">${selectOption('',choices[0].name,pref.iconSource===choices[0].id?'':pref.iconSource||'')}${choices.slice(1).map(icon=>selectOption(icon.id,icon.name,pref.iconSource)).join('')}</select></div>`:''}
+    <div><label for="setting-icon-file-${esc(id)}">Custom logo · PNG, JPEG or WebP</label><input class="custom-icon-input" type="file" id="setting-icon-file-${esc(id)}" data-custom-icon="${esc(id)}" accept="image/png,image/jpeg,image/webp"><button class="action-btn" type="button" data-clear-icon="${esc(id)}"${pref.customIcon?'':' disabled'}>Use bundled logo</button></div>
+    <label><input type="checkbox" data-provider-option="pinned"${pref.pinned?' checked':''}> Pin near the start</label>
+    <div class="metric-choices" aria-label="Displayed usage trackers">${(snapshot?.metrics||[]).map(m=>`<label><input type="checkbox" data-metric-key="${esc(UsageDashboardSettings.metricKey(m))}"${(pref.hiddenMetrics||[]).includes(UsageDashboardSettings.metricKey(m))?'':' checked'}>${esc(m.label||m.type)}</label>`).join('')||'<span class="setting-hint">Tracker controls appear after a measurement.</span>'}</div></div>`;
+}
+function displayAdvancedHtml(){return `<section class="settings-section" aria-labelledby="details-heading"><h2 id="details-heading">Usage details and interaction</h2><p>These controls affect the dashboard, including hover details. Measurements and saved history remain available.</p>
+    ${preferenceCheck('showPace','Show pace')}${preferenceCheck('showReset','Show reset times')}
+    ${preferenceSelect('resetTimeFormat','Reset time format',[['smart','Smart'],['relative','Time remaining'],['absolute','Date and time'],['both','Both']])}
+    ${preferenceCheck('showStatusLinks','Provider status links')}${preferenceCheck('showDashboardLinks','Provider usage links')}
+    ${preferenceCheck('scrollToSwitch','Scroll on provider tabs to switch')}
+    <details><summary>Card components and order</summary><div class="settings-note">${S.prefs.components.concat(UsageDashboardSettings.COMPONENTS.filter(c=>!S.prefs.components.includes(c))).map((key,index)=>`<div class="setting-row"><label><input type="checkbox" data-component="${key}"${S.prefs.components.includes(key)?' checked':''}> ${esc(key)}</label><span><button class="action-btn" data-component-move="${key}" data-direction="-1">↑</button> <button class="action-btn" data-component-move="${key}" data-direction="1">↓</button></span></div>`).join('')}</div></details>
+    <details><summary>Dashboard keyboard shortcuts</summary><p class="settings-note">Shortcuts apply while this page is active and never intercept typing in a form.</p>${Object.entries(S.prefs.shortcuts).map(([key,value])=>`<div class="setting-row"><label for="shortcut-${key}">${esc(key)}</label><input class="ctrl-input" maxlength="1" id="shortcut-${key}" data-shortcut="${key}" value="${esc(value)}"></div>`).join('')}</details>
+  </section><section class="settings-section" aria-labelledby="threshold-heading"><h2 id="threshold-heading">Usage thresholds</h2><p>Set names, percentages used, colours and crossing notifications. Notifications use fresh quota observations only.</p>
+    <div id="threshold-rows">${S.prefs.thresholds.map(t=>`<div class="collection-fields" data-threshold="${esc(t.id)}"><div class="collection-field"><label>Name</label><input class="ctrl-input" data-threshold-field="name" value="${esc(t.name)}"></div><div class="collection-field"><label>Percent used</label><input class="ctrl-input" type="number" min="0" max="1000" data-threshold-field="percent" value="${t.percent}"></div><div class="collection-field"><label>Colour</label><input type="color" data-threshold-field="color" value="${t.color}"></div><label><input type="checkbox" data-threshold-field="notify"${t.notify?' checked':''}> Notify on crossing</label><button class="action-btn" data-delete-threshold="${esc(t.id)}">Delete threshold</button></div>`).join('')}</div>
+    <div class="settings-actions"><button class="action-btn" id="add-threshold">Add threshold</button><button class="action-btn" id="enable-notifications">${S.prefs.notifications?'Disable':'Enable'} browser notifications</button></div><p class="settings-note">${S.prefs.notifications?'Notifications enabled for this dashboard.':'Browser notifications are off.'}</p>
+  </section>`;}
+function bindDisplayExtras(root){
+  root.querySelectorAll('[data-pref]').forEach(input=>input.addEventListener('change',()=>setDashboardPref(input.dataset.pref,input.type==='checkbox'?input.checked:input.type==='number'?Number(input.value):input.value)));
+  root.querySelectorAll('[data-shortcut]').forEach(input=>input.addEventListener('change',()=>{S.prefs.shortcuts[input.dataset.shortcut]=input.value;refreshSettings();}));
+  root.querySelectorAll('[data-component]').forEach(input=>input.addEventListener('change',()=>{const values=S.prefs.components.filter(c=>c!==input.dataset.component);if(input.checked)values.push(input.dataset.component);setDashboardPref('components',values);}));
+  root.querySelectorAll('[data-component-move]').forEach(button=>button.addEventListener('click',()=>{const values=S.prefs.components.slice(),i=values.indexOf(button.dataset.component),next=i+Number(button.dataset.direction);if(i>=0&&next>=0&&next<values.length){[values[i],values[next]]=[values[next],values[i]];setDashboardPref('components',values);}}));
+  root.querySelectorAll('[data-threshold]').forEach(row=>row.querySelectorAll('[data-threshold-field]').forEach(input=>input.addEventListener('change',()=>{const t=S.prefs.thresholds.find(t=>t.id===row.dataset.threshold);if(t){t[input.dataset.thresholdField]=input.type==='checkbox'?input.checked:input.type==='number'?Number(input.value):input.value;refreshSettings();}})));
+  root.querySelectorAll('[data-delete-threshold]').forEach(button=>button.addEventListener('click',()=>setDashboardPref('thresholds',S.prefs.thresholds.filter(t=>t.id!==button.dataset.deleteThreshold))));
+  root.querySelector('#add-threshold')?.addEventListener('click',()=>{if(S.prefs.thresholds.length<12)setDashboardPref('thresholds',[...S.prefs.thresholds,{id:'threshold-'+Date.now(),name:'New threshold',percent:85,color:'#ce8670',notify:false}]);});
+  root.querySelector('#enable-notifications')?.addEventListener('click',async()=>{if(S.prefs.notifications){setDashboardPref('notifications',false);return;}if(typeof Notification==='undefined'){settingsStatus('This browser does not support notifications.',true);return;}const permission=await Notification.requestPermission();setDashboardPref('notifications',permission==='granted');if(permission!=='granted')settingsStatus('Browser notifications were not enabled.',true);});
+  root.querySelectorAll('.provider-setting').forEach(row=>row.querySelectorAll('[data-metric-key]').forEach(input=>input.addEventListener('change',()=>{const pref=providerSetting(row.dataset.provider),values=(pref.hiddenMetrics||[]).filter(v=>v!==input.dataset.metricKey);if(!input.checked)values.push(input.dataset.metricKey);updateProviderSetting(row.dataset.provider,'hiddenMetrics',values);})));
+  root.querySelectorAll('[data-clear-icon]').forEach(button=>button.addEventListener('click',()=>updateProviderSetting(button.dataset.clearIcon,'customIcon','')));
+  root.querySelectorAll('[data-custom-icon]').forEach(input=>input.addEventListener('change',async()=>{
+    const file=input.files?.[0];if(!file)return;
+    if(file.size>380*1024||!['image/png','image/jpeg','image/webp'].includes(file.type)){settingsStatus('Choose a PNG, JPEG or WebP image smaller than 380 KB.',true);return;}
+    const reader=new FileReader();reader.onload=()=>updateProviderSetting(input.dataset.customIcon,'customIcon',String(reader.result));reader.onerror=()=>settingsStatus('Could not read that image.',true);reader.readAsDataURL(file);
+  }));
+}
+
+function collectionField(key,label,value='',hint='',secret=false,configured=false){return `<div class="collection-field"><label>${esc(label)}<input class="ctrl-input" name="${key}" type="${secret?'password':'text'}" value="${esc(value)}" placeholder="${configured?'Saved · leave empty to keep':esc(hint)}" autocomplete="off"${secret?' data-secret="true"':''}></label>${secret?`<label class="settings-note"><input type="checkbox" data-clear="${key}"> Clear saved value</label>`:''}</div>`;}
+function settingEditorRow(key='',entry={}){return `<tr data-extra-setting><td><input class="ctrl-input" data-setting-name aria-label="Setting name" placeholder="Setting name" value="${esc(key)}"${key?' readonly':''}></td><td><select class="ctrl-select" data-setting-type aria-label="Setting type">${[['string','Text'],['number','Number'],['boolean','True / false']].map(([v,n])=>selectOption(v,n,entry.type||'string')).join('')}</select></td><td><input class="ctrl-input" data-setting-value aria-label="Setting value" type="${entry.secret?'password':'text'}" value="${entry.secret?'':esc(entry.value??'')}" placeholder="${entry.configured&&entry.secret?'Saved · leave empty to keep':'Value'}" autocomplete="off"${entry.secret?' data-secret="true"':''}></td><td><label><input type="checkbox" data-setting-clear> Clear</label></td></tr>`;}
+function renderCollectionSettings(root){
+  const data=Backend?.data;
+  root.innerHTML=`<div class="settings-heading"><div><h1>Collection settings</h1><p class="settings-description">Configure what this backend measures. Changes are shared with Bar and other clients. Display settings remain independent.</p></div><button class="action-btn" onclick="switchTab('overview')">Back to Overview</button></div>${settingsNavigation()}
+    <p class="settings-status${S.collectionError?' is-error':''}" id="collection-status" role="status">${esc(S.collectionError||S.collectionMessage||(!data?'Loading collection settings…':''))}</p><div class="settings-actions"><button class="action-btn" id="reload-collection">Reload collection settings</button></div>`;
+  bindSettingsNavigation(root);
+  root.querySelector('#reload-collection').addEventListener('click',()=>{S.collectionDirty=false;S.collectionDrafts=null;loadCollectionSettings();});
+  if(!data&&S.collectionKeyFile){
+    root.insertAdjacentHTML('beforeend',`<section class="settings-section"><h2>Unlock collection settings</h2><p>Choose this backend’s private setup key file: <code>${esc(S.collectionKeyFile)}</code></p><p class="settings-note">This proves access to your local profile. It is separate from provider API keys. The file contents stay out of display preferences; access lasts until this backend restarts.</p><label for="collection-key-file">Choose local setup key</label><input type="file" id="collection-key-file" accept=".key,text/plain"></section>`);
+    root.querySelector('#collection-key-file').addEventListener('change',async event=>{
+      const input=event.currentTarget,file=input.files?.[0];input.value='';if(!file)return;
+      try{
+        if(file.size>512)throw new Error('Choose the backend’s dashboard-setup.key file.');
+        const key=(await file.text()).trim();if(!/^[a-fA-F0-9]{64}$/.test(key))throw new Error('Choose the backend’s dashboard-setup.key file.');
+        await loadCollectionSettings(key);
+      }catch(error){collectionStatus(error.message,true);}
+    });
+  }
+  if(!data){if(!S.collectionLoading&&!S.collectionError)loadCollectionSettings();return;}
+  const groups=data.providers.slice().sort((a,b)=>Number(b.enabled)-Number(a.enabled)||(a.displayName||a.id).localeCompare(b.displayName||b.id));
+  root.insertAdjacentHTML('beforeend',`<form class="settings-section collection-provider" id="collection-global"><h2>Polling and provider discovery</h2><p>Polling measures usage; refreshing the view only reads saved measurements.</p><div class="collection-fields"><div class="collection-field"><label for="collection-refresh">Poll every · seconds</label><input class="ctrl-input" type="number" min="5" max="86400" id="collection-refresh" name="refreshSec" value="${data.refreshSec}"${data.refreshOverride!=null?' disabled':''}><span class="setting-hint">${data.refreshOverride!=null?'This daemon was launched with a polling override of '+data.effectiveRefreshSec+' seconds.':'Applies without restarting the daemon.'}</span></div><div class="collection-field"><label for="collection-plugins">Additional plugin directories · one per line</label><textarea id="collection-plugins" name="pluginDirs">${esc(data.pluginDirs.join('\n'))}</textarea></div></div><div class="settings-actions"><button class="action-btn" type="submit">Save polling settings</button></div></form>
+    <section class="settings-section collection-provider"><h2>Add another account or source</h2><p>Create an independent measurement source. New sources start with collection paused until you configure and enable them.</p><form id="collection-add" class="collection-fields"><div class="collection-field"><label>Provider</label><select class="ctrl-select" name="id">${data.catalog.map(p=>`<option value="${esc(p.id)}">${esc(p.name)}</option>`).join('')}</select></div><div class="collection-field"><label>Source name</label><input class="ctrl-input" name="displayName" placeholder="Work account"></div><button class="action-btn" type="submit">Add source</button></form></section>
+    <div id="collection-providers">${groups.map(entry=>{
+      const catalog=data.catalog.find(p=>p.id===entry.id),key=UsageDashboardBackend.key(entry),name=entry.displayName||catalog?.name||entry.id;
+      return `<details class="settings-section collection-provider" data-collection-key="${esc(key)}"><summary>${providerIcon(key)}${esc(name)} <span class="badge">${entry.enabled?'Collecting':'Paused'}</span><span class="setting-hint">${esc(entry.instanceId||entry.id)}</span></summary><form data-collection-form="${esc(key)}"><div class="collection-fields">
+        <label><input type="checkbox" name="enabled"${entry.enabled?' checked':''}> Measure this source</label>
+        <div class="collection-field"><label>Usage source<select class="ctrl-select" name="source">${UsageDashboardBackend.modes(catalog).map(mode=>selectOption(mode,mode==='auto'?'Auto · '+(catalog?.autoMode||'provider default'):mode,entry.source)).join('')}</select></label></div>
+        ${collectionField('displayName','Source name',entry.displayName||'')}
+        ${collectionField('apiKey','API key or token','','Provider API token',true,entry.apiKeyConfigured)}
+        ${collectionField('cookieHeader','Session cookie header','','name=value; other=value',true,entry.cookieHeaderConfigured)}
+        ${collectionField('region','Region',entry.region||'','Provider-specific region')}
+        ${collectionField('workspaceId','Workspace / project ID',entry.workspaceId||'')}
+        ${collectionField('customCommand','Custom usage command','','Command that returns usage JSON',true,entry.customCommandConfigured)}
+        <div class="full"><p class="settings-note">Auto uses the provider’s normal local credential discovery. API keys and cookies override discovery where supported by the chosen source. Saving does not sign in to the provider. Enabled Custom commands run locally with your user permissions.</p></div>
+        <details class="full"><summary>Provider-specific settings</summary><p class="settings-note">Edit named provider settings as text, numbers or true / false. Existing saved secrets remain hidden and are preserved unless replaced or cleared.</p><table class="setting-table"><tbody>${Object.entries(entry.settings||{}).map(([key,value])=>settingEditorRow(key,value)).join('')}${settingEditorRow()}</tbody></table><button class="action-btn" type="button" data-add-setting>Add setting</button></details>
+        </div><div class="settings-actions"><button class="action-btn" type="submit"${catalog?'':' disabled'}>Save collection settings</button>${entry.instanceId?'<button class="action-btn" type="button" data-remove-source>Delete source</button>':''}</div>${!catalog?'<p class="settings-note">This provider plugin is unavailable. Its saved configuration is retained.</p>':''}</form></details>`;
+    }).join('')}</div>`);
+  root.querySelectorAll('form').forEach(form=>{const dirty=()=>{S.collectionDirty=true;form.dataset.dirty='true';};form.addEventListener('input',dirty);form.addEventListener('change',dirty);});
+  root.querySelector('#collection-global').addEventListener('submit',event=>{event.preventDefault();const form=event.currentTarget;saveCollectionPatch({...(data.refreshOverride==null?{refreshSec:Number(form.elements.refreshSec.value)}:{}),pluginDirs:form.elements.pluginDirs.value.split('\n').map(v=>v.trim()).filter(Boolean)},'collection-global');});
+  root.querySelector('#collection-add').addEventListener('submit',event=>{event.preventDefault();const form=event.currentTarget,id=form.elements.id.value;saveCollectionPatch({provider:{id,instanceId:id+'-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,7),displayName:form.elements.displayName.value.trim()||'Additional '+id,enabled:false,source:'auto'}},'collection-add');});
+  root.querySelectorAll('[data-collection-form]').forEach(form=>{
+    form.addEventListener('submit',event=>{event.preventDefault();try{saveCollectionPatch({provider:collectionFormPatch(form)},form.dataset.collectionForm);}catch(error){collectionStatus(error.message,true);}});
+    form.querySelector('[data-add-setting]').addEventListener('click',()=>{form.dataset.dirty='true';S.collectionDirty=true;form.querySelector('tbody').insertAdjacentHTML('beforeend',settingEditorRow());});
+    form.querySelector('[data-remove-source]')?.addEventListener('click',()=>saveCollectionPatch({removeProvider:form.dataset.collectionForm},form.dataset.collectionForm));
+  });
+  restoreCollectionDrafts(root);
+}
+function captureCollectionDrafts(exclude){
+  const result=new Map();
+  document.getElementById('panel-settings').querySelectorAll('form').forEach(form=>{
+    const key=form.dataset.collectionForm||form.getAttribute('id');if(form.dataset.dirty!=='true'||key===exclude)return;
+    const fields=[...form.querySelectorAll('[name]')].map(input=>({name:input.name,value:input.value,checked:input.checked}));
+    const settings=[...form.querySelectorAll('[data-extra-setting]')].map(row=>({name:row.querySelector('[data-setting-name]').value,value:row.querySelector('[data-setting-value]').value,type:row.querySelector('[data-setting-type]').value,secret:row.querySelector('[data-setting-value]').dataset.secret==='true',clear:row.querySelector('[data-setting-clear]').checked}));
+    result.set(key,{fields,settings,open:form.closest('details')?.open});
+  });
+  return result;
+}
+function restoreCollectionDrafts(root){
+  let restored=false;root.querySelectorAll('form').forEach(form=>{const key=form.dataset.collectionForm||form.getAttribute('id'),draft=S.collectionDrafts?.get(key);if(!draft)return;
+    draft.fields.forEach(field=>{const input=form.elements.namedItem(field.name);if(input){input.value=field.value;if(input.type==='checkbox')input.checked=field.checked;}});
+    const tbody=form.querySelector('tbody');if(tbody){tbody.innerHTML=draft.settings.map(row=>settingEditorRow(row.name,{type:row.type,secret:row.secret,configured:row.secret})).join('');[...tbody.children].forEach((row,i)=>{row.querySelector('[data-setting-value]').value=draft.settings[i].value;row.querySelector('[data-setting-clear]').checked=draft.settings[i].clear;});}
+    if(draft.open&&form.closest('details'))form.closest('details').open=true;form.dataset.dirty='true';restored=true;
+  });S.collectionDirty=restored;
+}
+function collectionStatus(message,error=false){S.collectionError=error?message:'';S.collectionMessage=error?'':message;const el=document.getElementById('collection-status');if(el){el.textContent=message;el.className='settings-status'+(error?' is-error':'');}}
+async function loadCollectionSettings(setupKey){
+  if(S.collectionLoading)return;S.collectionLoading=true;
+  try{if(!Backend)throw new Error('Collection settings require the local backend.');await Backend.load(typeof setupKey==='string'?setupKey:undefined);S.collectionError='';S.collectionMessage='Collection settings loaded.';}
+  catch(error){S.collectionError=error.message;if(error.keyFile)S.collectionKeyFile=error.keyFile;}
+  finally{S.collectionLoading=false;if(S.active==='settings'&&S.settingsSection==='collection')renderSettings(true);}
+}
+function collectionFormPatch(form){
+  const entry=Backend.data.providers.find(p=>UsageDashboardBackend.key(p)===form.dataset.collectionForm);
+  const patch={id:entry.id,...(entry.instanceId?{instanceId:entry.instanceId}:{}),enabled:form.elements.enabled.checked,source:form.elements.source.value,settings:Object.create(null)};
+  for(const key of ['displayName','region','workspaceId'])patch[key]=form.elements[key].value.trim()||null;
+  for(const key of ['apiKey','cookieHeader','customCommand']){
+    if(form.querySelector(`[data-clear="${key}"]`).checked)patch[key]=null;
+    else if(form.elements[key].value.trim())patch[key]=form.elements[key].value;
+  }
+  form.querySelectorAll('[data-extra-setting]').forEach(row=>{
+    const key=row.querySelector('[data-setting-name]').value.trim();if(!key)return;
+    if(!/^[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,127}$/.test(key)||['__proto__','constructor','prototype'].includes(key))throw new Error('Use a valid provider setting name.');
+    const input=row.querySelector('[data-setting-value]');
+    if(row.querySelector('[data-setting-clear]').checked)patch.settings[key]=null;
+    else if(!input.dataset.secret||input.value)patch.settings[key]=UsageDashboardBackend.settingValue(input.value,row.querySelector('[data-setting-type]').value);
+  });
+  return patch;
+}
+async function saveCollectionPatch(patch,savedForm){
+  if(S.collectionSaving)return;S.collectionSaving=true;collectionStatus('Saving collection settings…');
+  try{const drafts=captureCollectionDrafts(savedForm);await Backend.save(patch);S.collectionDrafts=drafts;S.collectionDirty=false;S.collectionError='';S.collectionMessage='Saved. Collection reloads automatically; display preferences were preserved.';if(S.active==='settings')renderSettings(true);await load();}
+  catch(error){collectionStatus(error.message,true);}
+  finally{S.collectionSaving=false;}
+}
+function checkThresholdNotifications(){
+  const previous=S.thresholdObservations||(S.thresholdObservations=new Map());
+  for(const snap of S.snapshots){
+    const metric=UsageDashboardSettings.primary(snap,S.prefs),used=metric?metric.used/metric.limit*100:null;
+    if(used==null||snapshotHasError(snap)||(snap.state&&snap.state!=='ready')||!Number.isFinite(+new Date(snap.fetchedAt))||Date.now()-new Date(snap.fetchedAt)>600000||new Date(snap.fetchedAt)>Date.now())continue;
+    const key=snap.providerId+':'+metric.label,prior=previous.get(key),ts=+new Date(snap.fetchedAt);
+    if(prior&&prior.ts>=ts)continue;const old=prior?.used;previous.set(key,{used,ts});
+    if(old==null||!S.prefs.notifications||!providerSetting(snap.providerId).visible||typeof Notification==='undefined'||Notification.permission!=='granted')continue;
+    const crossed=S.prefs.thresholds.filter(t=>t.notify&&old<t.percent&&used>=t.percent).at(-1);
+    if(crossed)new Notification(providerName(snap.providerId)+' · '+crossed.name,{body:metric.label+': '+used.toFixed(1)+'% used',tag:'usagestat-'+snap.providerId});
+  }
 }
 
 function loadPrefs(){
@@ -2026,7 +2255,7 @@ document.getElementById('prefs-file').addEventListener('change',async event=>{
   const notice=document.getElementById('prefs-notice');
   try{
     const file=event.target.files[0]; if(!file)return;
-    if(file.size>65536)throw new Error('Preferences file is too large.');
+    if(file.size>2*1024*1024)throw new Error('Preferences file is too large.');
     const data=JSON.parse(await file.text());
     if(data.version!==1)throw new Error('Unsupported preferences version.');
     S.prefs=cleanPreferences(data.preferences);refreshSettings('Preferences imported.');
@@ -2055,8 +2284,8 @@ async function renderProvider(id){
   const snap = S.snapshots.find(s=>s.providerId===id);
   if(!snap){ panel.innerHTML=`<div class="cost-unavail"><strong>No data yet</strong>Waiting for first probe…</div>`; return; }
 
-  const pace = snap.pace;
-  const primM = snap.metrics?.find(m=>m.type==='progress'&&m.format?.kind==='percent'&&m.limit>0);
+  const pace = S.prefs.showPace&&S.prefs.components.includes('pace')?snap.pace:null;
+  const primM = snapshotHasError(snap)?null:UsageDashboardSettings.primary(snap,S.prefs);
   const primP = primM ? pct(primM) : null;
   const accent = pace ? paceColor(pace.stage) : primP!=null ? barCol(primP) : '#484f58';
 
@@ -2065,13 +2294,16 @@ async function renderProvider(id){
   html+=`<div class="detail-header" style="border-left:3px solid ${accent}">`;
   html+=`<div class="dh-left"><div class="dh-name">${providerIcon(snap.providerId)}${esc(providerName(snap.providerId))}</div>`;
   html+=`<div class="dh-tags">`;
-  if(snap.source) html+=`<span class="badge b-${snap.source}">${esc(snap.source)}</span>`;
+  if(S.allProviders.find(p=>p.id===id)?.enabled===false)html+=`<span class="badge">Collection paused · saved usage</span>`;
+  if(snapshotHasError(snap))html+=`<span class="badge">Usage unavailable · ${esc(snap.state||'failed')}</span>`;
+  if(snap.source) html+=`<span class="${srcCls(snap.source)}">${esc(snap.source)}</span>`;
   if(snap.plan)   html+=`<span class="plan-tag">${esc(snap.plan)}</span>`;
-  if(snap.statusPageUrl) html+=`<a class="slink" style="font-size:12px" href="${esc(snap.statusPageUrl)}" target="_blank" rel="noreferrer"><svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="5" cy="5" r="3.5"/><circle cx="5" cy="5" r="1.2"/></svg>${new URL(snap.statusPageUrl).hostname}</a>`;
+  if(safeWebUrl(snap.statusPageUrl)&&S.prefs.showStatusLinks) html+=`<a class="slink" style="font-size:12px" href="${esc(snap.statusPageUrl)}" target="_blank" rel="noreferrer"><svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="5" cy="5" r="3.5"/><circle cx="5" cy="5" r="1.2"/></svg>${esc(new URL(snap.statusPageUrl).hostname)}</a>`;
+  if(S.prefs.showDashboardLinks){const provider=(S.allProviders||S.providers).find(p=>p.id===id),link=safeWebUrl(provider?.usageDashboardUrl||provider?.webUrl);if(link)html+=`<a class="slink" href="${esc(link)}" target="_blank" rel="noreferrer">provider usage ↗</a>`;}
   html+=`</div></div>`;
   if(primP!=null){
-    html+=`<div class="dh-right"><div class="dh-pct" style="color:${barCol(primP)}">${displayPct(primP).toFixed(0)}%</div>`;
-    html+=`<div class="dh-pct-lbl">${primM?.label||'Usage'}</div></div>`;
+    html+=`<div class="dh-right" ${chartDetailAttribute(snapshotDetail(snap,primM))}><div class="dh-pct" style="color:${barCol(primP)}">${displayPct(primP).toFixed(0)}%</div>`;
+    html+=`<div class="dh-pct-lbl">${esc(primM?.label||'Usage')}</div></div>`;
   }
   html+=`</div>`; // detail-header
 
@@ -2081,14 +2313,14 @@ async function renderProvider(id){
 
   // left: all metrics
   html+=`<div class="detail-box"><div class="box-title">Current Usage</div><div class="dm-list">`;
-  for(const m of (snap.metrics||[])){
+  for(const m of UsageDashboardSettings.metrics(snap,S.prefs)){
     if(m.type==='progress'){
       const p=pct(m),col=barCol(p);
-      html+=`<div class="dmetric"><div class="dm-label">${esc(m.label)}</div>`;
-      html+=`<div class="dm-row"><span class="dm-val">${fmtMetric(m)}</span><span class="dm-pct">${displayPct(p).toFixed(1)}%</span></div>`;
+      html+=`<div class="dmetric" ${chartDetailAttribute(snapshotDetail(snap,m))}><div class="dm-label">${esc(m.label)}</div>`;
+      html+=`<div class="dm-row"><span class="dm-val">${esc(fmtMetric(m))}</span><span class="dm-pct">${displayPct(p).toFixed(1)}%</span></div>`;
       if(m.detail) html+=`<div class="dm-detail">${esc(m.detail)}</div>`;
       html+=`<div class="dm-track"><div class="dm-bar" style="background:${col}" data-w="${displayPct(p).toFixed(2)}%"></div></div>`;
-      if(m.resetsAt) html+=`<div class="dm-reset">${fmtReset(m.resetsAt)}</div>`;
+      if(m.resetsAt&&S.prefs.showReset&&S.prefs.components.includes('reset')) html+=`<div class="dm-reset">${fmtReset(m.resetsAt)}</div>`;
       html+=`</div>`;
     } else if(m.type==='text'){
       html+=`<div class="dmetric"><div class="kv"><span class="mlabel" style="margin:0">${esc(m.label)}</span><span class="kv-val">${esc(m.value||'')}</span></div></div>`;
@@ -2108,7 +2340,7 @@ async function renderProvider(id){
     const pc=paceColor(pace.stage);
     html+=`<span class="pace-stage-big" style="color:${pc};border-color:${pc}55">${stageLbl(pace.stage)}</span>`;
     // compare bars
-    html+=`<div class="compare-bars">`;
+    html+=`<div class="compare-bars" ${chartDetailAttribute(snapshotDetail(snap,primM))}>`;
     html+=`<div class="compare-row"><span class="compare-lbl">Expected</span><div class="compare-track"><div class="compare-fill" style="width:0;background:var(--su)" data-w="${pace.expectedUsedPercent.toFixed(2)}%"></div></div><span class="compare-pct">${pace.expectedUsedPercent.toFixed(1)}%</span></div>`;
     html+=`<div class="compare-row"><span class="compare-lbl">Actual</span><div class="compare-track"><div class="compare-fill" style="width:0;background:${pc}" data-w="${pace.actualUsedPercent.toFixed(2)}%"></div></div><span class="compare-pct">${pace.actualUsedPercent.toFixed(1)}%</span></div>`;
     html+=`</div>`;
@@ -2508,21 +2740,27 @@ function updateModelTable(id, rows){
   el.innerHTML = html+`</tbody></table></div><div class="small-note">From saved daily model history (local logs at standard API rates); totals can differ from the reported cost above. Shares are of priced model cost.</div>`;
 }
 
+function historyPrimary(row){
+  if(snapshotHasError({source:row.source,state:row.state,metrics:(row.badges||[]).map(m=>({...m,type:'badge'}))}))return null;
+  if(Array.isArray(row.progress)&&!row.progress.some(p=>(p.format||p.formatKind||'percent')==='percent'&&p.limit>0))return null;
+  const value=row.primaryPercent??row.primary_percent;return value==null||!Number.isFinite(Number(value))?null:Number(value);
+}
 function normalizeHistory(raw){
   return (Array.isArray(raw)?raw:[]).map(r=>({
     ts: r.ts,
     providerId: r.providerId || r.provider_id,
     displayName: r.displayName || r.display_name,
-    plan: r.plan || null,
-    primaryPercent: (r.primaryPercent ?? r.primary_percent) == null ? null : Number(r.primaryPercent ?? r.primary_percent),
-    inputTokens: Number(r.inputTokens ?? r.input_tokens ?? 0),
-    outputTokens: Number(r.outputTokens ?? r.output_tokens ?? 0),
-    cacheReadTokens: Number(r.cacheReadTokens ?? r.cache_read_tokens ?? 0),
-    cacheCreationTokens: Number(r.cacheCreationTokens ?? r.cache_creation_tokens ?? 0),
-    totalTokens: Number(r.totalTokens ?? r.total_tokens ?? 0),
-    cost: Number(r.cost ?? 0),
+    plan: r.plan || null,source:r.source||null,state:r.state||null,
+    primaryPercent: historyPrimary(r),
+    inputTokens: (r.inputTokens ?? r.input_tokens) == null ? null : Number(r.inputTokens ?? r.input_tokens),
+    outputTokens: (r.outputTokens ?? r.output_tokens) == null ? null : Number(r.outputTokens ?? r.output_tokens),
+    cacheReadTokens: (r.cacheReadTokens ?? r.cache_read_tokens) == null ? null : Number(r.cacheReadTokens ?? r.cache_read_tokens),
+    cacheCreationTokens: (r.cacheCreationTokens ?? r.cache_creation_tokens) == null ? null : Number(r.cacheCreationTokens ?? r.cache_creation_tokens),
+    totalTokens: (r.totalTokens ?? r.total_tokens) == null ? null : Number(r.totalTokens ?? r.total_tokens),
+    cost: r.cost == null ? null : Number(r.cost),
     resetTime: r.resetTime || r.reset_time || null,
-    progress: normalizeProgress(r.progress, r.primaryPercent ?? r.primary_percent),
+    progress: historyPrimary(r)==null&&snapshotHasError({source:r.source,state:r.state,metrics:[]})?[]:normalizeProgress(r.progress,historyPrimary(r)),
+    recordedProgress: normalizeProgress(r.progress,null),
     text: Array.isArray(r.text) ? r.text : [],
     badges: Array.isArray(r.badges) ? r.badges : [],
     charts: normalizeCharts(r.charts),
@@ -2785,7 +3023,7 @@ function renderHeatmap(rows){
   let cells = '', months = '', lastLabel = -9;
   days.forEach((d,i)=>{
     const day = byDay.get(d), v = day?.totalTokens||0, level = !v ? 0 : v<=cuts[0] ? 1 : v<=cuts[1] ? 2 : v<=cuts[2] ? 3 : 4;
-    cells+=`<div class="cal-cell l${level}" style="grid-column:${Math.floor(i/7)+1};grid-row:${i%7+1}" title="${esc(fmtDay(d))}: ${day?esc(recordedTokens(day))+' tokens':'no record'}"></div>`;
+    cells+=`<div class="cal-cell l${level}" style="grid-column:${Math.floor(i/7)+1};grid-row:${i%7+1}" title="${esc(fmtDay(d))}: ${day?esc(recordedTokens(day))+' tokens':'no record'}" ${chartDetailAttribute(dailyDetail(rows.filter(r=>rowDate(r)===d),fmtDay(d)))}></div>`;
     if(i%7===0 && (i===0 || d.slice(8)<='07') && i/7-lastLabel>=3 && (lastLabel=i/7)>=0) months+=`<span style="grid-column:${i/7+1}">${esc(parseDateOnly(d).toLocaleDateString('en-US',{month:'short',timeZone:'UTC'}))}</span>`;
   });
   return `<div class="cal-scroll"><div class="cal" style="--weeks:${weeks}"><div class="cal-months">${months}</div><div class="cal-days"><span style="grid-row:1">Mon</span><span style="grid-row:3">Wed</span><span style="grid-row:5">Fri</span></div><div class="cal-grid">${cells}</div></div></div><div class="cal-legend">Less<span class="cal-cell l0"></span><span class="cal-cell l1"></span><span class="cal-cell l2"></span><span class="cal-cell l3"></span><span class="cal-cell l4"></span>More</div>`;
@@ -2815,30 +3053,31 @@ function savedModelMix(id){
   let html = `<div class="model-mix">`;
   for(const m of models){
     const share = m.costKnown && priced>0 ? m.cost/priced*100 : 0;
-    html+=`<div class="model-row"><div class="model-label">${esc(m.model)}</div><div class="pressure-value">${m.costKnown?shareText(m.cost,priced):'—'}</div><div class="model-bar"><div style="width:${share.toFixed(1)}%"></div></div><div class="pressure-value">${recordedCost(m)}</div></div>`;
+    html+=`<div class="model-row" ${chartDetailAttribute({title:m.model,rows:[['Tokens',exactNumber(m.tokens)],['Cost · USD',detailedCost(m)]],note:'Share of this report. Local log costs are API-equivalent amounts, separate from subscription charges.'})}><div class="model-label">${esc(m.model)}</div><div class="pressure-value">${m.costKnown?shareText(m.cost,priced):'—'}</div><div class="model-bar"><div style="width:${share.toFixed(1)}%"></div></div><div class="pressure-value">${recordedCost(m)}</div></div>`;
   }
   return html+`</div><div class="small-note">Share of priced cost · local logs at API rates</div>`;
 }
 
 function aggregateReportModels(rows){
   const map = new Map();
-  const add = (name,tokens,cost)=>{
+  const costKnown=row=>row.costKnown!==false&&['cost','costUSD','costUsd','totalCost','total_cost'].some(key=>Number.isFinite(row[key]));
+  const add = (name,tokens,cost,known=false)=>{
     name = String(name||'unknown').trim() || 'unknown';
-    const cur = map.get(name) || { model:name, tokens:0, cost:0 };
+    const cur = map.get(name) || { model:name, tokens:0, cost:0, costKnown:true };
     cur.tokens += Number(tokens)||0;
-    cur.cost += Number(cost)||0;
+    cur.cost += Number(cost)||0;cur.costKnown &&= known;
     map.set(name, cur);
   };
   for(const r of rows){
     const breakdown = readAny(r, ['modelBreakdowns','model_breakdowns'], []);
     if(Array.isArray(breakdown) && breakdown.length){
-      for(const m of breakdown) add(readAny(m,['modelName','model_name','model'], 'unknown'), rowTotalTokens(m), rowCost(m));
+      for(const m of breakdown) add(readAny(m,['modelName','model_name','model'], 'unknown'), rowTotalTokens(m), rowCost(m),costKnown(m));
       continue;
     }
     const models = readAny(r, ['modelsUsed','models_used','models','model'], null);
-    if(Array.isArray(models)) models.forEach(m=>add(m, rowTotalTokens(r)/models.length, rowCost(r)/models.length));
-    else if(models && typeof models === 'object') Object.entries(models).forEach(([name,m])=>add(name, rowTotalTokens(m), rowCost(m)));
-    else if(models) add(models, rowTotalTokens(r), rowCost(r));
+    if(Array.isArray(models)) models.forEach(m=>add(m, rowTotalTokens(r)/models.length, rowCost(r)/models.length,costKnown(r)));
+    else if(models && typeof models === 'object') Object.entries(models).forEach(([name,m])=>add(name, rowTotalTokens(m), rowCost(m),costKnown(m)));
+    else if(models) add(models, rowTotalTokens(r), rowCost(r),costKnown(r));
   }
   return Array.from(map.values()).sort((a,b)=>b.tokens-a.tokens || b.cost-a.cost).slice(0,10);
 }
@@ -2848,7 +3087,7 @@ function renderModelMix(models, totalTokens){
   let html = `<div class="model-mix">`;
   for(const m of models){
     const share = totalTokens>0 ? m.tokens/totalTokens*100 : 0;
-    html+=`<div class="model-row"><div class="model-label">${esc(m.model)}</div><div class="pressure-value">${share.toFixed(1)}%</div><div class="model-bar"><div style="width:${share.toFixed(1)}%"></div></div><div class="pressure-value">${m.cost>0?'$'+m.cost.toFixed(2):fmtTok(m.tokens)}</div></div>`;
+    html+=`<div class="model-row" ${chartDetailAttribute({title:m.model,rows:[['Tokens',exactNumber(m.tokens)],['Cost · USD',detailedCost(m)]],note:'Share of this report. Local log costs are API-equivalent amounts, separate from subscription charges.'})}><div class="model-label">${esc(m.model)}</div><div class="pressure-value">${share.toFixed(1)}%</div><div class="model-bar"><div style="width:${share.toFixed(1)}%"></div></div><div class="pressure-value">${m.costKnown===false?recordedCost(m):m.cost>0?'$'+m.cost.toFixed(2):fmtTok(m.tokens)}</div></div>`;
   }
   html+=`</div>`;
   return html;
@@ -2907,7 +3146,8 @@ function aggregateHistory(records, bucket){
     // These are sampled counters, not usage events. Repeated polls must not
     // multiply usage; take the latest counter while retaining peak quota.
     if(!b._latest || new Date(r.ts)>=new Date(b._latest)){
-      for(const field of ['inputTokens','outputTokens','cacheReadTokens','cacheCreationTokens','totalTokens','cost']) b[field] = Number(r[field])||0;
+      for(const field of ['inputTokens','outputTokens','cacheReadTokens','cacheCreationTokens','totalTokens','cost']) b[field] = r[field]==null?null:Number(r[field]);
+      for(const field of ['source','state','plan','resetTime','recordedProgress'])b[field]=r[field];
       b._latest = r.ts;
     }
     for(const p of (r.progress||[])){
@@ -2978,7 +3218,7 @@ function buildHistoryChart(containerId, sourceRecords, mode, bucket){
   const records = aggregateHistory(sourceRecords, bucket || 'raw');
   const series = historySeries(records, mode).map(s=>({ ...s,
     // Missing samples stay as null so the chart breaks there instead of bridging.
-    pts:records.map(r=>{ const v = seriesValue(r,s); return { t:+new Date(r.ts), v:v!=null && Number.isFinite(v) ? v : null }; }).filter(p=>Number.isFinite(p.t)) }))
+    pts:records.map(r=>{ const v = seriesValue(r,s); return { t:+new Date(r.ts), v:v!=null && Number.isFinite(v) ? v : null, record:r }; }).filter(p=>Number.isFinite(p.t)) }))
     .filter(s=>s.pts.some(p=>p.v!=null));
   if(!records.length || !series.length){
     container.innerHTML = `<div class="chart-loading">No ${esc(mode)} history recorded for ${esc(bucket||'raw')} view yet</div>`;
@@ -3022,7 +3262,7 @@ function timeLineChart(container, series, opts){
       const cols = new Map();
       for(const p of run){
         const c = col(p.t), cur = cols.get(c);
-        if(!cur || (opts.peak ? p.v>=cur.v : p.t>=cur.t)) cols.set(c, { t:p.t, v:p.v });
+        if(!cur || (opts.peak ? p.v>=cur.v : p.t>=cur.t)) cols.set(c, { ...p });
       }
       return [...cols.entries()].sort((a,b)=>a[0]-b[0]).map(([,p])=>p);
     });
@@ -3063,9 +3303,9 @@ function timeLineChart(container, series, opts){
 
   const el = container.querySelector('svg'), tip = document.getElementById('tip');
   const guide = el.querySelector('.tl-guide'), dots = [...el.querySelector('.tl-dots').children];
-  el.addEventListener('mousemove', e=>{
+  const inspect=(e,forcedTime)=>{
     const box = el.getBoundingClientRect();
-    const t = t0 + ((e.clientX-box.left)*W/box.width - L)/CW*(t1-t0);
+    const t = forcedTime??(t0 + ((e.clientX-box.left)*W/box.width - L)/CW*(t1-t0));
     // Nearest reduced point per series, ignoring series that have a gap here.
     const hits = reduced.map(s=>{
       let best = null;
@@ -3081,12 +3321,13 @@ function timeLineChart(container, series, opts){
     guide.setAttribute('x1',gx); guide.setAttribute('x2',gx); guide.setAttribute('opacity','.7');
     el.querySelector('.tl-dots').setAttribute('opacity','1');
     hits.forEach((p,i)=>{ dots[i].style.display = p ? '' : 'none'; if(p){ dots[i].setAttribute('cx',x(p.t)); dots[i].setAttribute('cy',y(p.v)); } });
-    tip.innerHTML = `<div class="tt-date">${esc(opts.when(anchor.t))}</div>`+reduced.map((s,i)=>hits[i]?`<div class="tt-row"><span class="u-dot" style="background:${s.color}"></span><span>${esc(s.label)}</span><b>${esc(s.fmt(hits[i].v))}</b></div>`:'').join('');
+    tip.innerHTML = detailHtml(historyDetail(anchor.record,opts.when(anchor.t)))+reduced.map((s,i)=>hits[i]?`<div class="tt-row"><span class="u-dot" style="background:${s.color}"></span><span>${esc(s.label)}</span><b>${esc(s.fmt(hits[i].v))}</b></div>`:'').join('');
     tip.style.display = 'block';
-    const left = e.clientX + 16 + tip.offsetWidth > innerWidth ? e.clientX - tip.offsetWidth - 16 : e.clientX + 16;
-    tip.style.left = left+'px'; tip.style.top = Math.max(8, e.clientY - 40)+'px';
-  });
-  el.addEventListener('mouseleave', ()=>{ tip.style.display='none'; guide.setAttribute('opacity','0'); el.querySelector('.tl-dots').setAttribute('opacity','0'); });
+    positionTooltip(e.clientX,e.clientY);
+  };
+  el.addEventListener('mousemove',e=>inspect(e));el.addEventListener('click',e=>inspect(e));
+  const times=[...new Set(reduced.flatMap(s=>s.pts.map(p=>p.t)))].sort((a,b)=>a-b);wireChartKeyboard(el,(index,event)=>inspect(event,times[index]),times.length);
+  el.addEventListener('mouseleave', event=>{ if(event.relatedTarget?.closest?.('#tip'))return;tip.style.display='none'; guide.setAttribute('opacity','0'); el.querySelector('.tl-dots').setAttribute('opacity','0'); });
 }
 
 function axisValue(v,mode){
@@ -3173,7 +3414,7 @@ function buildChart(containerId, daily, providerId){
   buckets.forEach((b,i)=>{
     const x = L+i*step+(step-barW)/2;
     let acc = 0;
-    svg+=`<g class="cost-col" data-i="${i}"><rect x="${(L+i*step).toFixed(1)}" y="${T}" width="${step.toFixed(1)}" height="${CH}" fill="transparent"/>`;
+    svg+=`<g class="cost-col" data-i="${i}" tabindex="0" aria-label="${esc(b.start)} cost details"><rect x="${(L+i*step).toFixed(1)}" y="${T}" width="${step.toFixed(1)}" height="${CH}" fill="transparent"/>`;
     shown.forEach((p,pi)=>{
       const v = b.cost[p.key]; if(!(v>0)) return;
       const y1 = y(acc+v), h = Math.max(.5, y(acc)-y1);
@@ -3201,19 +3442,19 @@ function buildChart(containerId, daily, providerId){
 
   const tip = document.getElementById('tip');
   container.querySelectorAll('.cost-col').forEach(g=>{
-    g.addEventListener('mouseenter',()=>{
+    const inspect=()=>{
       const b = buckets[+g.dataset.i];
       const when = b.start===b.end ? fmtDay(b.start) : `${fmtDay(b.start)} → ${fmtDay(b.end)}`;
-      tip.innerHTML = `<div class="tt-date">${esc(when)}</div><div class="tt-cost">${esc(recordedCost({cost:b.total,costKnown:b.costKnown}))}</div>`+
-        shown.slice().reverse().filter(p=>b.tokens[p.key]>0 || b.cost[p.key]>0).map(p=>`<div class="tt-row"><span class="u-dot" style="background:${p.color}"></span><span>${esc(p.label)} <i>${esc(fmtTok(b.tokens[p.key]))}</i></span><b>${b.estimated?'≈':''}${esc(fmtUsd(b.cost[p.key]))}</b></div>`).join('')+(b.estimated?`<div class="tt-meta">split estimated from price ratios</div>`:'');
+      tip.innerHTML = detailHtml(dailyDetail(b.rows,when))+
+        shown.slice().reverse().filter(p=>b.tokens[p.key]>0 || b.cost[p.key]>0).map(p=>`<div class="tt-row"><span class="u-dot" style="background:${p.color}"></span><span>${esc(p.label)} <i>${esc(fmtTok(b.tokens[p.key]))}</i></span><b>${b.estimated?'≈':''}${esc(detailedUsd(b.cost[p.key]))}</b></div>`).join('')+(b.estimated?`<div class="tt-meta">split estimated from price ratios</div>`:'');
       tip.style.display='block';
-      g.classList.add('hover');
-    });
+      g.classList.add('hover');const box=g.getBoundingClientRect();positionTooltip(box.left+box.width/2,box.top+box.height/2);
+    };
+    g.addEventListener('mouseenter',inspect);g.addEventListener('focus',inspect);g.addEventListener('click',inspect);g.addEventListener('blur',hideDetail);
     g.addEventListener('mousemove',e=>{
-      const left = e.clientX + 16 + tip.offsetWidth > innerWidth ? e.clientX - tip.offsetWidth - 16 : e.clientX + 16;
-      tip.style.left=left+'px'; tip.style.top=Math.max(8,e.clientY-40)+'px';
+      positionTooltip(e.clientX,e.clientY);
     });
-    g.addEventListener('mouseleave',()=>{ tip.style.display='none'; g.classList.remove('hover'); });
+    g.addEventListener('mouseleave',event=>{ if(event.relatedTarget?.closest?.('#tip'))return;tip.style.display='none'; g.classList.remove('hover'); });
   });
 }
 
@@ -3224,10 +3465,11 @@ const PACE_COLORS={
 };
 function paceColor(s){return PACE_COLORS[s]||'#484f58'}
 function stageLbl(s){return(s||'').replace(/_/g,' ')}
-function barCol(p){return p>=95?'#d25050':p>=80?'#ce8670':p>=65?'#eaca8b':'#7289da'}
+function barCol(p){return UsageDashboardSettings.thresholdAt(p,S.prefs)?.color||S.prefs.customAccent||UsageDashboardSettings.ACCENTS[S.prefs.accent];}
 function pct(m){return m.limit>0?Math.min(m.used/m.limit*100,100):0}
 function pillCls(c){return'pill '+({'green':'pill-green','red':'pill-red','blue':'pill-blue','yellow':'pill-yellow','orange':'pill-orange'}[c]||'')}
 function srcCls(s){return'badge b-'+({'oauth':'oauth','web':'web','api':'api','cli':'cli','local':'local','error':'error'}[s]||'local')}
+function safeWebUrl(value){if(typeof value!=='string'||!/^https?:\/\//i.test(value))return null;try{return /^https?:$/.test(new URL(value).protocol)?value:null;}catch{return null;}}
 
 function fmtMetric(m){
   const k=m.format?.kind;
@@ -3248,7 +3490,7 @@ function barChartMetricHtml(m, compact){
   const color = chartColor(m.color);
   const bars = points.slice(-31).map(p=>{
     const h = Math.max(3, Math.round((p.value/max)*100));
-    return `<div class="spark-bar" style="height:${h}%;--spark:${color}" title="${esc(p.label)}: ${esc(formatChartValue(p))}"></div>`;
+    return `<div class="spark-bar" style="height:${h}%;--spark:${color}" ${chartDetailAttribute({title:m.label||'History',rows:[['Period',p.label],['Recorded value',formatChartValue(p)],['Exact value',exactNumber(p.value)]],note:m.note||'Only the fields supplied by this provider are available for this point.'})}></div>`;
   }).join('');
   const readout = compact ? formatChartValue(latest) : `${formatChartValue(latest)} latest · ${formatChartValue(peak)} peak`;
   const note = m.note ? `<div class="spark-note">${esc(m.note)}</div>` : '';
@@ -3273,12 +3515,11 @@ function fmtTok(n){
   return String(n);
 }
 function fmtReset(iso){
-  if(!iso) return '';
-  const ms=new Date(iso)-Date.now();
-  if(ms<=0) return 'resetting…';
+  if(!iso||!Number.isFinite(Date.parse(iso))) return '';
+  const absolute=new Date(iso).toLocaleString(),ms=new Date(iso)-Date.now();
   const h=Math.floor(ms/3600000),m=Math.floor((ms%3600000)/60000);
-  if(h>48) return `resets in ${Math.floor(h/24)}d`;
-  return h>0?`resets in ${h}h ${m}m`:`resets in ${m}m`;
+  const relative=ms<=0?'resetting…':h>48?`resets in ${Math.floor(h/24)}d`:h>0?`resets in ${h}h ${m}m`:`resets in ${m}m`;
+  return S.prefs.resetTimeFormat==='absolute'?'resets '+absolute:S.prefs.resetTimeFormat==='both'?relative+' · '+absolute:relative;
 }
 function fmtEta(secs,stage){
   if(secs==null||stage==='well_under') return '∞';
@@ -3301,9 +3542,73 @@ function fmtAgo(iso){
 }
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
 
-function arcSvg(p,color){
+// Shared details for static meters and every interactive chart. Historical
+// token/cost records never borrow a current quota or turn missing data into zero.
+function chartDetailAttribute(detail){return `tabindex="0" data-chart-detail="${esc(JSON.stringify(detail))}" aria-describedby="tip" aria-label="${esc(detail.title)}; focus or tap for details"`;}
+function exactNumber(value){return Number.isFinite(Number(value))?(Math.abs(Number(value))>0&&Math.abs(Number(value))<1e-20?String(value):Number(value).toLocaleString(undefined,{maximumFractionDigits:20})):'Unknown';}
+function detailedUsd(value){const number=Number(value)||0;return '$'+(number!==0&&Math.abs(number)<1e-12?String(number):number.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:12}));}
+function detailedCost(row){const cost=rowCost(row);return row.costKnown===false?(cost>0?detailedUsd(cost)+'+':'Unpriced'):detailedUsd(cost);}
+function dailyDetail(rows,title='Recorded usage'){
+  if(!rows.length)return {title,rows:[['Usage','No record'],['Tokens','Unknown'],['Cost','Unknown']],note:'No saved record for this period. An empty plot is not measured zero usage.'};
+  const normalized=rows.map(r=>({...r,providerId:r.providerId||'report',date:rowDate(r),inputTokens:rowInput(r),outputTokens:rowOutput(r),cacheReadTokens:rowCacheRead(r),cacheCreationTokens:rowCacheCreate(r),reasoningOutputTokens:rowReasoning(r),totalTokens:rowTotalTokens(r),cost:rowCost(r)}));
+  const t=UsageTrends.totals(normalized),known=t.tokensKnown;
+  const token=n=>known?exactNumber(n):n>0?exactNumber(n)+'+ · partial':'Unknown';
+  const sources=[...new Set(rows.map(r=>r.costSource||r.source).filter(Boolean))];
+  const prices=[...new Set(rows.map(r=>r.pricingAsOf).filter(Boolean))];
+  const detail={title,rows:[['Total tokens',token(t.totalTokens)],['Input tokens',token(t.inputTokens)],['Output tokens',token(t.outputTokens)],['Reasoning tokens',token(t.reasoningOutputTokens)],['Cache reads',token(t.cacheReadTokens)],['Cache writes',token(t.cacheCreationTokens)],['Cost · USD',detailedCost(t)+(t.costKnown?'':' · partial / unpriced')]],note:'Local log costs use API-equivalent rates where indicated; they do not represent subscription charges. Reasoning may already be included in output tokens.'};
+  if(t.costComponentsKnown)for(const [label,key] of [['Input cost','inputCostUsd'],['Cache read cost','cacheReadCostUsd'],['Cache write cost','cacheWriteCostUsd'],['Output cost','outputCostUsd']])detail.rows.push([label,detailedUsd(t[key])]);
+  if(t.sessionsKnown)detail.rows.push(['Sessions',exactNumber(t.sessions)]);
+  if(t.cacheSavingsKnown)detail.rows.push(['Cache savings · estimate',detailedUsd(t.cacheSavingsUsd)]);
+  detail.rows.push(['Saved records',String(rows.length)]);
+  if(sources.length)detail.rows.push(['Cost / usage source',sources.join(', ')]);
+  if(prices.length)detail.rows.push(['Pricing as of',prices.join(', ')]);
+  return detail;
+}
+function snapshotDetail(s,selected){
+  const rows=[['Provider',providerName(s.providerId)],['Source',s.source||'Unknown'],['State',s.state|| (snapshotHasError(s)?'Unavailable':'Not reported')],['Observed',s.fetchedAt?new Date(s.fetchedAt).toLocaleString():'Unknown']];
+  if(s.plan)rows.push(['Plan',s.plan]);
+  const metrics=selected?[selected]:UsageDashboardSettings.metrics(s,S.prefs);
+  for(const m of metrics){
+    if(m.type==='progress'){
+      const suffix=m.format?.kind==='dollars'?' USD':m.format?.suffix?' '+m.format.suffix:'';
+      rows.push([m.label+' · used',exactNumber(m.used)+suffix],[m.label+' · limit',m.limit>0?exactNumber(m.limit)+suffix:'Unknown']);
+      if(m.limit>0)rows.push(['Remaining',exactNumber(Math.max(0,m.limit-m.used))+suffix],['Used / remaining',exactNumber(m.used/m.limit*100)+'% / '+exactNumber(Math.max(0,100-m.used/m.limit*100))+'%']);
+      if(m.resetsAt)rows.push(['Reset',new Date(m.resetsAt).toLocaleString()]);
+      if(m.periodDurationMs)rows.push(['Window',exactNumber(m.periodDurationMs/3600000)+' hours']);
+      if(m.detail)rows.push(['Details',String(m.detail)]);
+    }else if(m.type==='text'||m.type==='badge')rows.push([m.label,String(m.value||m.text||'Unknown')]);
+  }
+  if(s.pace&&S.prefs.showPace)rows.push(['Pace',stageLbl(s.pace.stage)],['Expected usage',exactNumber(s.pace.expectedUsedPercent)+'%'],['Actual usage',exactNumber(s.pace.actualUsedPercent)+'%'],['Quota ETA',fmtEta(s.pace.etaSeconds,s.pace.stage)]);
+  return{title:selected?.label||providerName(s.providerId),rows,note:snapshotHasError(s)?'This observation is unavailable. Retained measurements are historical and do not establish fresh quota.':'Quota is a provider observation, separate from token/cost accounting.'};
+}
+function historyDetail(record,title){
+  if(!record)return{title,rows:[],note:'Only the selected series was recorded.'};
+  const rows=[];
+  for(const [label,key] of [['Primary quota','primaryPercent'],['Input tokens','inputTokens'],['Output tokens','outputTokens'],['Reasoning tokens','reasoningTokens'],['Cache reads','cacheReadTokens'],['Cache writes','cacheCreationTokens'],['Total tokens','totalTokens'],['Cost · USD','cost']]){
+    if(record[key]!=null)rows.push([label,key==='cost'?detailedUsd(record[key]):exactNumber(record[key])+(key==='primaryPercent'?'%':'')]);
+  }
+  for(const m of record.recordedProgress?.length?record.recordedProgress:record.progress||[]){rows.push([m.label,exactNumber(m.used)+' / '+(m.limit>0?exactNumber(m.limit):'Unknown')]);if(m.resetsAt)rows.push([m.label+' · reset',new Date(m.resetsAt).toLocaleString()]);}
+  rows.push(['Tokens / cost',record.totalTokens==null&&record.cost==null?'Unknown':'Recorded fields shown above']);
+  if(record.state)rows.push(['State',record.state]);if(record.source)rows.push(['Source',record.source]);
+  return{title,rows,note:(record.state&&record.state!=='ready'?'Unavailable observation. Retained fields are historical. ':'')+'Values belong to this recorded timestamp or bucket. Grouped plots retain peak quota and the latest sampled counters. Missing token, cost or quota fields remain unknown.'};
+}
+function detailHtml(detail){return `<div class="tt-date">${esc(detail.title)}</div>`+(detail.rows||[]).map(([label,value])=>`<div class="tt-row"><span>${esc(label)}</span><b>${esc(value)}</b></div>`).join('')+(detail.note?`<div class="tt-meta">${esc(detail.note)}</div>`:'');}
+function positionTooltip(x,y){const tip=document.getElementById('tip');tip.style.left=Math.max(8,Math.min(x+16,innerWidth-tip.offsetWidth-8))+'px';tip.style.top=Math.max(8,Math.min(y+12,innerHeight-tip.offsetHeight-8))+'px';}
+function showDetail(detail,x,y){const tip=document.getElementById('tip');tip.innerHTML=detailHtml(detail);tip.style.display='block';positionTooltip(x,y);}
+function hideDetail(){document.getElementById('tip').style.display='none';}
+function applyCardComponents(root){root.querySelectorAll('[data-card-component]').forEach(el=>{const key=el.dataset.cardComponent;el.hidden=!S.prefs.components.includes(key);el.style.order=S.prefs.components.indexOf(key);});}
+function wireChartKeyboard(svg,show,count){
+  svg.setAttribute('tabindex','0');svg.setAttribute('aria-describedby','tip');svg.setAttribute('aria-label','Usage chart. Arrow keys inspect recorded points; Escape closes details.');
+  let index=Math.max(0,count-1);
+  const inspect=()=>{const box=svg.getBoundingClientRect();show(index,{clientX:box.left+box.width*(count>1?index/(count-1):.5),clientY:box.top+box.height/2});};
+  svg.addEventListener('focus',inspect);
+  svg.addEventListener('keydown',event=>{if(event.key==='Escape'){hideDetail();return;}if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;event.preventDefault();index=event.key==='Home'?0:event.key==='End'?count-1:Math.max(0,Math.min(count-1,index+(event.key==='ArrowRight'?1:-1)));inspect();});
+  svg.addEventListener('blur',hideDetail);
+}
+
+function arcSvg(p,color,detail){
   const r=18,c=+(2*Math.PI*r).toFixed(3),off=+(c*(1-Math.min(p,100)/100)).toFixed(3);
-  return `<div class="arc"><svg width="48" height="48" viewBox="0 0 52 52"><circle class="arc-bg" cx="26" cy="26" r="${r}"/><circle class="arc-fill" cx="26" cy="26" r="${r}" stroke="${color}" stroke-dasharray="${c}" stroke-dashoffset="${c}" data-off="${off}"/></svg><div class="arc-num">${Math.round(p)}%</div></div>`;
+  return `<div class="arc" data-card-component="percent" ${detail?chartDetailAttribute(detail):''}><svg width="48" height="48" viewBox="0 0 52 52"><circle class="arc-bg" cx="26" cy="26" r="${r}"/><circle class="arc-fill" cx="26" cy="26" r="${r}" stroke="${color}" stroke-dasharray="${c}" stroke-dashoffset="${c}" data-off="${off}"/></svg><div class="arc-num">${Math.round(p)}%</div></div>`;
 }
 
 function animateBarsAndArcs(root){
@@ -3326,6 +3631,23 @@ function animateCompareBars(root){
 
 // ── init ──────────────────────────────────────────────────────────────────────
 applyAppearance();
+if(typeof document.addEventListener==='function'){
+  const inspect=event=>{const target=event.target?.closest?.('[data-chart-detail]');if(!target)return;try{const box=target.getBoundingClientRect();showDetail(JSON.parse(target.dataset.chartDetail),event.clientX??box.left+box.width/2,event.clientY??box.top+box.height/2);}catch{hideDetail();}};
+  document.addEventListener('mousemove',inspect);document.addEventListener('focusin',inspect);document.addEventListener('click',event=>{if(!event.target?.closest?.('[data-chart-detail],svg,#tip'))hideDetail();else inspect(event);});
+  document.getElementById('tip').addEventListener('mouseleave',hideDetail);
+  document.addEventListener('mouseout',event=>{if(event.target?.closest?.('[data-chart-detail]')&&!event.relatedTarget?.closest?.('[data-chart-detail],#tip'))hideDetail();});
+  document.addEventListener('focusout',event=>{if(event.target?.closest?.('[data-chart-detail]'))hideDetail();});
+  document.addEventListener('keydown',event=>{
+    if(event.key==='Escape'){hideDetail();return;}
+    if(event.ctrlKey||event.metaKey||event.altKey||event.target?.closest?.('input,textarea,select,[contenteditable="true"]'))return;
+    const shortcuts=S.prefs.shortcuts,key=event.key.toLowerCase();if(!key)return;
+    if(key===shortcuts.overview)switchTab('overview');else if(key===shortcuts.settings)switchTab('settings');else if(key===shortcuts.refresh)doRefresh();
+    else if(key===shortcuts.previous||key===shortcuts.next)switchProvider(key===shortcuts.next?1:-1);else return;
+    event.preventDefault();
+  });
+  document.getElementById('tabs').addEventListener('wheel',event=>{if(!S.prefs.scrollToSwitch||!event.target?.closest?.('.tab[data-tab]'))return;event.preventDefault();switchProvider(event.deltaY+event.deltaX>0?1:-1);},{passive:false});
+}
+function switchProvider(direction){const ids=UsageDashboardSettings.order(S.providers,S.prefs,p=>p.id).filter(p=>providerSetting(p.id).visible).map(p=>p.id);if(!ids.length)return;const i=ids.indexOf(S.active);switchTab(ids[(i+direction+ids.length)%ids.length]);}
 if(typeof matchMedia==='function')matchMedia('(prefers-color-scheme: light)').addEventListener?.('change',()=>{if(S.prefs.theme==='system')applyAppearance();});
 if(typeof window!=='undefined')window.addEventListener('storage',event=>{
   if(event.key!==UsageDashboardSettings.STORAGE_KEY)return;

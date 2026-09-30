@@ -166,3 +166,101 @@ test('settings export and file import round-trip selected providers without cred
   assert.match(ui.element('settings-status').textContent,/Unsupported preferences version/);
   assert.equal(ui.run('S.prefs.theme'),'dark');
 });
+
+test('display customization imports preserve choices and reject active or oversized logos',()=>{
+  const prefs=settings.normalize({iconStyle:'monochrome',iconFill:'usage',customAccent:'#123456',neutralColor:'#abcdef',providerSpacing:24,
+    components:['percent','logo','percent','bad'],thresholds:[{id:'limit',percent:100,color:'#ff0011',notify:true,name:'Limit'},
+      {id:'warning',percent:60,color:'#ffee11',notify:false,name:'Watch'}],providers:{codex:{pinned:true,iconSource:'openai',iconStyle:'color',customIcon:'data:image/png;base64,aGVsbG8=',hiddenMetrics:['progress:Session']},claude:{customIcon:'data:image/svg+xml;base64,PHN2Zz4='}}});
+  assert.deepEqual(prefs.components,['percent','logo']);assert.equal(prefs.thresholds[0].percent,60);
+  assert.equal(prefs.iconStyle,'monochrome');assert.equal(prefs.customAccent,'#123456');
+  assert.equal(prefs.providers.codex.iconSource,'openai');assert.ok(!prefs.providers.claude.customIcon);
+  assert.equal(settings.primary(snapshot,prefs).label,'Weekly');assert.equal(settings.metrics(snapshot,prefs).length,2);
+  assert.equal(settings.order(['claude','codex'],prefs,id=>id)[0],'codex');
+  assert.equal(settings.thresholdAt(99,prefs).id,'warning');assert.equal(settings.thresholdAt(100,prefs).id,'limit');
+  assert.ok(!settings.normalize({providers:{codex:{customIcon:'data:image/png;base64,'+'A'.repeat(524288)}}}).providers.codex.customIcon);
+});
+
+test('quota and usage details expose exact values, provenance and independent unknowns',()=>{
+  const ui=dashboard();
+  ui.context.detailSnapshot={...snapshot,fetchedAt:'2026-09-30T08:00:00Z',state:'ready'};
+  const quota=JSON.parse(ui.run('JSON.stringify(snapshotDetail(detailSnapshot,detailSnapshot.metrics[0]))'));
+  assert.ok(quota.rows.some(([label,value])=>label==='Remaining'&&value==='90'));
+  assert.ok(quota.rows.some(([label,value])=>label==='Used / remaining'&&value==='10% / 90%'));
+  const missing=JSON.parse(ui.run('JSON.stringify(dailyDetail([],"Yesterday"))'));
+  assert.deepEqual(missing.rows,[['Usage','No record'],['Tokens','Unknown'],['Cost','Unknown']]);
+  ui.context.measured=[{providerId:'codex',date:'2026-09-30',inputTokens:100,outputTokens:10,cacheReadTokens:20,cacheCreationTokens:5,reasoningOutputTokens:4,totalTokens:135,cost:0,costKnown:false,costSource:'api-rate-estimate',pricingAsOf:'2026-09-29'}];
+  const daily=JSON.parse(ui.run('JSON.stringify(dailyDetail(measured,"Today"))'));
+  assert.ok(daily.rows.some(([label,value])=>label==='Input tokens'&&value==='100'));
+  assert.ok(daily.rows.some(([label,value])=>label==='Cost · USD'&&value.includes('Unpriced')));
+  assert.ok(daily.rows.some(([label,value])=>label==='Pricing as of'&&value==='2026-09-29'));
+  assert.match(daily.note,/subscription charges/);
+  const history=JSON.parse(ui.run('JSON.stringify(historyDetail(normalizeHistory([{ts:"2026-09-30T08:00:00Z",providerId:"codex",primaryPercent:20}])[0],"Earlier"))'));
+  assert.ok(history.rows.some(([label,value])=>label==='Tokens / cost'&&value==='Unknown'));
+  assert.ok(!history.rows.some(([label])=>label==='Cost · USD'||label==='Total tokens'));
+});
+
+test('quota threshold alerts require a new fresh observation of the same window',()=>{
+  const ui=dashboard({notifications:true,thresholds:[{id:'watch',name:'Watch',percent:75,color:'#ffaa00',notify:true}]});
+  const alerts=[];ui.context.Notification=function(name,options){alerts.push({name,options});};ui.context.Notification.permission='granted';
+  ui.context.now=new Date(Date.now()-1000).toISOString();ui.context.later=new Date(Date.now()-500).toISOString();
+  ui.run('S.snapshots=[{...snapshot,fetchedAt:now,state:"ready",metrics:[{...snapshot.metrics[0],used:70}]}];checkThresholdNotifications();S.snapshots[0].metrics[0].used=80;checkThresholdNotifications()');
+  assert.equal(alerts.length,0,'Repeated timestamp is not a new observation');
+  ui.run('S.snapshots[0].fetchedAt=later;checkThresholdNotifications();checkThresholdNotifications()');assert.equal(alerts.length,1);
+  ui.run('S.snapshots[0].metrics[0].label="Another window";checkThresholdNotifications()');assert.equal(alerts.length,1);
+  ui.run('S.snapshots[0].state="failed";S.snapshots[0].metrics[0].used=90;checkThresholdNotifications()');assert.equal(alerts.length,1);
+});
+
+test('background refresh preserves an unfocused collection draft',()=>{
+  const ui=dashboard();ui.run('S.active="settings";S.settingsSection="collection";S.collectionDirty=true;');
+  ui.element('panel-settings').innerHTML='Unsaved credential input';ui.run('renderSettings()');
+  assert.equal(ui.element('panel-settings').innerHTML,'Unsaved credential input');
+});
+
+test('logo choices contain only the provider and its published family variants',()=>{
+  const source=fs.readFileSync(require.resolve('../../../plugins/_provider-icons/manifest.js'),'utf8');
+  const raw=JSON.parse(source.split('export const catalog = ')[1].trim().replace(/;$/,''));
+  const catalog={aliases:raw.aliases,icons:Object.entries(raw.icons).map(([id,icon])=>({id,...icon}))};
+  assert.deepEqual(settings.iconChoices(catalog,'claude').map(icon=>icon.id),['claude','anthropic','claudecode']);
+  assert.deepEqual(settings.iconChoices(catalog,'gemini-cli').map(icon=>icon.id),['gemini']);
+  assert.deepEqual(settings.iconChoices(catalog,'copilot').map(icon=>icon.id),['copilot','githubcopilot']);
+  assert.deepEqual(settings.iconChoices(catalog,'typesafe'),[]);
+  assert.ok(!settings.iconChoices(catalog,'codex').some(icon=>icon.id==='gemini'));
+  const ui=dashboard({providers:{codex:{iconSource:'gemini'}}});ui.context.catalog=catalog;
+  ui.run('S.iconCatalog=catalog;S.allProviders=[{id:"codex",name:"Codex",icon:{path:"codex.svg"}}];');
+  assert.doesNotMatch(ui.run('providerIcon("codex")'),/source=gemini/);
+  assert.match(ui.run('providerDisplayExtras("codex",snapshot,providerSetting("codex"))'),/Logo variant/);
+  assert.doesNotMatch(ui.run('providerDisplayExtras("codex",snapshot,providerSetting("codex"))'),/value="gemini"/);
+});
+
+test('failed cached quotas and empty native quota records never become a measured zero',()=>{
+  const ui=dashboard();
+  assert.equal(ui.run('snapshotHasError({state:"failed",source:"custom",metrics:[]})'),true);
+  assert.equal(ui.run('normalizeHistory([{ts:"2026-09-30T08:00:00Z",providerId:"codex",primaryPercent:0,progress:[]}])[0].primaryPercent'),null);
+  assert.equal(ui.run('normalizeHistory([{ts:"2026-09-30T08:00:00Z",providerId:"codex",state:"failed",primaryPercent:80,progress:[{label:"Quota",used:80,limit:100,format:"percent"}]}])[0].primaryPercent'),null);
+  const retained=JSON.parse(ui.run('JSON.stringify(historyDetail(normalizeHistory([{ts:"2026-09-30T08:00:00Z",providerId:"codex",state:"failed",primaryPercent:80,progress:[{label:"Quota",used:80,limit:100,format:"percent"}]}])[0],"Failed observation"))'));
+  assert.ok(retained.rows.some(([label,value])=>label==='Quota'&&value==='80 / 100'));assert.match(retained.note,/Unavailable/);
+  assert.equal(ui.run('normalizeHistory([{ts:"2026-09-30T08:00:00Z",providerId:"codex",state:"ready",primaryPercent:0,progress:[{label:"Quota",used:0,limit:100,format:"percent"}]}])[0].primaryPercent'),0);
+});
+
+test('notifications can be disabled without requesting browser permission',async()=>{
+  const ui=dashboard({notifications:true});ui.run('S.active="settings";renderSettings()');
+  await ui.element('#enable-notifications').click();assert.equal(ui.run('S.prefs.notifications'),false);
+});
+
+test('credit and token budgets can be selected without inventing an unlimited quota',()=>{
+  const budget={providerId:'codex',metrics:[{type:'progress',label:'API credits',used:2,limit:10,format:{kind:'dollars'}},{type:'progress',label:'Unbounded spend',used:99,limit:0,format:{kind:'dollars'}}]};
+  const prefs=settings.normalize({providers:{codex:{primaryQuota:'API credits'}}});
+  assert.equal(settings.primary(budget,prefs).label,'API credits');
+  assert.equal(settings.primary({...budget,metrics:budget.metrics.slice(1)},prefs),null);
+  const ui=dashboard();assert.equal(ui.run('detailedUsd(.00032)'),'$0.00032');assert.equal(ui.run('detailedCost({cost:0,costKnown:false})'),'Unpriced');
+});
+
+test('provider readouts cannot inject HTML or executable links into setup-capable pages',async()=>{
+  const ui=dashboard();ui.context.URL=URL;
+  ui.run('S.snapshots=[{...snapshot,source:\'custom" onclick="bad()\',statusPageUrl:"javascript:bad()",metrics:[{type:"progress",label:"<img src=x onerror=bad()>",used:1,limit:10,format:{kind:"count",suffix:"<img src=x onerror=bad()>"}}]}];S.allProviders=[{id:"codex",usageDashboardUrl:"javascript:bad()"}];animateBarsAndArcs=()=>{};renderOverview();');
+  const overview=ui.element('grid').innerHTML;
+  assert.doesNotMatch(overview,/<img src=x|href="javascript:|class="badge b-custom" onclick=/);
+  assert.match(overview,/&lt;img src=x onerror=bad\(\)&gt;/);
+  await ui.run('animateCompareBars=()=>{};fetchHistory=async()=>[];fetchCcusageReports=async()=>null;fetchCost=async()=>null;renderStatsSection=()=>{};renderHistorySection=()=>{};renderCostSection=()=>{};renderProvider("codex")');
+  assert.doesNotMatch(ui.element('panel-codex').innerHTML,/<img src=x|href="javascript:|class="badge b-custom" onclick=/);
+});

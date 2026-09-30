@@ -243,7 +243,7 @@ test('unpriced history never renders as zero dollars and remaining does not inve
   ui.run('renderTrends()');
   assert.match(ui.element('panel-history').innerHTML,/Unpriced/);
   assert.equal(ui.run("S.prefs.quotaDisplay='remaining';fmtMetric({used:90,limit:100,format:{kind:'percent'}})"),'10.0% remaining');
-  assert.equal(ui.run('barCol(90)'),'#ce8670');
+  assert.equal(ui.run('barCol(90)'),'#ff5f57');
 });
 
 test('partial history totals cannot produce precise provider shares',()=>{
@@ -438,7 +438,7 @@ test('heatmap distinguishes missing, known zero, unknown and partial token count
 
 test('timeline gradient identifiers cannot inject markup and series labels are escaped',()=>{
   const ui=dashboard();
-  const svg={querySelector:()=>({children:[]}),addEventListener:()=>{}};
+  const svg={setAttribute:()=>{},querySelector:()=>({children:[]}),addEventListener:()=>{}};
   ui.context.chart={id:'chart-\"><svg onload="alert(1)">',clientWidth:860,innerHTML:'',querySelector:()=>svg};
   ui.run(`timeLineChart(chart,[{label:'<img src=x onerror=alert(1)>',color:'#fff',fmt:String,pts:[{t:0,v:10},{t:1000,v:20}]},
     {label:'Safe',color:'#eee',fmt:String,pts:[{t:0,v:5},{t:1000,v:10}]}],{max:100,peak:true,axis:String,when:String})`);
@@ -509,7 +509,7 @@ test('local-log extras ignore rows that did not come from local transcripts',()=
 
 test('missing quota samples break the timeline instead of bridging it',()=>{
   const ui=dashboard();
-  ui.context.chart={id:'c',clientWidth:860,innerHTML:'',querySelector:()=>({addEventListener(){},querySelector:()=>({children:[],setAttribute(){}}),getBoundingClientRect:()=>({left:0,width:860})})};
+  ui.context.chart={id:'c',clientWidth:860,innerHTML:'',querySelector:()=>({setAttribute(){},addEventListener(){},querySelector:()=>({children:[],setAttribute(){}}),getBoundingClientRect:()=>({left:0,width:860})})};
   ui.run(`timeLineChart(chart,[{label:'Quota',color:'#123',fmt:String,pts:[
     {t:Date.UTC(2026,8,1,0),v:10},{t:Date.UTC(2026,8,1,1),v:12},{t:Date.UTC(2026,8,1,2),v:null},
     {t:Date.UTC(2026,8,1,3),v:20},{t:Date.UTC(2026,8,1,4),v:22}]}],{max:100,axis:String,when:String})`);

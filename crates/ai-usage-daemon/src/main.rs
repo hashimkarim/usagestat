@@ -6,6 +6,7 @@ use usagestat_core::{
 const DASHBOARD_HTML: &str = include_str!("dashboard.html");
 const DASHBOARD_TRENDS_JS: &str = include_str!("dashboard-trends.js");
 const DASHBOARD_SETTINGS_JS: &str = include_str!("dashboard-settings.js");
+const DASHBOARD_BACKEND_JS: &str = include_str!("dashboard-backend.js");
 use anyhow::{Context, Result};
 use chrono::Utc;
 use clap::Parser;
@@ -26,11 +27,13 @@ mod codex_usage;
 mod control;
 mod history;
 mod http_request;
+mod icon_catalog;
 mod local_usage;
 mod local_usage_cache;
 mod pricing;
 mod prometheus;
 mod run_usage;
+mod settings;
 use usagestat_core::usage_daily::UsageModelDaily as ModelAggregate;
 
 #[derive(Debug, Parser)]
@@ -77,6 +80,7 @@ struct AppState {
     providers: Vec<ProviderSummary>,
     identity: Option<JsonValue>,
     control: control::ControlApi,
+    settings: Option<Arc<settings::SettingsApi>>,
 }
 
 fn main() -> Result<()> {
@@ -125,7 +129,6 @@ fn main() -> Result<()> {
     };
     let config = AppConfig::load_optional(&config_path)
         .with_context(|| format!("load config {}", config_path.display()))?;
-    let refresh_sec = cli.refresh_sec.unwrap_or(config.refresh_sec);
     let plugin_dirs = paths::plugin_dirs(&config, &cli.plugin_dirs)?;
     let cache_path = paths::cache_file()?;
     let _profile_lock = usagestat_core::storage::exclusive_lock(
@@ -140,12 +143,17 @@ fn main() -> Result<()> {
 
     let state = Arc::new(Mutex::new(AppState {
         cache,
-        providers: Vec::new(),
+        providers: if cli.no_poll {
+            Vec::new()
+        } else {
+            provider_summaries(&discover_providers(&plugin_dirs), &config)
+        },
         identity: Some(json!({
             "application": "usagestat", "version": env!("CARGO_PKG_VERSION"),
             "pid": std::process::id(), "profile": paths::app_dir_name(), "owner": owner,
         })),
         control,
+        settings: None,
     }));
     let refresh_flag = Arc::new(AtomicBool::new(false));
 
@@ -156,6 +164,15 @@ fn main() -> Result<()> {
         anyhow::bail!(
             "run usage ingestion requires a loopback listener; use a verified HTTPS reverse proxy for remote access"
         );
+    }
+    if !cli.no_poll && listener.local_addr()?.ip().is_loopback() {
+        state.lock().expect("app state poisoned").settings =
+            Some(Arc::new(settings::SettingsApi::new(
+                config_path.clone(),
+                cli.plugin_dirs.clone(),
+                cli.refresh_sec,
+                listener.local_addr()?,
+            )?));
     }
     let ingestion_worker = run_usage
         .as_ref()
@@ -168,7 +185,9 @@ fn main() -> Result<()> {
             plugin_dirs,
             cache_path,
             history_path,
-            refresh_sec,
+            config_path,
+            cli.plugin_dirs.clone(),
+            cli.refresh_sec,
             Arc::clone(&shutdown),
         )
     });
@@ -239,35 +258,50 @@ fn start_usage_summarizer(state: Arc<Mutex<AppState>>, shutdown: Arc<AtomicBool>
 fn start_poller(
     state: Arc<Mutex<AppState>>,
     refresh_flag: Arc<AtomicBool>,
-    config: AppConfig,
+    mut config: AppConfig,
     plugin_dirs: Vec<PathBuf>,
     cache_path: PathBuf,
     history_path: PathBuf,
-    refresh_sec: u64,
+    config_path: PathBuf,
+    plugin_overrides: Vec<PathBuf>,
+    refresh_override: Option<u64>,
     shutdown: Arc<AtomicBool>,
 ) -> thread::JoinHandle<()> {
     thread::spawn(move || {
         while !shutdown.load(Ordering::SeqCst) {
-            let mut providers = discover_providers(&plugin_dirs);
+            refresh_flag.swap(false, Ordering::AcqRel);
+            let config_modified = std::fs::metadata(&config_path)
+                .and_then(|m| m.modified())
+                .ok();
+            match AppConfig::load_optional(&config_path) {
+                Ok(updated) => config = updated,
+                Err(_) => log::warn!(
+                    "provider configuration could not be reloaded; retaining the last valid configuration"
+                ),
+            }
+            let current_dirs = paths::plugin_dirs(&config, &plugin_overrides)
+                .unwrap_or_else(|_| plugin_dirs.clone());
+            let mut providers = discover_providers(&current_dirs);
             sort_providers(&mut providers, &config);
             let summaries = provider_summaries(&providers, &config);
             state.lock().expect("app state poisoned").providers = summaries;
 
-            for provider in &providers {
+            for (provider, configured) in collection_targets(&providers, &config) {
                 if shutdown.load(Ordering::SeqCst) {
                     break;
                 }
-                if config.is_enabled(&provider.manifest.id, provider.manifest.enabled_by_default) {
-                    let source = config.source_mode(&provider.manifest.id);
+                if refresh_flag.load(Ordering::Acquire) {
+                    break;
+                }
+                if configured.map_or(provider.manifest.enabled_by_default, |p| p.enabled) {
+                    let source = configured
+                        .and_then(|p| p.source.as_ref())
+                        .map_or("auto", |s| s.as_str());
                     let token = usagestat_core::process::CancellationToken::with_interrupt(Some(
                         Arc::clone(&shutdown),
                     ));
                     let snapshot = usagestat_core::process::with_cancellation(token, || {
-                        probe_provider(
-                            provider,
-                            source,
-                            config.provider_config(&provider.manifest.id),
-                        )
+                        probe_provider(provider, source, configured)
                     });
                     if shutdown.load(Ordering::SeqCst) {
                         break;
@@ -285,8 +319,11 @@ fn start_poller(
             }
 
             // Sleep until next cycle, but wake early if refresh is requested.
-            refresh_flag.store(false, Ordering::Relaxed);
-            let deadline = Instant::now() + Duration::from_secs(refresh_sec.max(1));
+            if refresh_flag.load(Ordering::Acquire) {
+                continue;
+            }
+            let deadline = Instant::now()
+                + Duration::from_secs(refresh_override.unwrap_or(config.refresh_sec).max(1));
             loop {
                 if shutdown.load(Ordering::SeqCst) {
                     return;
@@ -296,6 +333,13 @@ fn start_poller(
                     break;
                 }
                 if Instant::now() >= deadline {
+                    break;
+                }
+                if std::fs::metadata(&config_path)
+                    .and_then(|m| m.modified())
+                    .ok()
+                    != config_modified
+                {
                     break;
                 }
             }
@@ -382,6 +426,20 @@ fn handle_connection(
             run_usage.as_ref().map_or_else(
                 || run_usage::error(404, "INGESTION_DISABLED"),
                 |api| api.route(&request),
+            )
+        }
+        Ok(request) if settings::SettingsApi::handles(&request.path) => {
+            let api = state.lock().expect("app state poisoned").settings.clone();
+            api.map_or_else(
+                || {
+                    response_text(
+                        404,
+                        "Not Found",
+                        "application/json",
+                        r#"{"error":"dashboard_settings_disabled"}"#,
+                    )
+                },
+                |api| api.route(&request, &state, &refresh_flag),
             )
         }
         Ok(request) => {
@@ -480,6 +538,14 @@ fn route(
             DASHBOARD_SETTINGS_JS,
         );
     }
+    if path == "/dashboard/backend.js" {
+        return response_text(
+            200,
+            "OK",
+            "text/javascript; charset=utf-8",
+            DASHBOARD_BACKEND_JS,
+        );
+    }
 
     if path == "/v1/providers" {
         let providers = state.lock().expect("app state poisoned").providers.clone();
@@ -487,8 +553,15 @@ fn route(
         return response_json(200, "OK", &body);
     }
 
+    if path == "/v1/icon-catalog" {
+        return response_json(200, "OK", &icon_catalog::public_catalog().to_string());
+    }
+
     if let Some(id) = path.strip_prefix("/v1/icons/") {
         let providers = state.lock().expect("app state poisoned").providers.clone();
+        if let Some(reply) = icon_catalog::serve(id, query, &providers) {
+            return reply;
+        }
         // Resolve only registered assets, never an arbitrary request-supplied path.
         let icon = providers
             .iter()
@@ -915,6 +988,10 @@ struct SnapshotRecord {
     provider_id: String,
     #[serde(alias = "display_name")]
     display_name: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    source: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    state: Option<String>,
     plan: Option<String>,
     #[serde(alias = "primary_percent")]
     primary_percent: f64,
@@ -1002,6 +1079,14 @@ fn history_record_from_snapshot(snapshot: &UsageSnapshot) -> SnapshotRecord {
         ts: snapshot.fetched_at.to_rfc3339(),
         provider_id: snapshot.provider_id.clone(),
         display_name: snapshot.display_name.clone(),
+        source: snapshot.source.clone(),
+        state: snapshot.state.map(|state| {
+            serde_json::to_value(state)
+                .expect("provider state")
+                .as_str()
+                .expect("state name")
+                .to_owned()
+        }),
         plan: snapshot.plan.clone(),
         primary_percent: metrics.primary_percent,
         input_tokens: token_breakdown.input.or(metrics.input_tokens),
@@ -1233,13 +1318,51 @@ fn append_history_record(path: &std::path::Path, record: &SnapshotRecord) -> Res
         .with_context(|| format!("append history {}", path.display()))
 }
 
+fn collection_targets<'a>(
+    providers: &'a [LoadedProvider],
+    config: &'a AppConfig,
+) -> Vec<(
+    &'a LoadedProvider,
+    Option<&'a usagestat_core::config::ProviderConfig>,
+)> {
+    let mut result = Vec::new();
+    let mut seen = std::collections::HashSet::new();
+    for configured in &config.providers {
+        if let Some(provider) = providers.iter().find(|p| p.manifest.id == configured.id) {
+            let key = configured.instance_id.as_deref().unwrap_or(&configured.id);
+            if seen.insert(key.to_string()) {
+                result.push((provider, Some(configured)));
+            }
+        }
+    }
+    for provider in providers {
+        if !config
+            .providers
+            .iter()
+            .any(|p| p.id == provider.manifest.id)
+            && seen.insert(provider.manifest.id.clone())
+        {
+            result.push((provider, None));
+        }
+    }
+    result
+}
+
 fn provider_summaries(providers: &[LoadedProvider], config: &AppConfig) -> Vec<ProviderSummary> {
-    providers
-        .iter()
-        .map(|p| ProviderSummary {
-            id: p.manifest.id.clone(),
-            name: p.manifest.name.clone(),
-            enabled: config.is_enabled(&p.manifest.id, p.manifest.enabled_by_default),
+    collection_targets(providers, config)
+        .into_iter()
+        .map(|(p, configured)| ProviderSummary {
+            id: configured
+                .and_then(|c| c.instance_id.clone())
+                .unwrap_or_else(|| p.manifest.id.clone()),
+            plugin_id: configured
+                .and_then(|c| c.instance_id.as_ref())
+                .map(|_| p.manifest.id.clone()),
+            tab_parent: configured.and_then(|c| c.tab_parent.clone()),
+            name: configured
+                .and_then(|c| c.display_name.clone())
+                .unwrap_or_else(|| p.manifest.name.clone()),
+            enabled: configured.map_or(p.manifest.enabled_by_default, |c| c.enabled),
             supported_modes: p.manifest.supported_modes.clone(),
             auto_mode: p.manifest.auto_mode.clone(),
             web_url: p.manifest.web_url.clone(),

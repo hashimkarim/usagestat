@@ -14,7 +14,7 @@ fs.mkdirSync(path.join(dir,'data'),{recursive:true});
 fs.writeFileSync(path.join(dir,'config/config.toml'),'refreshSec = 3600\n');
 const now=new Date(), today=now.toISOString().slice(0,10);
 for(const [provider,used] of providers) {
-  const id='fixture-'+provider, plugin=path.join(dir,'plugins',id);
+  const id=provider, plugin=path.join(dir,'plugins',id);
   fs.mkdirSync(plugin,{recursive:true});
   const name=provider[0].toUpperCase()+provider.slice(1)+' (Fixture)';
   fs.writeFileSync(path.join(plugin,'plugin.json'),JSON.stringify({id,name,entry:'plugin.js',enabledByDefault:true,
