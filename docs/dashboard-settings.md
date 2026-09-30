@@ -12,8 +12,8 @@ not hide or delete its saved usage. Paused sources show a saved-usage label.
 History retains provider records after a source is paused, hidden or removed.
 Dashboard display choices remain independent of UsageStat Bar's settings.
 
-These features follow the immutable v2.0.0 release. They require a subsequently
-built daemon; the published v2.0.0 binaries and tag are unchanged.
+These features are included in v2.0.1. Upgrade the daemon to receive them;
+the immutable v2.0.0 binaries and tag are unchanged.
 
 ## Display
 

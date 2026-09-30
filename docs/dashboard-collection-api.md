@@ -1,6 +1,6 @@
 # Local dashboard collection API
 
-This additive `/v1` API follows v2.0.0 and requires a subsequent build. It does
+This additive `/v1` API is included in v2.0.1. It does
 not change native usage readback, SDK run ingestion, T3 management or their
 credentials. It is available only on loopback listeners with polling enabled.
 Remote listeners and `--no-poll` installations return 404 for setup routes.

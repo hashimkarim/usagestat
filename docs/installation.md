@@ -2,8 +2,8 @@
 
 Install the CLI (`usagestat`), daemon (`usagestatd`), and provider plugins together.
 Use the [published support table](../README.md#install) to choose a channel for
-your system. **v2.0.0** is published; the
-[publication record](releases/v2.0.0-publication.md) tracks package-feed availability. For work
+your system. The current stable release is **v2.0.1**; the
+[publication record](releases/v2.0.1-publication.md) tracks package-feed availability. For work
 from a source checkout, see [development](../README.md#development).
 
 For the Windows/macOS/Linux **v2.0.0-alpha.4** backend downloads, use the separate
@@ -16,8 +16,8 @@ remain pending; the commands for published Linux packages below retain their sco
 Windows candidate ZIP and native development instructions are in
 [Windows distribution](windows-distribution.md).
 
-The stable version is [v2.0.0](releases/v2.0.0.md). Check its
-[publication record](releases/v2.0.0-publication.md) for per-channel availability;
+The stable version is [v2.0.1](releases/v2.0.1.md). Check its
+[publication record](releases/v2.0.1-publication.md) for per-channel availability;
 do not assume a queued feed build is already installable. Stable npm and native
 archives target Linux x64/ARM64 only. See the release notes for upgrade and SDK
 migration details.
@@ -27,7 +27,7 @@ migration details.
 With Node 24+ and npm 11.5.1+, install the published stable version:
 
 ```sh
-npm install --global @hashimkarim/usagestat@2.0.0 --include=optional --ignore-scripts
+npm install --global @hashimkarim/usagestat@2.0.1 --include=optional --ignore-scripts
 ```
 
 The package uses exact-version native dependencies for Linux x64/ARM64 with
@@ -89,7 +89,7 @@ Homebrew's prefix and discovered automatically.
 For the v2 preview, use the separate [alpha COPR instructions](alpha.md#alpha-package-repositories).
 
 The [COPR project](https://copr.fedorainfracloud.org/coprs/hashimkarim/usagestat/)
-has v2.0.0 builds for **Fedora 43, 44, 45, and Rawhide, on x86-64**.
+targets **Fedora 43, 44, 45, and Rawhide, on x86-64**.
 These targets use DNF5; its COPR command is supplied by
 [`dnf5-plugins`](https://packages.fedoraproject.org/pkgs/dnf5/dnf5-plugins/).
 
@@ -107,7 +107,9 @@ The [PPA](https://launchpad.net/~hashimkarim/+archive/ubuntu/usagestat) currentl
 publishes **Ubuntu 24.04 LTS (Noble), amd64**, with package version
 `1.0.3-1ppa2`. The suffix is a Debian packaging revision; the program reports
 `1.0.3`. The v2.0.0 package (`2.0.0-1ppa1`) built successfully but is awaiting
-Launchpad publication; see the [release record](releases/v2.0.0-publication.md).
+Launchpad publication at its last recorded check. See the
+[v2.0.1 release record](releases/v2.0.1-publication.md) for the new version's
+publication status.
 Other Ubuntu series and ARM64 do not currently have published packages
 in this PPA. These instructions are for Ubuntu, not Debian.
 
@@ -136,7 +138,7 @@ Use a Linux system with **glibc 2.39+**, `curl`, `tar`, and coreutils (`sha256su
 `install`). The archive contains both binaries, plugins, and the license;
 standalone `usagestat-linux-*` downloads contain only the CLI.
 
-Check glibc with `getconf GNU_LIBC_VERSION`. Both v2.0.0 architectures require
+Check glibc with `getconf GNU_LIBC_VERSION`. Both v2.0.1 architectures require
 2.39; for an older host, build from source instead of using these archives.
 
 Run this in an empty working directory. It downloads the latest stable release,
@@ -186,7 +188,7 @@ sudo apt install build-essential pkg-config git
 Build the current stable tag and install both binaries plus plugins:
 
 ```bash
-git clone --branch v2.0.0 --depth 1 https://github.com/Hashim-K/usagestat.git
+git clone --branch v2.0.1 --depth 1 https://github.com/Hashim-K/usagestat.git
 cd usagestat
 cargo build --release --locked -p usagestat-cli -p usagestat-daemon
 install -d "$HOME/.local/bin" "$HOME/.local/lib/usagestat"
@@ -209,7 +211,7 @@ usagestat list
 usagestat config validate
 ```
 
-A v2.0.0 installation should report `usagestat 2.0.0`, `list` should find the
+A v2.0.1 installation should report `usagestat 2.0.1`, `list` should find the
 bundled providers, and config validation should succeed with an absent/default
 config or a valid custom config. Provider login is separate: use the
 [first-run setup](../README.md#first-run) before requesting live account usage.
@@ -246,16 +248,16 @@ If the managed daemon is running, run `usagestat daemon stop` followed by
 `usagestat daemon start` after upgrading to restart it with the updated binary.
 This preserves its saved T3 mode and
 does not change whether it starts at login. Leave a deliberately stopped daemon
-stopped. RPM recipes after v2.0.0 include the automatic synchronization described
+stopped. RPMs from v2.0.1 include the automatic synchronization described
 below; other installation channels still use this manual restart.
 For a foreground daemon, stop it and launch `usagestatd` again. Then check
 `usagestat --version` and `usagestat daemon status`.
 
 ### Automatic updates on Fedora
 
-RPM recipes after v2.0.0 ship update support in the package. The existing
-immutable v2.0.0 RPM does not contain these units or hooks; install a subsequent
-published RPM to receive them. No source-checkout installer is needed.
+RPMs from v2.0.1 ship update support in the package. The immutable v2.0.0 RPM
+does not contain these units or hooks; upgrade to the published v2.0.1 RPM to
+receive them. No source-checkout installer is needed.
 
 After a package transaction, the RPM queues `usagestat-package-sync.service`
 in existing user managers. The helper verifies the managed native service's
@@ -269,7 +271,7 @@ This hook also works for ordinary manual DNF upgrades.
 Stable RPMs include the `hashimkarim/usagestat` COPR feed configuration with RPM
 signature checks enabled, as `%config(noreplace)`, preserving administrator edits. Alpha packages do not
 install the stable feed or its download timer. For optional daily downloads,
-use the timer shipped by a subsequent stable RPM:
+use the timer shipped by the stable RPM:
 
 ```bash
 sudo systemctl enable --now usagestat-rpm-update.timer

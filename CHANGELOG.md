@@ -1,5 +1,17 @@
 # Changelog
 
+## 2.0.1 - 2026-09-30
+
+- Add independent dashboard Display settings for provider visibility, ordering, names, trackers, layout, themes, thresholds and notifications. Choose only a provider's own related logo variants, with separate monochrome/colour controls and optional uploaded logos.
+- Add local dashboard Collection setup for provider sources, write-only credentials, polling and explicit account instances. Private setup-file proof and a per-launch session protect the loopback-only configuration API; saved changes reload without restarting the daemon.
+- Add hover, keyboard-focus and tap details throughout quota, history, token and cost charts, preserving missing, stale and failed observations and separating API-equivalent costs from subscription charges.
+- Improve upload buttons, checkboxes, keyboard focus and responsive settings layouts.
+- Distinguish Antigravity quota/license denial from expired authentication, retaining explicit unavailable states.
+- Ship stable COPR feed configuration, an optional daily RPM update timer and a package transaction hook that refreshes already-running RPM-owned services while preserving their configuration and enablement.
+- Preserve the native `/v1` readback and `agenticdriver.usage.v2` ingestion contracts, account bindings, credential scopes and shared provider-icons pin.
+
+See [release notes](docs/releases/v2.0.1.md) and the [publication record](docs/releases/v2.0.1-publication.md) for qualification and channel availability.
+
 ## 2.0.0-alpha.4 - 2026-09-28
 
 - Bundle 97 providers with 20 new opt-in integrations, updated quota and account handling, and shared provider icons with their license notices.

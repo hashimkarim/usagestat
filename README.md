@@ -42,12 +42,13 @@ a local dashboard, and an HTTP API.
 
 ## Install
 
-The stable backend is **[v2.0.0](docs/releases/v2.0.0.md)** for Linux
-x64/ARM64 (glibc 2.39+). Its [release qualification record](docs/releases/v2.0.0-publication.md)
+The stable backend is **[v2.0.1](docs/releases/v2.0.1.md)** for Linux
+x64/ARM64 (glibc 2.39+). Its [release qualification record](docs/releases/v2.0.1-publication.md)
 tracks publication and checks; package feeds can lag the GitHub release.
-It adds optional SDK run ingestion while preserving `/v1/providers` and
-`/v1/usage`. AgenticDriver consumers should read the migration notes before
-configuring capture or account quotas.
+It adds independent dashboard Display/Collection settings, chart details and
+RPM service update support while preserving `/v1/providers`, `/v1/usage` and
+optional SDK run ingestion. AgenticDriver consumers should read the migration
+notes before configuring capture or account quotas.
 
 **[Try v2.0.0-alpha.4 on Windows, macOS or Linux](docs/alpha.md).** The unsigned
 backend alpha includes native archives and a Windows per-user installer. Native
@@ -89,12 +90,12 @@ each channel's actual availability.
 
 Choose a package manager already available on your system. Published packages
 and stable release downloads target **Linux**; the stable Homebrew formula is also
-Linux-only. See the [v2.0.0 publication record](docs/releases/v2.0.0-publication.md)
+Linux-only. See the [v2.0.1 publication record](docs/releases/v2.0.1-publication.md)
 for current versions and feed publication status.
 
 | Channel | Published OS / CPU support | Package |
 | --- | --- | --- |
-| [npm](https://www.npmjs.com/package/@hashimkarim/usagestat) | Linux with glibc 2.39+ · x86-64, ARM64; Node 24+ | `@hashimkarim/usagestat@2.0.0` |
+| [npm](https://www.npmjs.com/package/@hashimkarim/usagestat) | Linux with glibc 2.39+ · x86-64, ARM64; Node 24+ | `@hashimkarim/usagestat@2.0.1` |
 | [Arch Linux / AUR](https://aur.archlinux.org/packages/usagestat-bin) | Arch Linux · x86-64 | `usagestat-bin` — release binaries |
 | [Homebrew](https://github.com/hashimkarim/homebrew-tap/blob/main/Formula/usagestat.rb) | Linux with system glibc 2.39+ · x86-64, ARM64 | `hashimkarim/tap/usagestat` |
 | [Fedora COPR](https://copr.fedorainfracloud.org/coprs/hashimkarim/usagestat/) | Fedora 43, 44, 45, Rawhide · x86-64 | `usagestat` |
@@ -299,7 +300,7 @@ cargo run -p usagestat-daemon -- --config ./config.toml --refresh-sec 30
 
 </details>
 
-## Source checkout features
+## Dashboard and history
 
 The dedicated **History** tab is included in v2.0.0. History adds provider/date filters, daily/weekly/monthly
 charts, previous-period comparisons, and CSV export of saved daily reports.
@@ -314,13 +315,14 @@ and `/v1/history/daily/<provider>/<period>` (`month`, `all`, or a day count).
 credential or account labels. See [history accounting](docs/history-accounting.md)
 for source precedence, model estimates, cache savings, and pricing coverage.
 
-The source dashboard's **Settings** tab separates **Display** preferences from
+The v2.0.1 dashboard's **Settings** tab separates **Display** preferences from
 shared backend **Collection** setup. Display includes visibility, names, ordering,
 trackers, provider logo variants, monochrome/colour, themes, thresholds and layout.
 Collection configures polling, provider sources and write-only credentials after
 unlocking with the private local setup key. Display stays independent of UsageStat
 Bar. Charts offer hover, focus and tap details for recorded quotas, tokens and costs.
-These changes require a subsequent build; published v2.0.0 binaries are unchanged.
+Upgrade the daemon to v2.0.1 to receive these settings; existing v2.0.0 binaries
+and tags are unchanged.
 See [dashboard settings](docs/dashboard-settings.md) and
 [automatic service updates](docs/installation.md#automatic-updates-on-fedora).
 
