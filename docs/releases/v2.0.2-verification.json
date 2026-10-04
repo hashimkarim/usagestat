@@ -245,14 +245,35 @@
     }
   },
   "ppa": {
+    "verifiedAt": "2026-10-04T22:08:18.368166+00:00",
     "version": "2.0.2-1ppa1",
     "buildId": 33813130,
     "buildUrl": "https://launchpad.net/~hashimkarim/+archive/ubuntu/usagestat/+build/33813130",
-    "status": "Successfully built",
-    "buildCompletedAt": "2026-10-04T21:39:52.559564+00:00",
-    "binaryPublicationVerified": false,
-    "latestVerifiedAptVersion": "2.0.1-1ppa1",
+    "status": "Published",
+    "binaryPublicationVerified": true,
+    "publishedBinaries": [
+      {
+        "binary_package_version": "2.0.2-1ppa1",
+        "status": "Published",
+        "date_published": "2026-10-04T22:06:13.498450+00:00",
+        "distro_arch_series_link": "https://api.launchpad.net/1.0/ubuntu/noble/amd64",
+        "self_link": "https://api.launchpad.net/1.0/~hashimkarim/+archive/ubuntu/usagestat/+binarypub/250815631"
+      }
+    ],
+    "apt": {
+      "indexUrl": "https://ppa.launchpadcontent.net/hashimkarim/usagestat/ubuntu/dists/noble/main/binary-amd64/Packages.gz",
+      "filename": "pool/main/u/usagestat/usagestat_2.0.2-1ppa1_amd64.deb",
+      "sha256": "0e598584f6d2eeaf9ebdf4d9c161ece84bd22ae0955f22587d5259687f77de2a",
+      "size": 9328546,
+      "signingKeyFingerprint": "8A7702F2E9CBA061BCBABE336A843EBF40CBBF4F",
+      "inReleaseSignatureVerified": true,
+      "packagesIndexChecksumVerified": true,
+      "packagesIndexSha256": "c7cc72aff864e0fa1ab3c4c838cc141713494cea4ec8f35333f7d665b3070288",
+      "candidateBytesMatchPublic": true
+    },
+    "latestVerifiedAptVersion": "2.0.2-1ppa1",
     "resubmitted": false,
+    "buildCompletedAt": "2026-10-04T21:39:52.559564+00:00",
     "nobleAmd64BuildArtifact": {
       "package": "usagestat_2.0.2-1ppa1_amd64.deb",
       "sha256": "0e598584f6d2eeaf9ebdf4d9c161ece84bd22ae0955f22587d5259687f77de2a",
@@ -260,9 +281,10 @@
       "daemonSha256": "a45e62e24c140a727d41da003229f21a0cbeea580861fcb54a0358b6b4d4871d",
       "nativeDaemonVersion": "usagestatd 2.0.2",
       "buildFilesChecksumVerified": true,
-      "binaryPublicationVerified": false,
+      "binaryPublicationVerified": true,
       "systemInstallationChanged": false,
-      "nativeCollectionTestsPassed": 4
+      "nativeCollectionTestsPassed": 4,
+      "publicAptDownloadBytesMatch": true
     }
   },
   "compatibility": {
@@ -296,9 +318,8 @@
   },
   "releaseWorkflow": {
     "url": "https://github.com/hashimkarim/usagestat/actions/runs/37234674963",
-    "status": "in_progress",
-    "conclusion": null,
-    "remainingJob": "Ubuntu PPA archive publication"
+    "status": "completed",
+    "conclusion": "success"
   },
   "nativeFoundation": {
     "sourceCommit": "f70ad758064dea4a8581814dfea8cd3e841c7dff",

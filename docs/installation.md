@@ -104,11 +104,11 @@ The package includes both binaries and `/usr/share/usagestat/plugins`.
 ## Ubuntu / PPA
 
 The [PPA](https://launchpad.net/~hashimkarim/+archive/ubuntu/usagestat) currently
-publishes **Ubuntu 24.04 LTS (Noble), amd64**. Package `2.0.1-1ppa1` is verified
-in its APT index at the latest check; publication of `2.0.2-1ppa1` is pending.
+publishes **Ubuntu 24.04 LTS (Noble), amd64**. Package `2.0.2-1ppa1` is verified
+in its signed APT index, with its matching public DEB download.
 The suffix is a Debian packaging revision; the program reports the upstream
-version. See the [v2.0.2 release record](releases/v2.0.2-publication.md) before
-expecting an upgrade to 2.0.2 from this feed.
+version. See the [v2.0.2 release record](releases/v2.0.2-publication.md) for
+publication and verification evidence.
 Other Ubuntu series and ARM64 do not currently have published packages
 in this PPA. These instructions are for Ubuntu, not Debian.
 
