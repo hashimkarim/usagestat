@@ -9,6 +9,20 @@ function harness(provider, http) {
   return providerHarness(provider, {host:{ls:{discoverStatus:()=>({status:'missing'})},keychain:{readGenericPassword:()=>credentials}},http});
 }
 for (const provider of ['antigravity','antigravity-cli']) {
+  for (const [platform, architecture, suffix] of [['linux','x86_64','linux/amd64'],['windows','aarch64','windows/arm64'],['macos','aarch64','darwin/arm64']]) {
+    test(`${provider}: Hub identity works on ${suffix} without rotating credentials`,()=>{
+      const app=harness(provider,req=>{
+        if(req.headers['User-Agent']!==`antigravity/hub/2.9.1 ${suffix}`) return response({},403);
+        return req.url.endsWith(':fetchAvailableModels')?response(models):response({});
+      });
+      app.ctx.app.platform=platform;
+      app.ctx.app.architecture=architecture;
+      assert.equal(app.probe().lines.find(line=>line.type==='progress').used,25);
+      assert.ok(app.calls.http.length>0);
+      assert.ok(app.calls.http.every(req=>req.headers['User-Agent']===`antigravity/hub/2.9.1 ${suffix}`));
+      assert.ok(!app.calls.http.some(req=>req.url.includes('oauth2.googleapis.com')));
+    });
+  }
   test(`${provider}: a quota permission denial is not an expired login or a measured zero`,()=>{
     const app=harness(provider,req=>req.url.endsWith(':loadCodeAssist')?response({allowedTiers:[]}):response({error:{status:'PERMISSION_DENIED'}},403));
     assert.throws(()=>app.probe(),error=>String(error).includes('Google denied Antigravity quota access for this account'));

@@ -16,9 +16,9 @@
   ],
   "upstream": {
     "repository": "https://github.com/steipete/CodexBar",
-    "revision": "25bba9b7fd9ce83c33053958f7366e23b2dc8a82",
+    "revision": "6ba06fe9ec1522dd5c59e16810115bce28aa148f",
     "path": "Sources/CodexBarCore/Resources/Plugins/helmcode.js",
-    "sha256": "475a2002673d59b95ef4da487639f8e2574ba07a0e31e80f10ea3556eeb3427e",
+    "sha256": "3192630337f9b8bbd577acb930357e54d1f02ec9435a49dcc01411448f072ff1",
     "license": "MIT"
   }
 }

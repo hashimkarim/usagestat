@@ -44,7 +44,7 @@ function providerHarness(id, options = {}) {
       firstExisting(names) { return names.find(exists) || null; },
       firstExistingAppSupport(relative) { const name = paths.join(appSupport, relative); return exists(name) ? name : null; },
     },
-    sqlite: {query(name, sql) { const key = normalize(name); calls.sqlite.push({path: key, sql}); if (!databases.has(key)) throw new Error('fixture database missing'); return JSON.stringify(databases.get(key)); }},
+    sqlite: {query(name, sql) { const key = normalize(name); calls.sqlite.push({path: key, sql}); if (!databases.has(key)) throw new Error('fixture database missing'); const rows=databases.get(key); return JSON.stringify(sql.includes('sqlite_master')&&Array.isArray(rows)?[{name:'message'}]:rows); }},
     http: {request(request) { calls.http.push(request); if (!options.http) throw new Error('Unexpected external request in fixture'); return options.http(request); }},
     log: Object.fromEntries(['info', 'warn', 'error', 'debug'].map(level => [level, value => calls.logs.push({level, value})])),
     keychain: options.keychain || {},

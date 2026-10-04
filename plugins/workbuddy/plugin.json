@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "id": "workbuddy",
+  "name": "WorkBuddy",
+  "version": "0.1.0",
+  "entry": "plugin.js",
+  "enabledByDefault": false,
+  "supportedModes": [
+    "web"
+  ],
+  "autoMode": "web",
+  "usageDashboardUrl": "https://www.workbuddy.cn",
+  "webUrl": "https://workbuddy.cn",
+  "envVars": [
+    "WORKBUDDY_COOKIE"
+  ],
+  "setupHelp": "Use a Cookie header from www.workbuddy.cn and the full User-Agent from the same browser. Set Browser User-Agent below. Desktop login files are not imported.",
+  "setupFields": [
+    {
+      "key": "browserUserAgent",
+      "title": "Browser User-Agent",
+      "type": "string",
+      "description": "Paste the full User-Agent from the same browser session that supplied the cookies. Required for WorkBuddy web readback."
+    }
+  ],
+  "upstream": {
+    "repository": "https://github.com/steipete/CodexBar",
+    "revision": "6ba06fe9ec1522dd5c59e16810115bce28aa148f",
+    "path": "Sources/CodexBarCore/Resources/Plugins/workbuddy.js",
+    "sha256": "d5dbd97ac32a7ceee75f0969415c7601e17402a6cad19a163735b4747e4d2e89",
+    "license": "MIT"
+  }
+}

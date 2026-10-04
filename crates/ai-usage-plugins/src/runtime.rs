@@ -283,6 +283,7 @@ fn inject_context(
     let app = Object::new(ctx.clone())?;
     app.set("version", env!("CARGO_PKG_VERSION"))?;
     app.set("platform", std::env::consts::OS)?;
+    app.set("architecture", std::env::consts::ARCH)?;
     let app_data_dir = paths::data_dir()
         .map_err(|error| rquickjs::Exception::throw_message(ctx, &error.to_string()))?;
     let data_key = provider_config
@@ -360,6 +361,7 @@ fn inject_context(
         provider_config
             .and_then(|c| c.instance_id.as_deref())
             .unwrap_or(&manifest.id),
+        provider_config,
     )?;
     Ok(())
 }
@@ -721,6 +723,85 @@ mod provider_sync_tests {
         assert!(json.contains("Cloudflare"), "{snapshot:?}");
         assert!(!json.contains("private-response"));
         assert!(!json.contains("expired"));
+    }
+
+    #[test]
+    fn opaque_cookie_sessions_reject_invalid_native_scope_before_network() {
+        let mut provider = fixture(r#"globalThis.__usagestat_plugin={probe(ctx){
+            if (!ctx.host.http.cookieSessionAvailable) throw 'Missing configured session';
+            for (const req of [{url:'https://foreign.example/api/me',cookieSession:'configured'},
+                {url:'https://console.lithosai.cloud/api/me',cookieSession:'foreign-account'}]) {
+                let denied=false;
+                try {ctx.host.http.requestCookieSession({...req,method:'GET',headers:{}});} catch (_) {denied=true;}
+                if (!denied) throw 'Cookie session scope was not enforced';
+            }
+            return {lines:[ctx.line.text({label:'Scope',value:'Verified'})]};
+        }};"#);
+        provider.manifest.id = "lithosai".into();
+        let config: ProviderConfig = toml::from_str("id='lithosai'\ncookieHeader='__Host-console_session=fixture; __Host-console_csrf=fixture'").unwrap();
+        let snapshot = probe_provider(&provider,"web",Some(&config));
+        assert_eq!(snapshot.state,Some(usagestat_core::model::ProviderState::Ready),"{snapshot:?}");
+    }
+
+    #[test]
+    fn new_cookie_provider_parsers_run_with_native_quickjs_wrappers() {
+        for (id, source) in [
+            ("lithosai",include_str!("../../../plugins/lithosai/plugin.js")),
+            ("workbuddy",include_str!("../../../plugins/workbuddy/plugin.js")),
+        ] {
+            let script = format!(r#"
+                __usagestat_ctx.host.http.requestCookieSession = req => {{
+                    if (req.cookieSession !== 'configured' || req.headers.Cookie) throw 'Wrong opaque session';
+                    const data = req.url.endsWith('/api/me') ? {{activeOrganization:{{id:'org_fixture'}},user:{{}}}} :
+                        req.url.endsWith('/api/billing') ? {{balanceNanos:5000000000,hasCard:false,onHold:false}} :
+                        req.url.endsWith('summary') ? {{code:0,data:{{Packages:[{{CapacityUnit:'credits',CycleTotalCapacity:'100',CycleRemainCapacity:'75'}}]}}}} : null;
+                    return {{status:data?200:503,headers:{{}},bodyText:JSON.stringify(data)}};
+                }}; {}"#,source);
+            let mut provider = fixture(&script); provider.manifest.id = id.into();
+            let config: ProviderConfig = toml::from_str(&format!("id='{id}'\ncookieHeader='session=fixture'")).unwrap();
+            let snapshot = probe_provider(&provider,"web",Some(&config));
+            assert_eq!(snapshot.state,Some(usagestat_core::model::ProviderState::Ready),"{snapshot:?}");
+            if id == "lithosai" {
+                assert!(snapshot.metrics.iter().any(|line| matches!(line,MetricLine::Text{label,value,..} if label=="Balance" && value=="USD 5.00")));
+            } else {
+                assert!(matches!(&snapshot.metrics[0],MetricLine::Progress{used,..} if *used==25.0));
+            }
+        }
+    }
+
+    #[test]
+    fn museai_discovery_and_action_storage_run_without_intl_or_browser_import() {
+        let source = format!(r#"
+            const action='a'.repeat(40), writes=[];
+            const host=__usagestat_ctx.host;
+            host.fs.readTextLimited=()=>{{throw 'No saved action';}};
+            host.fs.exists=()=>false;
+            host.fs.writeText=(_path,raw)=>writes.push(JSON.parse(raw));
+            host.http.request=req=>{{
+                let body;
+                if(req.method==='POST') {{
+                    if(req.headers['Next-Action']!==action || req.headers.Cookie!=='session=fixture') throw 'Wrong action/session';
+                    body='1:'+JSON.stringify({{success:true,subscription:{{usage:{{percentUsed:35}},tier:{{name:'Fixture Pro'}}}}}});
+                }} else if(req.url.endsWith('/')) body='<script src="/_next/static/chunks/app.js"></script>';
+                else if(req.url.endsWith('app.js')) {{
+                    if(req.headers.Cookie) throw 'Cookie on static code discovery';
+                    body='.A(123).then(({{SettingsX}})=>{{}});[123,e=>{{e.v(e=>Promise.all(["static/chunks/settings.js"]))';
+                }} else body='"'+action+'",x,y,"fetchSubscriptionAction"';
+                return {{status:200,headers:{{}},bodyText:body}};
+            }};
+            {}
+            const probe=globalThis.__usagestat_plugin.probe;
+            globalThis.__usagestat_plugin.probe=async ctx=>{{
+                const result=await probe(ctx);
+                if(JSON.stringify(writes)!==JSON.stringify([{{actionID:action}}])) throw 'Unexpected persisted data';
+                return result;
+            }};
+        "#,include_str!("../../../plugins/museai/plugin.js"));
+        let mut provider=fixture(&source); provider.manifest.id="museai".into();
+        let config:ProviderConfig=toml::from_str("id='museai'\ncookieHeader='session=fixture'").unwrap();
+        let snapshot=probe_provider(&provider,"web",Some(&config));
+        assert_eq!(snapshot.state,Some(usagestat_core::model::ProviderState::Ready),"{snapshot:?}");
+        assert!(matches!(&snapshot.metrics[0],MetricLine::Progress{used,period_duration_ms,..} if *used==35.0 && *period_duration_ms==Some(604800000)));
     }
 
     #[test]

@@ -15,7 +15,7 @@
   ],
   "upstream": {
     "repository": "https://github.com/steipete/CodexBar",
-    "revision": "25bba9b7fd9ce83c33053958f7366e23b2dc8a82",
+    "revision": "6ba06fe9ec1522dd5c59e16810115bce28aa148f",
     "path": "Sources/CodexBarCore/Resources/Plugins/atlascloud.js",
     "sha256": "852fb78abaf4fcdbbfbfeac0b60d6b82a9ca9b1d1d2f9014f6e5299b41ac47fa",
     "license": "MIT"

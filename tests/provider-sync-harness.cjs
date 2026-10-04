@@ -25,7 +25,7 @@ function load(id, options = {}) {
   }
   const ctx = {
     nowIso: now, sourceMode: options.source || "auto",
-    app: { version: "test", platform: "linux", appDataDir: "/test/data", pluginDataDir: "/test/data/" + id },
+    app: { version: "test", platform: options.platform || "linux", appDataDir: "/test/data", pluginDataDir: "/test/data/" + id },
     provider: options.provider || {},
     host: {
       env: { get: (name) => options.env && options.env[name] || null },
@@ -79,6 +79,13 @@ function load(id, options = {}) {
       crypto: { sha256: (value) => createHash("sha256").update(value).digest("hex"), sha1Hex: (value) => createHash("sha1").update(value).digest("hex") },
     },
   };
+  if (options.cookieSessionRequest) {
+    ctx.host.http.cookieSessionAvailable = !!options.cookieSessionAvailable;
+    ctx.host.http.requestCookieSession = req => {
+      requests.push(req);
+      return options.cookieSessionRequest(req, requests.length);
+    };
+  }
   const sandbox = vm.createContext({ __usagestat_ctx: ctx, __OPENUSAGE_PLUGIN_REGISTRATION_ID__: id, Date: Clock });
   vm.runInContext(utilityScript, sandbox);
   vm.runInContext(fs.readFileSync(path.join(ROOT, 'crates/ai-usage-plugins/src/bundled_provider.js'), 'utf8'), sandbox);

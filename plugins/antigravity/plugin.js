@@ -560,7 +560,7 @@
             Accept: "application/json",
             "Content-Type": "application/json",
             Authorization: "Bearer " + token,
-            "User-Agent": userAgent || "antigravity",
+            "User-Agent": ctx.util.antigravityHubUserAgent(),
           },
           bodyText: JSON.stringify(body || {}),
           timeoutMs: timeoutMs || 15000,

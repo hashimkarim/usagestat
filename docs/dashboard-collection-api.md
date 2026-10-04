@@ -34,6 +34,13 @@ effective polling intervals, any launch override, additional plugin directories,
 configured provider instances and a loaded plugin catalogue. The catalogue
 contains provider IDs, names and supported/default modes.
 
+Version 2.0.2 also advertises optional `setupHelp` text and `setupFields`
+entries with `key`, `title`, `description` and primitive `type`. These are
+provider setup hints, not credential values or new API fields for mutations.
+The dashboard saves supplied values through the existing provider `settings`
+patch and omits untouched blank suggestions. Existing clients can ignore this
+additive catalogue metadata.
+
 Provider entries include `id`, optional `instanceId`, `displayName`, `enabled`,
 `source`, `region`, `workspaceId` and existing grouping metadata. `apiKey`,
 `cookieHeader` and `customCommand` are replaced by `...Configured` booleans.

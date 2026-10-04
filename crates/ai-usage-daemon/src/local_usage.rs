@@ -25,6 +25,9 @@ pub(super) struct LocalUsageEvent {
     pub cost_components: UsageCostComponents,
     pub cost_known: bool,
     pub cache_savings_usd: Option<f64>,
+    // Parser evidence retained in the private cache, never exposed as usage totals.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub codex_identity: Option<codex_usage::Identity>,
 }
 
 impl LocalUsageEvent {

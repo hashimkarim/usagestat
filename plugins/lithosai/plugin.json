@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "id": "lithosai",
+  "name": "LithosAI",
+  "version": "0.1.0",
+  "entry": "plugin.js",
+  "enabledByDefault": false,
+  "supportedModes": [
+    "web"
+  ],
+  "autoMode": "web",
+  "usageDashboardUrl": "https://console.lithosai.cloud",
+  "webUrl": "https://console.lithosai.cloud",
+  "envVars": [
+    "LITHOSAI_COOKIE"
+  ],
+  "setupHelp": "Use a Cookie header from console.lithosai.cloud containing both __Host-console_session and __Host-console_csrf from the same session. Prepaid balance is separate from measured spend.",
+  "upstream": {
+    "repository": "https://github.com/steipete/CodexBar",
+    "revision": "6ba06fe9ec1522dd5c59e16810115bce28aa148f",
+    "path": "Sources/CodexBarCore/Resources/Plugins/lithosai.js",
+    "sha256": "11f83683e93728e8d35ae6d9852b854d6f8db9dee2b0b293e5899089216b01ff",
+    "license": "MIT"
+  }
+}

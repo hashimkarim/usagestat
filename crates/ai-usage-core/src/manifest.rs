@@ -35,6 +35,19 @@ pub struct ProviderManifest {
     /// Used to locate browser cookies when running in web mode.
     #[serde(default)]
     pub web_url: Option<String>,
+    #[serde(default)]
+    pub setup_fields: Vec<ProviderSetting>,
+    #[serde(default)]
+    pub setup_help: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ProviderSetting {
+    pub key: String,
+    pub title: String,
+    pub description: String,
+    #[serde(rename = "type")]
+    pub value_type: String,
 }
 
 impl ProviderManifest {

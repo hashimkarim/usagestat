@@ -16,7 +16,7 @@
   ],
   "upstream": {
     "repository": "https://github.com/steipete/CodexBar",
-    "revision": "25bba9b7fd9ce83c33053958f7366e23b2dc8a82",
+    "revision": "6ba06fe9ec1522dd5c59e16810115bce28aa148f",
     "path": "Sources/CodexBarCore/Resources/Plugins/replicate.js",
     "sha256": "d240c36fa142ee91ce90ae52a2c6814613d2d5533a00c8a4c7ecec2f9386006c",
     "license": "MIT"

@@ -43,10 +43,20 @@
   }
   function modes(provider){const supported=provider?.supportedModes;return [...new Set(['auto',...(supported?.length?supported:['web','cli','oauth','api','local']),'custom'])];}
   function key(provider){return provider.instanceId||provider.id;}
+  function settingRows(provider,settings={}){
+    const rows=new Map();
+    for(const field of provider?.setupFields||[]){
+      if(!field||typeof field.key!=='string'||!['string','number','boolean'].includes(field.type)||
+          !/^[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,127}$/.test(field.key)||['__proto__','constructor','prototype'].includes(field.key))continue;
+      rows.set(field.key,{type:field.type,title:field.title,hint:field.description,configured:false});
+    }
+    for(const [name,value] of Object.entries(settings))rows.set(name,{...rows.get(name),...value});
+    return [...rows.entries()];
+  }
   function settingValue(value,type){
     if(type==='boolean'){if(value==='true')return true;if(value==='false')return false;throw new Error('Use true or false for boolean settings.');}
     if(type==='number'){const number=Number(value);if(!String(value).trim()||!Number.isFinite(number))throw new Error('Enter a valid number.');return number;}
     return String(value);
   }
-  return{create,modes,key,settingValue,SESSION_KEY};
+  return{create,modes,key,settingRows,settingValue,SESSION_KEY};
 });

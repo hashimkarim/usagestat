@@ -208,6 +208,9 @@ const ENV_ALLOWLIST: &[&str] = &[
     "LLMMAN_API_KEY",
     "LLMMAN_HOST",
     "MUSE_DEVICE_TOKEN",
+    "MUSEAI_COOKIE",
+    "LITHOSAI_COOKIE",
+    "WORKBUDDY_COOKIE",
     "MUSE_AUTH_PATH",
     "MUSE_COOKIE",
     "MUSE_WEB_TEAM_ID",
@@ -342,6 +345,7 @@ pub fn inject<'js>(
     probe_ctx: &Object<'js>,
     plugin_id: &str,
     usage_id: &str,
+    provider_config: Option<&usagestat_core::ProviderConfig>,
 ) -> rquickjs::Result<()> {
     let host = Object::new(ctx.clone())?;
     inject_log(ctx, &host, plugin_id)?;
@@ -384,7 +388,7 @@ pub fn inject<'js>(
     host.set("cursorPaths", cursor_paths)?;
     inject_keychain(ctx, &host, plugin_id)?;
     inject_ls(ctx, &host)?;
-    inject_http(ctx, &host)?;
+    inject_http(ctx, &host, plugin_id, provider_config)?;
     inject_command(ctx, &host)?;
     inject_aws(ctx, &host)?;
     inject_sqlite(ctx, &host)?;
@@ -1011,8 +1015,43 @@ fn patch_ls_wrapper(ctx: &Ctx<'_>) -> rquickjs::Result<()> {
     )
 }
 
-fn inject_http<'js>(ctx: &Ctx<'js>, host: &Object<'js>) -> rquickjs::Result<()> {
+fn inject_http<'js>(
+    ctx: &Ctx<'js>,
+    host: &Object<'js>,
+    plugin_id: &str,
+    config: Option<&usagestat_core::ProviderConfig>,
+) -> rquickjs::Result<()> {
     let http_obj = Object::new(ctx.clone())?;
+    if let Some(session) = crate::cookie_sessions::Session::configured(plugin_id, config) {
+        http_obj.set("cookieSessionAvailable", session.available())?;
+        http_obj.set(
+            "_cookieRequestRaw",
+            Function::new(
+                ctx.clone(),
+                move |ctx: Ctx<'_>, raw: String| -> rquickjs::Result<String> {
+                    let value: JsonValue = serde_json::from_str(&raw).map_err(|_| {
+                        Exception::throw_message(&ctx, "Invalid cookie session request")
+                    })?;
+                    if value.get("cookieSession").and_then(JsonValue::as_str) != Some("configured")
+                    {
+                        return Err(Exception::throw_message(&ctx, "Unknown cookie session"));
+                    }
+                    let mut request: HttpRequest = serde_json::from_value(value).map_err(|_| {
+                        Exception::throw_message(&ctx, "Invalid cookie session request")
+                    })?;
+                    request.headers = session
+                        .headers(&request.url, &request.method, request.headers)
+                        .map_err(|message| Exception::throw_message(&ctx, message))?;
+                    let response = execute_http_request(request).map_err(|error| {
+                        Exception::throw_message(&ctx, &format!("http request failed: {error}"))
+                    })?;
+                    serde_json::to_string(&response).map_err(|_| {
+                        Exception::throw_message(&ctx, "Invalid cookie session response")
+                    })
+                },
+            )?,
+        )?;
+    }
 
     http_obj.set(
         "validateProviderUrl",
@@ -1154,6 +1193,12 @@ fn patch_http_wrapper(ctx: &Ctx<'_>) -> rquickjs::Result<()> {
                 }));
                 return JSON.parse(response);
             };
+            if (__usagestat_ctx.host.http._cookieRequestRaw) {
+                var cookieRaw = __usagestat_ctx.host.http._cookieRequestRaw;
+                __usagestat_ctx.host.http.requestCookieSession = function(req) {
+                    return JSON.parse(cookieRaw(JSON.stringify(req)));
+                };
+            }
             if (__usagestat_ctx.host.command && __usagestat_ctx.host.command._runRaw) {
                 var runRaw = __usagestat_ctx.host.command._runRaw;
                 __usagestat_ctx.host.command.run = function(req) {
@@ -1213,6 +1258,11 @@ fn inject_utils(ctx: &Ctx<'_>) -> rquickjs::Result<()> {
             };
 
             ctx.util = {
+                antigravityHubUserAgent: function() {
+                    var platform = ctx.app.platform === "macos" ? "darwin" : ctx.app.platform;
+                    var arch = ["aarch64", "arm64"].includes(ctx.app.architecture) ? "arm64" : "amd64";
+                    return "antigravity/hub/2.9.1 " + platform + "/" + arch;
+                },
                 tryParseJson: function(text) {
                     try { return JSON.parse(text); } catch (_) { return null; }
                 },

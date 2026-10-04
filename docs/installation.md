@@ -2,8 +2,8 @@
 
 Install the CLI (`usagestat`), daemon (`usagestatd`), and provider plugins together.
 Use the [published support table](../README.md#install) to choose a channel for
-your system. The current stable release is **v2.0.1**; the
-[publication record](releases/v2.0.1-publication.md) tracks package-feed availability. For work
+your system. The current stable release is **v2.0.2**; the
+[publication record](releases/v2.0.2-publication.md) tracks package-feed availability. For work
 from a source checkout, see [development](../README.md#development).
 
 For the Windows/macOS/Linux **v2.0.0-alpha.4** backend downloads, use the separate
@@ -16,8 +16,8 @@ remain pending; the commands for published Linux packages below retain their sco
 Windows candidate ZIP and native development instructions are in
 [Windows distribution](windows-distribution.md).
 
-The stable version is [v2.0.1](releases/v2.0.1.md). Check its
-[publication record](releases/v2.0.1-publication.md) for per-channel availability;
+The stable version is [v2.0.2](releases/v2.0.2.md). Check its
+[publication record](releases/v2.0.2-publication.md) for per-channel availability;
 do not assume a queued feed build is already installable. Stable npm and native
 archives target Linux x64/ARM64 only. See the release notes for upgrade and SDK
 migration details.
@@ -27,7 +27,7 @@ migration details.
 With Node 24+ and npm 11.5.1+, install the published stable version:
 
 ```sh
-npm install --global @hashimkarim/usagestat@2.0.1 --include=optional --ignore-scripts
+npm install --global @hashimkarim/usagestat@2.0.2 --include=optional --ignore-scripts
 ```
 
 The package uses exact-version native dependencies for Linux x64/ARM64 with
@@ -104,11 +104,11 @@ The package includes both binaries and `/usr/share/usagestat/plugins`.
 ## Ubuntu / PPA
 
 The [PPA](https://launchpad.net/~hashimkarim/+archive/ubuntu/usagestat) currently
-publishes **Ubuntu 24.04 LTS (Noble), amd64**. Package `2.0.0-1ppa1` is verified
-in its APT index; `2.0.1-1ppa1` has built and is still uploading at the latest
-check. The suffix is a Debian packaging revision; the program reports the
-upstream version. See the [v2.0.1 release record](releases/v2.0.1-publication.md)
-before expecting an upgrade to 2.0.1 from this feed.
+publishes **Ubuntu 24.04 LTS (Noble), amd64**. Package `2.0.1-1ppa1` is verified
+in its APT index at the latest check; publication of `2.0.2-1ppa1` is pending.
+The suffix is a Debian packaging revision; the program reports the upstream
+version. See the [v2.0.2 release record](releases/v2.0.2-publication.md) before
+expecting an upgrade to 2.0.2 from this feed.
 Other Ubuntu series and ARM64 do not currently have published packages
 in this PPA. These instructions are for Ubuntu, not Debian.
 
@@ -137,7 +137,7 @@ Use a Linux system with **glibc 2.39+**, `curl`, `tar`, and coreutils (`sha256su
 `install`). The archive contains both binaries, plugins, and the license;
 standalone `usagestat-linux-*` downloads contain only the CLI.
 
-Check glibc with `getconf GNU_LIBC_VERSION`. Both v2.0.1 architectures require
+Check glibc with `getconf GNU_LIBC_VERSION`. Both v2.0.2 architectures require
 2.39; for an older host, build from source instead of using these archives.
 
 Run this in an empty working directory. It downloads the latest stable release,
@@ -187,7 +187,7 @@ sudo apt install build-essential pkg-config git
 Build the current stable tag and install both binaries plus plugins:
 
 ```bash
-git clone --branch v2.0.1 --depth 1 https://github.com/Hashim-K/usagestat.git
+git clone --branch v2.0.2 --depth 1 https://github.com/Hashim-K/usagestat.git
 cd usagestat
 cargo build --release --locked -p usagestat-cli -p usagestat-daemon
 install -d "$HOME/.local/bin" "$HOME/.local/lib/usagestat"
@@ -210,7 +210,7 @@ usagestat list
 usagestat config validate
 ```
 
-A v2.0.1 installation should report `usagestat 2.0.1`, `list` should find the
+A v2.0.2 installation should report `usagestat 2.0.2`, `list` should find the
 bundled providers, and config validation should succeed with an absent/default
 config or a valid custom config. Provider login is separate: use the
 [first-run setup](../README.md#first-run) before requesting live account usage.

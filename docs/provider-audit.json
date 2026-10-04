@@ -173,7 +173,7 @@
       "id": "antigravity",
       "manifest": "plugins/antigravity/plugin.json",
       "entry": "plugins/antigravity/plugin.js",
-      "entrySha256": "551e478eec0f66e29ec35809e1264c387cad9b7d201d983300b1b07cfdbb1df9",
+      "entrySha256": "e51b889922fe7fce7d06fe3c37ff882781f9db953e7bb07c0043b87a3943ba9e",
       "declaredModes": [
         "oauth",
         "local"
@@ -218,7 +218,7 @@
       "id": "antigravity-cli",
       "manifest": "plugins/antigravity-cli/plugin.json",
       "entry": "plugins/antigravity-cli/plugin.js",
-      "entrySha256": "b67252d7497b34397096929b578aa361ee93b1193c3346549144fa29966bd734",
+      "entrySha256": "555e1d8471545d4a4e677640dab673ffa2d41605e6713789872561ad5fe3e744",
       "declaredModes": [
         "oauth",
         "local"
@@ -848,7 +848,7 @@
       "id": "cursor",
       "manifest": "plugins/cursor/plugin.json",
       "entry": "plugins/cursor/plugin.js",
-      "entrySha256": "6cdd892165022889bf662c3c09054837071084b458cb8f0b55bcc081790e0b77",
+      "entrySha256": "f24b1c7fe46f7a3f45fe17ed67c668b1cab7c49bc4364a754f8130f6d3c51cd3",
       "declaredModes": [
         "oauth",
         "local"
@@ -1440,7 +1440,7 @@
       "id": "helmcode",
       "manifest": "plugins/helmcode/plugin.json",
       "entry": "plugins/helmcode/plugin.js",
-      "entrySha256": "5774565d856a506642a43b00dcd78f877435203c56c3b17c2a025e867110c51f",
+      "entrySha256": "a5734830d942e4e10eaecd33035dc725dd43615bb8bdb88d138ee2db632c3b34",
       "declaredModes": [
         "web"
       ],
@@ -1751,6 +1751,37 @@
       "auditNote": "Configured credentials and HTTP request code inspected; real credentials, API responses and provider/account behavior remain unverified on each OS."
     },
     {
+      "id": "lithosai",
+      "manifest": "plugins/lithosai/plugin.json",
+      "entry": "plugins/lithosai/plugin.js",
+      "entrySha256": "3ba7bed78f248183bd70f0bbf6d59f6714106715ba57175e20c8870850115f53",
+      "declaredModes": [
+        "web"
+      ],
+      "autoMode": "web",
+      "osStatus": {
+        "linux": "I",
+        "macos": "I",
+        "windows": "I"
+      },
+      "liveCredentialQualification": "unverified",
+      "methods": [
+        "native bundled-provider adapter",
+        "manual web credential",
+        "native scoped cookie session"
+      ],
+      "hostCalls": [],
+      "literalPathEvidence": [],
+      "branchesOnSourceMode": false,
+      "fixtures": [
+        "tests/bundled-providers.test.cjs",
+        "tests/provider-inspo-20261004.test.cjs",
+        "crates/ai-usage-plugins/src/cookie_sessions.rs",
+        "crates/ai-usage-plugins/src/runtime.rs"
+      ],
+      "auditNote": "Instance-bound manual session plus same-origin CSRF echo on three permitted console routes. Signed prepaid balance and optional UTC spend; no fabricated quota. Rust/QuickJS and synthetic fixtures only; real sessions unverified."
+    },
+    {
       "id": "llm-proxy",
       "manifest": "plugins/llm-proxy/plugin.json",
       "entry": "plugins/llm-proxy/plugin.js",
@@ -1975,7 +2006,7 @@
       "id": "muse",
       "manifest": "plugins/muse/plugin.json",
       "entry": "plugins/muse/plugin.js",
-      "entrySha256": "1bb53d687b1ce19a0a5ac4f58ed7a0d762465e5deff2cdf1b8bf41bfdf049dd1",
+      "entrySha256": "e1e55685de63d92bef97f852045def8f01b2a0a6a7abf755fc2cfd9b64835489",
       "declaredModes": [
         "api"
       ],
@@ -1993,9 +2024,38 @@
       "literalPathEvidence": [],
       "branchesOnSourceMode": false,
       "fixtures": [
-        "tests/bundled-providers.test.cjs"
+        "tests/bundled-providers.test.cjs",
+        "tests/provider-inspo-20261004.test.cjs"
       ],
       "auditNote": "Vendored CodexBar provider with a bounded native asynchronous host adapter and explicit credential/endpoint routing. Disabled by default. Adapter fixtures do not qualify real credentials, browser import, or every optional upstream workflow; cache TTL is not persisted."
+    },
+    {
+      "id": "museai",
+      "manifest": "plugins/museai/plugin.json",
+      "entry": "plugins/museai/plugin.js",
+      "entrySha256": "04f206c20f962450f272395775318905a353ba33fb416fdeb175f9a43000a6bd",
+      "declaredModes": [
+        "web"
+      ],
+      "autoMode": "web",
+      "osStatus": {
+        "linux": "I",
+        "macos": "I",
+        "windows": "I"
+      },
+      "liveCredentialQualification": "unverified",
+      "methods": [
+        "native bundled-provider adapter",
+        "manual web credential"
+      ],
+      "hostCalls": [],
+      "literalPathEvidence": [],
+      "branchesOnSourceMode": false,
+      "fixtures": [
+        "tests/bundled-providers.test.cjs",
+        "tests/provider-inspo-20261004.test.cjs"
+      ],
+      "auditNote": "Separate muse.ai web provider; bounded action discovery and instance-local public action ID caching. Manual cookies only; weekly percentages and reported top-ups remain separate. Real sessions unverified."
     },
     {
       "id": "nanogpt",
@@ -2196,7 +2256,7 @@
       "id": "opencode-go",
       "manifest": "plugins/opencode-go/plugin.json",
       "entry": "plugins/opencode-go/plugin.js",
-      "entrySha256": "95a26f9184a68b9fc25c61488db3d62fd99cf0f631f2f5ff8f5dfdfacd6167f8",
+      "entrySha256": "bf3a95eb67ca55a45c83bf7da4388e13d95e84d5e9b58ad641c0e947a768111d",
       "declaredModes": [
         "api",
         "local",
@@ -2229,9 +2289,10 @@
         "tests/provider-xdg-paths.test.cjs",
         "tests/plugin-contracts.test.cjs",
         "tests/provider-updates.test.cjs",
-        "tests/quota-regressions.test.cjs"
+        "tests/quota-regressions.test.cjs",
+        "tests/provider-inspo-20261004.test.cjs"
       ],
-      "auditNote": "Upstream XDG roots on all OSes, explicit data/database and inline auth overrides covered by fixtures. Preview channels require databasePath/OPENCODE_DB; current database schema, API, and account versions unverified."
+      "auditNote": "Upstream XDG roots, explicit channel/database selection, v2 current credential/logout authority, assistant/completed-compaction history and migrated-ID deduplication covered by fixtures. Real app/account/API versions remain unverified."
     },
     {
       "id": "openrouter",
@@ -2864,6 +2925,37 @@
         "tests/provider-paths.test.cjs"
       ],
       "auditNote": "Native stable/Next/Devin profile selection fixtures; carried auth schemas and current application versions unverified."
+    },
+    {
+      "id": "workbuddy",
+      "manifest": "plugins/workbuddy/plugin.json",
+      "entry": "plugins/workbuddy/plugin.js",
+      "entrySha256": "ff107a1b54a9007f1b6b856ccf7e46486608550afda0c1e2ac41e12f0f6f8c15",
+      "declaredModes": [
+        "web"
+      ],
+      "autoMode": "web",
+      "osStatus": {
+        "linux": "I",
+        "macos": "I",
+        "windows": "I"
+      },
+      "liveCredentialQualification": "unverified",
+      "methods": [
+        "native bundled-provider adapter",
+        "manual web credential",
+        "native scoped cookie session"
+      ],
+      "hostCalls": [],
+      "literalPathEvidence": [],
+      "branchesOnSourceMode": false,
+      "fixtures": [
+        "tests/bundled-providers.test.cjs",
+        "tests/provider-inspo-20261004.test.cjs",
+        "crates/ai-usage-plugins/src/cookie_sessions.rs",
+        "crates/ai-usage-plugins/src/runtime.rs"
+      ],
+      "auditNote": "Instance-bound manual cookie requests on three permitted billing routes, with the full cookie-owning browser User-Agent configured in dashboard setup. Credit balance and optional China cycle reset. No automatic browser/desktop credential import; live sessions unverified."
     },
     {
       "id": "xai",

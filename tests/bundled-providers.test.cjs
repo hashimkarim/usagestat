@@ -5,7 +5,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 const {createHash} = require('node:crypto');
 const {load, metric, response, ROOT} = require('./provider-sync-harness.cjs');
-const ids = 'aixy atlascloud bifrost devpass gitkraken helmcode huggingface hyper llmman muse nous raycast replicate typesafe v0 vercel xkiro'.split(' ');
+const ids = 'aixy atlascloud bifrost devpass gitkraken helmcode huggingface hyper llmman muse museai lithosai workbuddy nous raycast replicate typesafe v0 vercel xkiro'.split(' ');
 
 test('bundled parsers have pinned provenance, licenses, opt-in manifests and valid exports', async () => {
   for (const id of ids) {

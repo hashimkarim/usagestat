@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "id": "museai",
+  "name": "Muse (muse.ai)",
+  "version": "0.1.0",
+  "entry": "plugin.js",
+  "enabledByDefault": false,
+  "supportedModes": [
+    "web"
+  ],
+  "autoMode": "web",
+  "usageDashboardUrl": "https://muse.ai",
+  "webUrl": "https://muse.ai",
+  "envVars": [
+    "MUSEAI_COOKIE"
+  ],
+  "setupHelp": "Use a session Cookie header from muse.ai. This provider is separate from Muse Code and does not use its CLI login.",
+  "upstream": {
+    "repository": "https://github.com/steipete/CodexBar",
+    "revision": "6ba06fe9ec1522dd5c59e16810115bce28aa148f",
+    "path": "Sources/CodexBarCore/Resources/Plugins/museai.js",
+    "sha256": "ab325a1b6cff46bbe347d98340d9212cab732f6b48c0d2ae5c6d955824ac5019",
+    "license": "MIT"
+  }
+}

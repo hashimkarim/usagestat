@@ -38,6 +38,15 @@ test('browser collection access survives this tab reload but clears an expired c
   assert.equal(requests[0].headers['X-Usagestat-Session'],'previous-launch-capability');assert.equal(stored.size,0);assert.equal(api.data,null);
 });
 
+test('provider setup fields preserve saved types and expose requirements without credential values',()=>{
+  const rows=client.settingRows({setupFields:[{key:'browserUserAgent',title:'Browser User-Agent',description:'Use the cookie-owning browser',type:'string'},
+    {key:'days',title:'Days',description:'History range',type:'number'},{key:'__proto__',type:'string'}]},
+    {browserUserAgent:{configured:true,type:'string',value:'Fixture Browser/1'},accessToken:{configured:true,type:'string',secret:true}});
+  assert.equal(rows.length,3);assert.equal(rows[0][1].value,'Fixture Browser/1');
+  assert.equal(rows[0][1].hint,'Use the cookie-owning browser');assert.equal(rows[1][1].configured,false);
+  assert.equal(rows[2][1].value,undefined);assert.equal(rows[2][1].secret,true);
+});
+
 test('native collection setup is redacted, origin protected, durable and reloads independent sources', {timeout:60000},async t=>{
   assert.ok(fs.existsSync(binary),'Build the daemon before running native dashboard tests');
   const dir=fs.mkdtempSync(path.join(os.tmpdir(),'usagestat-collection-test-'));
@@ -45,7 +54,8 @@ test('native collection setup is redacted, origin protected, durable and reloads
   fs.mkdirSync(path.join(plugins,'fixture'),{recursive:true});fs.mkdirSync(data,{recursive:true});
   const settings='refreshSec = 3600\nfutureRoot = "keep-root"\n[[providers]]\nid = "fixture"\nenabled = true\nsource = "api"\napiKey = "saved-fixture-key"\ncookieHeader = "saved-fixture-cookie"\ncustomCommand = "saved-fixture-command"\nfutureProvider = "keep-provider"\n[providers.settings]\nquota = 11\nregion = "eu"\naccessToken = "saved-fixture-setting"\ncomplex = { nested = "preserve" }\n';
   fs.writeFileSync(config,settings,{mode:0o600});
-  fs.writeFileSync(path.join(plugins,'fixture','plugin.json'),JSON.stringify({id:'fixture',name:'Fixture provider',entry:'plugin.js',enabledByDefault:true,supportedModes:['api','local'],autoMode:'local',icon:path.join(root,'plugins/copilot/icon.svg')}));
+  const setupFields=[{key:'browserUserAgent',title:'Browser User-Agent',description:'Use the same browser as the cookies',type:'string'}];
+  fs.writeFileSync(path.join(plugins,'fixture','plugin.json'),JSON.stringify({id:'fixture',name:'Fixture provider',entry:'plugin.js',enabledByDefault:true,supportedModes:['api','local'],autoMode:'local',setupFields,icon:path.join(root,'plugins/copilot/icon.svg')}));
   fs.writeFileSync(path.join(plugins,'fixture','plugin.js'),`globalThis.__usagestat_plugin={probe(ctx){const n=Number(ctx.provider.settings.quota||0);ctx.host.usageDaily.ingest({source:'fixture',daily:[{date:'2026-09-30',totalTokens:n,inputTokens:n,outputTokens:0,costUsd:0,tokensKnown:true,costKnown:false}]});return {source:ctx.sourceMode,lines:[{type:'progress',label:'Quota',used:n,limit:100,format:{kind:'percent'}}]};}};`);
   const allocate=net.createServer();allocate.listen(0,'127.0.0.1');await once(allocate,'listening');const port=allocate.address().port;await new Promise(r=>allocate.close(r));
   const base=`http://127.0.0.1:${port}`;let child;
@@ -72,6 +82,7 @@ test('native collection setup is redacted, origin protected, durable and reloads
   assert.doesNotMatch(JSON.stringify(await (await request('/v1/settings/session')).json()),new RegExp(setupKey));
   assert.equal((await request('/v1/settings','GET',null,{'X-Usagestat-Session':'management-or-sdk-key'})).status,401);
   await load();assert.doesNotMatch(JSON.stringify(view),/saved-fixture-|keep-provider|keep-root|nested/);
+  assert.deepEqual(view.catalog.find(p=>p.id==='fixture').setupFields,setupFields);
   assert.equal(view.providers[0].apiKeyConfigured,true);assert.equal(view.providers[0].settings.accessToken.secret,true);
   assert.equal(view.providers[0].settings.region.value,'eu');assert.equal(view.providers[0].settings.complex.secret,true);
   const original=fs.readFileSync(config,'utf8');

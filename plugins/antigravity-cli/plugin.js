@@ -292,7 +292,7 @@
           Authorization: "Bearer " + token,
           Accept: "application/json",
           "Content-Type": "application/json",
-          "User-Agent": "agy",
+          "User-Agent": ctx.util.antigravityHubUserAgent(),
         },
         bodyText: JSON.stringify(body || {}),
         timeoutMs: opts.timeoutMs || 15000,

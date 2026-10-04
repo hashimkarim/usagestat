@@ -10,8 +10,8 @@ use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{Duration, Instant, SystemTime};
 use usagestat_core::{paths, provider_paths, usage_daily};
 
-// v6 includes Sonnet 5.5 pricing; v5 removed repeated Claude message/request usage.
-const VERSION: u32 = 6;
+// v7 retains Codex request identities and reconciles ledger/legacy mirrors.
+const VERSION: u32 = 7;
 const TTL: Duration = Duration::from_secs(30);
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -93,11 +93,14 @@ impl Cache {
         if let Some(body) = self.reports.get(&key) {
             return Ok(body.clone());
         }
-        let body = local_usage::report_limited(
-            self.files.values().flat_map(|file| file.events.iter()),
-            report,
-            limit,
-        )?;
+        let events = super::codex_usage::unique(
+            &self
+                .files
+                .values()
+                .flat_map(|file| file.events.iter())
+                .collect::<Vec<_>>(),
+        );
+        let body = local_usage::report_limited(events.into_iter(), report, limit)?;
         // Bound arbitrary limit variants requested by API clients.
         if self.reports.len() >= 8 {
             self.reports.clear();
@@ -111,7 +114,13 @@ impl Cache {
 // Price each event BEFORE compaction so long-context rates remain per request.
 fn compact(events: Vec<LocalUsageEvent>) -> Vec<LocalUsageEvent> {
     let mut rows: BTreeMap<(String, i64, String, String), LocalUsageEvent> = BTreeMap::new();
+    let mut identified = Vec::new();
     for event in events {
+        // Request evidence must survive disk reload and cross-file reconciliation.
+        if event.codex_identity.is_some() {
+            identified.push(event);
+            continue;
+        }
         let key = (
             event.ts.format("%Y-%m-%d").to_string(),
             event.ts.timestamp().div_euclid(5 * 3600),
@@ -135,7 +144,8 @@ fn compact(events: Vec<LocalUsageEvent>) -> Vec<LocalUsageEvent> {
             })
             .or_insert(event);
     }
-    rows.into_values().collect()
+    identified.extend(rows.into_values());
+    identified
 }
 
 pub(super) fn report(provider: &str, report: &str) -> Result<String> {
@@ -234,7 +244,10 @@ mod tests {
             serde_json::from_slice(&serde_json::to_vec(&cache).unwrap()).unwrap();
         assert!(!cache.refresh(vec![file.clone()], &mut scan).unwrap());
         cache.version = VERSION - 1;
-        assert!(cache.refresh(vec![file.clone()], &mut scan).unwrap(), "old parser summaries must be rescanned even when the file is unchanged");
+        assert!(
+            cache.refresh(vec![file.clone()], &mut scan).unwrap(),
+            "old parser summaries must be rescanned even when the file is unchanged"
+        );
         std::fs::write(&file, "appended").unwrap();
         assert!(cache.refresh(vec![file.clone()], &mut scan).unwrap());
         assert!(cache.refresh(vec![], &mut scan).unwrap());
@@ -276,5 +289,54 @@ mod tests {
                     .unwrap();
             assert_eq!(before, after, "{report}");
         }
+    }
+
+    #[test]
+    fn codex_mirrors_reconcile_across_cached_files_and_disk_restart() {
+        use serde_json::json;
+        let dir = std::env::temp_dir().join(format!(
+            "usagestat-ledger-cache-{}-{}",
+            std::process::id(),
+            Utc::now().timestamp_nanos_opt().unwrap()
+        ));
+        std::fs::create_dir_all(&dir).unwrap();
+        let usage = json!({"input_tokens":100,"output_tokens":10,"cached_input_tokens":20,"reasoning_output_tokens":3});
+        let header = json!({"type":"session_meta","payload":{"id":"thread"}});
+        let context = json!({"type":"turn_context","payload":{"model":"gpt-5","turn_id":"turn"}});
+        let legacy = json!({"type":"event_msg","timestamp":"2026-09-11T00:00:00Z","payload":{"type":"token_count","turn_id":"turn","info":{"last_token_usage":usage,"total_token_usage":usage}}});
+        let ledger = json!({"type":"token_usage_record","timestamp":"2026-09-11T00:00:00Z","payload":{"thread_id":"thread","session_id":"thread","turn_id":"turn","response_id":"response","usage":usage,"thread_token_usage":usage}});
+        let legacy_path = dir.join("legacy.jsonl");
+        let ledger_path = dir.join("ledger.jsonl");
+        let copy_path = dir.join("archive.jsonl");
+        let lines = |row: &serde_json::Value| format!("{header}\n{context}\n{row}\n");
+        std::fs::write(&legacy_path, lines(&legacy)).unwrap();
+        std::fs::write(&ledger_path, lines(&ledger)).unwrap();
+        std::fs::write(&copy_path, lines(&ledger)).unwrap();
+        let scan = |path: &Path| {
+            let mut events = Vec::new();
+            local_usage::scan_codex_file(path, &mut events)?;
+            Ok(events)
+        };
+        for initial in [&legacy_path, &ledger_path] {
+            let mut cache = Cache::default();
+            cache.refresh(vec![initial.clone()], scan).unwrap();
+            let expected = cache.report("daily").unwrap();
+            let mut cache: Cache =
+                serde_json::from_slice(&serde_json::to_vec(&cache).unwrap()).unwrap();
+            cache
+                .refresh(
+                    vec![legacy_path.clone(), ledger_path.clone(), copy_path.clone()],
+                    scan,
+                )
+                .unwrap();
+            assert_eq!(cache.report("daily").unwrap(), expected);
+            let events: Vec<_> = cache
+                .files
+                .values()
+                .flat_map(|file| file.events.iter())
+                .collect();
+            assert_eq!(super::super::codex_usage::unique(&events).len(), 1);
+        }
+        std::fs::remove_dir_all(dir).unwrap();
     }
 }

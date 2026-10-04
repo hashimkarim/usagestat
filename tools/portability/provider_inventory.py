@@ -33,7 +33,7 @@ NOTES = {
     'kilo': 'Configured API credentials plus home-relative CLI auth path; native upstream data roots/overrides unverified.',
     'kimi': 'Home credential-file reader/refresh carried; current CLI schema and store behavior unverified.',
     'kiro': 'Native app-support/custom-root fixtures for carried cached usage layouts; current Kiro auth/usage schema and app version unverified.',
-    'opencode-go': 'Upstream XDG roots on all OSes, explicit data/database and inline auth overrides covered by fixtures. Preview channels require databasePath/OPENCODE_DB; current database schema, API, and account versions unverified.',
+    'opencode-go': 'Upstream XDG roots, explicit channel/database selection, v2 current credential/logout authority, assistant/completed-compaction history and migrated-ID deduplication covered by fixtures. Real app/account/API versions remain unverified.',
     'perplexity': 'Entry always uses legacy macOS CFNetwork cache, including declared web/oauth modes. Linux/Windows cache method explicitly unsupported; manual web-cookie implementation is absent.',
     'synthetic': 'Configured API credentials plus several CLI fallback files; account ambiguity and upstream data roots/overrides need audit.',
     't3chat': 'Manual cookies/full-cURL capture fixtures on all OS conventions. Challenge preserves credentials and gives full-cURL guidance. Real browser/device-bound sessions unverified.',
@@ -87,10 +87,18 @@ SEPTEMBER_27_BUNDLED = {
     'huggingface', 'hyper', 'llmman', 'muse', 'nous', 'raycast', 'replicate',
     'typesafe', 'v0', 'vercel', 'xkiro',
 }
-for ident in SEPTEMBER_27_BUNDLED:
+BUNDLED = SEPTEMBER_27_BUNDLED | {'museai', 'lithosai', 'workbuddy'}
+for ident in BUNDLED:
     FIXTURES.setdefault(ident, []).append('tests/bundled-providers.test.cjs')
     NOTES[ident] = ('Vendored CodexBar provider with a bounded native asynchronous host adapter and explicit credential/endpoint routing. '
                     'Disabled by default. Adapter fixtures do not qualify real credentials, browser import, or every optional upstream workflow; cache TTL is not persisted.')
+for ident in ['muse', 'museai', 'lithosai', 'workbuddy', 'opencode-go']:
+    FIXTURES.setdefault(ident, []).append('tests/provider-inspo-20261004.test.cjs')
+NOTES['museai'] = 'Separate muse.ai web provider; bounded action discovery and instance-local public action ID caching. Manual cookies only; weekly percentages and reported top-ups remain separate. Real sessions unverified.'
+NOTES['lithosai'] = 'Instance-bound manual session plus same-origin CSRF echo on three permitted console routes. Signed prepaid balance and optional UTC spend; no fabricated quota. Rust/QuickJS and synthetic fixtures only; real sessions unverified.'
+NOTES['workbuddy'] = 'Instance-bound manual cookie requests on three permitted billing routes, with the full cookie-owning browser User-Agent configured in dashboard setup. Credit balance and optional China cycle reset. No automatic browser/desktop credential import; live sessions unverified.'
+FIXTURES['lithosai'].extend(['crates/ai-usage-plugins/src/cookie_sessions.rs','crates/ai-usage-plugins/src/runtime.rs'])
+FIXTURES['workbuddy'].extend(['crates/ai-usage-plugins/src/cookie_sessions.rs','crates/ai-usage-plugins/src/runtime.rs'])
 for ident in ['claude', 'codex', 'deepseek', 'devin', 'clinepass', 'command-code', 'litellm', 'mistral', 'venice', 'pi', 'coderabbit', 'gemini-apps']:
     FIXTURES.setdefault(ident, []).append('tests/inspo-sync-20260927.test.cjs')
 NOTES['pi'] = 'Bounded local Pi/OMP transcript collection, profile isolation and partial/unpriced history fixtures. Only explicitly recognized historical model prices are estimated; full model coverage and process discovery are pending.'
@@ -128,7 +136,9 @@ def inventory():
         if 'command.run' in calls:methods.append('CLI helper')
         if any(call.startswith(('ccusage.','cursorLogs.','cursorUsageExport.')) for call in calls):methods.append('local/export collector')
         if ident=='codex':methods.append('native Codex auth adapter')
-        if ident in SEPTEMBER_27_BUNDLED:methods.append('native bundled-provider adapter')
+        if ident in BUNDLED:methods.append('native bundled-provider adapter')
+        if ident in {'museai','lithosai','workbuddy'}:methods.append('manual web credential')
+        if ident in {'lithosai','workbuddy'}:methods.append('native scoped cookie session')
         if not methods:methods.append('provider-specific settings/HTTPS')
         note=NOTES.get(ident,'Configured credentials and HTTP request code inspected; real credentials, API responses and provider/account behavior remain unverified on each OS.')
         states={os:('P' if ident in PARTIAL else 'I') for os in ['linux','macos','windows']}

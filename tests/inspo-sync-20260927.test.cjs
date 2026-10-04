@@ -5,7 +5,7 @@ const credentials = {accessToken: 'fixture', expiresAt: 1999999999999, scopes: [
 const quota = {five_hour: {utilization: 10}, seven_day: {utilization: 25}};
 
 test('OpenCode Go keeps token-only messages without estimating a false quota',()=>{
-  const app=load('opencode-go',{source:'local',sqlite:()=>JSON.stringify([
+  const app=load('opencode-go',{source:'local',sqlite:(db,sql)=>JSON.stringify(sql.includes('sqlite_master')?[{name:'message'}]:[
     {createdMs:Date.parse('2026-09-05T10:00:00Z'),cost:null,inputTokens:10,outputTokens:5,reasoningOutputTokens:3},
     {createdMs:Date.parse('2026-09-05T11:00:00Z'),cost:1.2,inputTokens:20,outputTokens:10},
     {createdMs:Date.parse('2026-09-06T10:00:00Z'),cost:999,inputTokens:999},

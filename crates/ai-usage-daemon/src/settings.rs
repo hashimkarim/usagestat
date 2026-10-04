@@ -295,6 +295,8 @@ fn response_data(
     let catalog: Vec<_> = loaded.iter().map(|p| json!({
         "id":p.manifest.id,"name":p.manifest.name,"supportedModes":p.manifest.supported_modes,
         "autoMode":p.manifest.auto_mode,"webUrl":p.manifest.web_url,
+        "setupFields":p.manifest.setup_fields,
+        "setupHelp":p.manifest.setup_help,
     })).collect();
     json!({"schemaVersion":1,"revision":revision(raw.as_bytes()),"refreshSec":config.refresh_sec,
         "effectiveRefreshSec":refresh_override.unwrap_or(config.refresh_sec),"refreshOverride":refresh_override,

@@ -74,7 +74,7 @@
     const endpoints = definition.endpoints.map(endpoint => typeof endpoint === 'string'
       ? {url: endpoint, policy: 'https'} : {url: get(endpoint.setting), policy: endpoint.policy});
     const start = Date.now();
-    const maxRequests = 40;
+    const maxRequests = Math.max(1, Math.min(160, options.maxRequests || 40));
     let requests = 0;
     async function request(method, url, requestOptions = {}) {
       if (++requests > maxRequests || Date.now() - start >= 90000)
@@ -98,8 +98,16 @@
         headers['Content-Type'] = 'application/json';
       }
       const timeout = Math.max(1, Math.min(90, Number(requestOptions.timeoutSeconds) || 15)) * 1000;
-      const result = ctx.host.http.request({method, url: validated, headers, bodyText,
-        timeoutMs: Math.max(1, Math.min(timeout, 90000 - (Date.now() - start)))});
+      const req = {method, url: validated, headers, bodyText,
+        timeoutMs: Math.max(1, Math.min(timeout, 90000 - (Date.now() - start)))};
+      let result;
+      if (own(requestOptions, 'cookieSession')) {
+        if (!definition.cookiePolicy || requestOptions.cookieSession !== 'configured' ||
+            !ctx.host.http.cookieSessionAvailable || !ctx.host.http.requestCookieSession ||
+            settings.cookies === 'off' || rejected.size)
+          throw failure('authRequired', 'The configured cookie session is unavailable.');
+        result = ctx.host.http.requestCookieSession({...req, cookieSession: 'configured'});
+      } else result = ctx.host.http.request(req);
       // A browser protection page is not evidence that the provider rejected the
       // credential. Detect it before upstream parsers interpret 403 as expiry.
       const responseHeaders = Object.fromEntries(Object.entries(result.headers || {}).map(([k, v]) => [k.toLowerCase(), String(v)]));
@@ -113,6 +121,17 @@
       return {url: validated, status: result.status, headers: result.headers || {}, bodyText: result.bodyText || ''};
     }
     const cache = new Map();
+    // Only the deploy's public action identifier is persisted, never cookies or
+    // subscription payloads. The host namespaces pluginDataDir by source instance.
+    const storagePath = ctx.app.pluginDataDir + '/bundled-actions.json';
+    function actions() {
+      try {
+        const raw = ctx.host.fs.readTextLimited(storagePath, 16384);
+        const data = JSON.parse(raw);
+        return data && typeof data === 'object' && !Array.isArray(data) ? data : {};
+      } catch (_) { return {}; }
+    }
+    const actionKey = key => definition.id === 'museai' && key === 'actionID';
     const errors = {authenticationExpired: 'authRequired', missingCredential: 'authRequired', permissionDenied: 'credential-denied',
       rateLimited: 'rateLimited', providerUnavailable: 'error', parseFailure: 'error', networkFailure: 'error', apiFailure: 'error'};
     const c = {
@@ -124,7 +143,9 @@
         postJSON: async (url, opts) => { const r = await request('POST', url, opts); return {...r, json: JSON.parse(r.bodyText)}; },
       },
       browser: {
-        availability: domain => domainAllowed(domain) && cookie && settings.cookies !== 'off' ? 'manual' : 'off',
+        supportedBrowsers: 'manual cookie headers (automatic browser import is unavailable)',
+        availability: domain => domainAllowed(domain) && (definition.cookiePolicy ? ctx.host.http.cookieSessionAvailable : cookie) && settings.cookies !== 'off' ? 'manual' : 'off',
+        acceptCookie: () => {},
         rejectCookie: domain => rejected.add(domain),
         cookieHeader: async domain => {
           if (!domainAllowed(domain) || !cookie || rejected.has(domain) || settings.cookies === 'off')
@@ -132,8 +153,8 @@
           return cookie;
         },
         sessions: async function* (domain) {
-          if (domainAllowed(domain) && cookie && !rejected.has(domain) && settings.cookies !== 'off')
-            yield {id: 'configured', header: cookie, source: 'manual', origin: 'https://' + domain};
+          if (domainAllowed(domain) && (definition.cookiePolicy ? ctx.host.http.cookieSessionAvailable : cookie) && !rejected.has(domain) && settings.cookies !== 'off')
+            yield {id: 'configured', ...(definition.cookiePolicy ? {} : {header: cookie}), source: 'manual', origin: 'https://' + domain};
         },
       },
       date: {
@@ -155,6 +176,12 @@
       },
       fail: Object.fromEntries(Object.entries(errors).map(([name, code]) => [name, message => failure(code, message)])),
       cache: {get: key => cache.get(key), set: (key, value) => { if (cache.size < 64) cache.set(key, value); }},
+      storage: {
+        get: key => actionKey(key) && /^[0-9a-f]{40,128}$/.test(actions()[key] || '') ? actions()[key] : undefined,
+        set: (key, value) => { if (actionKey(key) && typeof value === 'string' && /^[0-9a-f]{40,128}$/.test(value))
+          ctx.host.fs.writeText(storagePath, JSON.stringify({actionID:value})); },
+        remove: key => { if (actionKey(key) && ctx.host.fs.exists(storagePath)) ctx.host.fs.writeText(storagePath, '{}'); },
+      },
       env: {timeZone: 'UTC'},
       pct: (used, limit) => finite(used) && finite(limit) && limit > 0 ? Math.min(100, Math.max(0, used / limit * 100)) : 0,
       amountFromPercent: (percent, limit) => percent * limit / 100,
@@ -185,7 +212,7 @@
       if (extra.usageKnown === false) delete value.usedPercent;
       window(extra.title || extra.id, value);
     }
-    if (usage.cost && finite(usage.cost.used)) {
+    if (!options.balanceOnly && usage.cost && finite(usage.cost.used)) {
       const cost = usage.cost;
       const label = cost.period || 'Spend';
       // A billing cap is not necessarily an allowance. Only explicit windows become quota meters.

@@ -12,17 +12,20 @@
     monthly: 60,
   };
 
-  const HISTORY_EXISTS_SQL = `
-    SELECT 1 AS present
-    FROM message
-    WHERE json_valid(data)
-      AND json_extract(data, '$.providerID') = 'opencode-go'
-      AND json_extract(data, '$.role') = 'assistant'
-    LIMIT 1
-  `;
-
-  const HISTORY_ROWS_SQL = `
+  const TABLES_SQL = "SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('message','session_message','credential')";
+  const CREDENTIAL_SQL = `SELECT value FROM credential
+    WHERE integration_id = 'opencode-go' AND (active IS NULL OR active = 1)
+    ORDER BY active DESC, time_updated DESC, id DESC LIMIT 1`;
+  function historySQL(tables) {
+    const sources = [];
+    if (tables.includes('session_message')) sources.push(`SELECT id, time_created, data FROM session_message
+      WHERE json_valid(data) AND (type = 'assistant' OR (type = 'compaction' AND json_extract(data,'$.status') = 'completed'))`);
+    if (tables.includes('message')) sources.push(`SELECT id, time_created, data FROM message
+      WHERE json_valid(data) AND json_extract(data,'$.role') = 'assistant'`);
+    if (!sources.length) return null;
+    return `
     SELECT
+      id,
       CAST(COALESCE(json_extract(data, '$.time.created'), time_created) AS INTEGER) AS createdMs,
       json_extract(data, '$.cost') AS cost,
       json_extract(data, '$.tokens.input') AS inputTokens,
@@ -30,11 +33,10 @@
       json_extract(data, '$.tokens.cache.read') AS cacheReadTokens,
       json_extract(data, '$.tokens.cache.write') AS cacheCreationTokens,
       json_extract(data, '$.tokens.reasoning') AS reasoningOutputTokens
-    FROM message
-    WHERE json_valid(data)
-      AND json_extract(data, '$.providerID') = 'opencode-go'
-      AND json_extract(data, '$.role') = 'assistant'
+    FROM (${sources.join(' UNION ALL ')})
+    WHERE COALESCE(json_extract(data, '$.model.providerID'), json_extract(data, '$.providerID')) = 'opencode-go'
   `;
+  }
 
   function readNumber(value) {
     if (typeof value !== "number" && typeof value !== "string") return null;
@@ -317,7 +319,7 @@
       }
       return { ok: true, rows };
     } catch (e) {
-      ctx.host.log.warn("sqlite query failed: " + String(e));
+      ctx.host.log.warn("OpenCode history could not be read");
       return { ok: false, rows: [] };
     }
   }
@@ -326,6 +328,30 @@
     const configured = trim(ctx.provider && ctx.provider.apiKey) || env(ctx, "OPENCODE_GO_API_KEY");
     if (configured) return configured;
     const inline = ctx.host.env.get("OPENCODE_AUTH_CONTENT");
+    // A v2 credential table is authoritative even after logout. The one-time
+    // imported auth.json must never revive a deleted or inactive account.
+    if (!inline) {
+      const database = databasePath(ctx);
+      if (ctx.host.fs.exists(database)) {
+        try {
+          const tables = ctx.util.tryParseJson(ctx.host.sqlite.query(database, TABLES_SQL));
+          if (!Array.isArray(tables)) throw new Error('Invalid schema');
+          if (tables.some(table => table.name === 'credential')) {
+            const rows = ctx.util.tryParseJson(ctx.host.sqlite.query(database, CREDENTIAL_SQL));
+            if (!Array.isArray(rows)) throw new Error('Invalid credential result');
+            if (!rows.length) return null;
+            const entry = ctx.util.tryParseJson(rows[0].value);
+            if (!entry || typeof entry !== 'object' || Array.isArray(entry) ||
+                (entry.key !== undefined && typeof entry.key !== 'string'))
+              throw {code:'credential-malformed', message:'OpenCode credential row is malformed.'};
+            return trim(entry.key);
+          }
+        } catch (error) {
+          if (error && error.code) throw error;
+          throw {code:'credential-unavailable',message:'OpenCode credential database cannot be read. Its imported auth file was not used.'};
+        }
+      }
+    }
     const path = inline ? null : dataPath(ctx, "auth.json");
     if (!inline && !ctx.host.fs.exists(path)) return null;
 
@@ -334,8 +360,7 @@
       const parsed = ctx.util.tryParseJson(text);
       if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
         if (inline) throw {code: "credential-malformed", message: "OPENCODE_AUTH_CONTENT must contain an auth JSON object."};
-        ctx.host.log.warn("opencode auth file is not valid json");
-        return null;
+        throw {code:'credential-malformed',message:'OpenCode auth file is not valid JSON.'};
       }
       const entry = parsed[PROVIDER_ID];
       if (!entry || typeof entry !== "object") return null;
@@ -343,25 +368,37 @@
       return key || null;
     } catch (e) {
       if (e && e.code) throw e;
-      ctx.host.log.warn("opencode auth read failed: " + String(e));
-      return null;
+      throw {code:'credential-unavailable',message:'OpenCode auth file cannot be read.'};
     }
   }
 
   function hasHistory(ctx) {
-    const result = queryRows(ctx, HISTORY_EXISTS_SQL);
+    const result = queryHistory(ctx, true);
     if (!result.ok) return { ok: false, present: false };
     return { ok: true, present: result.rows.length > 0 };
   }
 
+  function queryHistory(ctx, probeOnly) {
+    const schema = queryRows(ctx, TABLES_SQL);
+    if (!schema.ok) return schema;
+    const sql = historySQL(schema.rows.map(table => table.name));
+    if (!sql) return {ok:true,rows:[]};
+    return queryRows(ctx, probeOnly ? 'SELECT 1 AS present FROM (' + sql + ') LIMIT 1' : sql);
+  }
+
   function loadHistory(ctx) {
-    const result = queryRows(ctx, HISTORY_ROWS_SQL);
+    const result = queryHistory(ctx, false);
     if (!result.ok) return result;
 
     const rows = [];
+    const seen = new Set();
     for (let i = 0; i < result.rows.length; i += 1) {
       const row = result.rows[i];
       if (!row || typeof row !== "object") continue;
+      if (trim(row.id)) {
+        if (seen.has(row.id)) continue;
+        seen.add(row.id);
+      }
       const createdMs = readNumber(row.createdMs);
       const cost = readNumber(row.cost);
       if (createdMs === null || createdMs <= 0 || createdMs > Date.parse(ctx.nowIso)) continue;
@@ -608,7 +645,7 @@
       if (!cookie) throw "OpenCode Go session cookie is missing.";
       return fetchWebResult(ctx, cookie);
     }
-    const authKey = loadAuthKey(ctx);
+    const authKey = source === 'local' && !ctx.host.env.get('OPENCODE_AUTH_CONTENT') ? null : loadAuthKey(ctx);
     if (source === "api" && !authKey) throw "OpenCode Go API key missing. Set OPENCODE_GO_API_KEY.";
     if (authKey && source !== "local") {
       const result = fetchApiResult(ctx, authKey);

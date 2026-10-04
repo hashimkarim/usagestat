@@ -42,13 +42,15 @@ a local dashboard, and an HTTP API.
 
 ## Install
 
-The stable backend is **[v2.0.1](docs/releases/v2.0.1.md)** for Linux
-x64/ARM64 (glibc 2.39+). Its [release qualification record](docs/releases/v2.0.1-publication.md)
+The stable backend is **[v2.0.2](docs/releases/v2.0.2.md)** for Linux
+x64/ARM64 (glibc 2.39+). Its [release qualification record](docs/releases/v2.0.2-publication.md)
 tracks publication and checks; package feeds can lag the GitHub release.
-It adds independent dashboard Display/Collection settings, chart details and
-RPM service update support while preserving `/v1/providers`, `/v1/usage` and
-optional SDK run ingestion. AgenticDriver consumers should read the migration
-notes before configuring capture or account quotas.
+It updates provider compatibility, Codex accounting and OpenCode 2 storage,
+and adds three opt-in providers with dashboard setup guidance. Independent
+dashboard settings and RPM service updates remain available. `/v1/providers`,
+`/v1/usage` and optional SDK run ingestion keep their existing contracts.
+AgenticDriver consumers should read the migration notes before configuring
+capture or account quotas.
 
 **[Try v2.0.0-alpha.4 on Windows, macOS or Linux](docs/alpha.md).** The unsigned
 backend alpha includes native archives and a Windows per-user installer. Native
@@ -90,12 +92,12 @@ each channel's actual availability.
 
 Choose a package manager already available on your system. Published packages
 and stable release downloads target **Linux**; the stable Homebrew formula is also
-Linux-only. See the [v2.0.1 publication record](docs/releases/v2.0.1-publication.md)
+Linux-only. See the [v2.0.2 publication record](docs/releases/v2.0.2-publication.md)
 for current versions and feed publication status.
 
 | Channel | Published OS / CPU support | Package |
 | --- | --- | --- |
-| [npm](https://www.npmjs.com/package/@hashimkarim/usagestat) | Linux with glibc 2.39+ · x86-64, ARM64; Node 24+ | `@hashimkarim/usagestat@2.0.1` |
+| [npm](https://www.npmjs.com/package/@hashimkarim/usagestat) | Linux with glibc 2.39+ · x86-64, ARM64; Node 24+ | `@hashimkarim/usagestat@2.0.2` |
 | [Arch Linux / AUR](https://aur.archlinux.org/packages/usagestat-bin) | Arch Linux · x86-64 | `usagestat-bin` — release binaries |
 | [Homebrew](https://github.com/hashimkarim/homebrew-tap/blob/main/Formula/usagestat.rb) | Linux with system glibc 2.39+ · x86-64, ARM64 | `hashimkarim/tap/usagestat` |
 | [Fedora COPR](https://copr.fedorainfracloud.org/coprs/hashimkarim/usagestat/) | Fedora 43, 44, 45, Rawhide · x86-64 | `usagestat` |
@@ -209,7 +211,7 @@ Plugins are discovered from:
 3. Installed `share/usagestat/plugins` and `lib/usagestat/plugins` under the binary prefix
 4. `./plugins`
 
-The source tree bundles **97 providers**:
+The source tree bundles **100 providers**:
 
 - `abacus-ai`, `aiand`, `alibaba`, `alibaba-token-plan`, `amp`, `antigravity`, `antigravity-cli`
 - `antigravity-ide`, `augment`, `aws-bedrock`, `azure-openai`, `chutes`, `claude`, `clawrouter`
@@ -225,11 +227,30 @@ The source tree bundles **97 providers**:
 - `aixy`, `atlascloud`, `bifrost`, `coderabbit`, `devpass`, `gemini-apps`, `gitkraken`
 - `helmcode`, `huggingface`, `hyper`, `llmman`, `muse`, `nous`, `pi`, `raycast`
 - `replicate`, `typesafe`, `v0`, `vercel`, `xkiro`
+- `lithosai`, `museai`, `workbuddy`
 
-All 97 plugins ship in `v2.0.0`. The 20 new providers are disabled by
+The released `v2.0.0` and `v2.0.1` packages contain 97 providers. `v2.0.2` adds
+three opt-in web providers: Muse (`muse.ai`, separate from Muse Code), LithosAI
+and WorkBuddy. These and the 20 providers added in `v2.0.0` are disabled by
 default; enable only the ones you use. See the
 [provider compatibility reference](docs/provider-compatibility.md) for supported
 data sources and validation coverage.
+
+Configure the new providers under dashboard **Settings → Collection**. Each
+uses its own saved session cookie header. LithosAI requires both
+`__Host-console_session` and `__Host-console_csrf` from the same console session;
+the native host attaches the CSRF header only on its permitted console routes.
+WorkBuddy also requires the full **Browser User-Agent** from the browser that
+supplied the cookies, exposed under its provider-specific settings. Automatic
+browser import and WorkBuddy desktop credential decryption are not implemented.
+The new paths are covered by synthetic fixtures; live credentials remain
+unqualified. TypeSafe's Cloudflare protection remains a limitation, reported
+as an unavailable measurement rather than an expired login or zero usage.
+
+OpenCode Go reads the current credential table in a selected OpenCode 2 database
+and deduplicates migrated history. A present empty table means logout; its old
+imported `auth.json` is not reused. Set `databasePath` for a preview channel or
+additional source to keep credentials and history on that selected database.
 
 `usagestat --json list` includes provider-owned UI metadata. Icon paths are
 resolved to absolute SVG paths; `icon.path` is the monochrome/default icon and

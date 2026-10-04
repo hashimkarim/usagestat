@@ -15,7 +15,7 @@
   ],
   "upstream": {
     "repository": "https://github.com/steipete/CodexBar",
-    "revision": "25bba9b7fd9ce83c33053958f7366e23b2dc8a82",
+    "revision": "6ba06fe9ec1522dd5c59e16810115bce28aa148f",
     "path": "Sources/CodexBarCore/Resources/Plugins/vercel.js",
     "sha256": "27b39f42709e93a2cfbf850171f198069553c99967f9b7ba6d16614862cb084a",
     "license": "MIT"

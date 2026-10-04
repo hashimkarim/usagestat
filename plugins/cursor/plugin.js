@@ -643,11 +643,21 @@ globalThis.__OPENUSAGE_PLUGIN_REGISTRATION_ID__ = "cursor";
     const hasPlanUsageLimit = hasPlanUsage && Number.isFinite(limitN)
     const planUsageLimitMissing = hasPlanUsage && !hasPlanUsageLimit
     const hasTotalUsagePercent = hasPlanUsage && Number.isFinite(pctN)
+    const auto = hasPlanUsage && typeof pu.autoPercentUsed === "number" ? pu.autoPercentUsed : NaN
+    const api = hasPlanUsage && typeof pu.apiPercentUsed === "number" ? pu.apiPercentUsed : NaN
+    const reportedSpend = hasPlanUsage ? readFiniteNumber(pu.totalSpend) : NaN
+    const remaining = hasPlanUsage ? readFiniteNumber(pu.remaining) : NaN
+    const spent = Number.isFinite(reportedSpend) ? reportedSpend
+      : (Number.isFinite(limitN) ? limitN - (Number.isFinite(remaining) ? remaining : limitN) : 0)
+    // Legacy Teams reports zero pool placeholders beside positive dollar spend.
+    const hasModelPools = Number.isFinite(auto) && auto >= 0 && Number.isFinite(api) && api >= 0 &&
+      (auto > 0 || api > 0 || spent === 0)
     return {
       hasPlanUsage: hasPlanUsage,
       hasPlanUsageLimit: hasPlanUsageLimit,
-      planUsageLimitMissing: planUsageLimitMissing,
+      planUsageLimitMissing: planUsageLimitMissing && !hasModelPools,
       hasTotalUsagePercent: hasTotalUsagePercent,
+      hasModelPools: hasModelPools,
       pu: pu,
     }
   }
@@ -676,7 +686,7 @@ globalThis.__OPENUSAGE_PLUGIN_REGISTRATION_ID__ = "cursor";
     const hasTotalUsagePercent = flags.hasTotalUsagePercent
     const pu = flags.pu
 
-    if (!hasPlanUsageLimit && !hasTotalUsagePercent) {
+    if (!hasPlanUsageLimit && !hasTotalUsagePercent && !flags.hasModelPools) {
       throw "Total usage limit missing from API response."
     }
 
@@ -734,7 +744,14 @@ globalThis.__OPENUSAGE_PLUGIN_REGISTRATION_ID__ = "cursor";
       (su && typeof su.pooledLimit === "number" && su.pooledLimit > 0)
     )
 
-    if (isTeamAccount) {
+    if (isTeamAccount && flags.hasModelPools) {
+      // A combined percentage cannot be reconstructed from independent pools.
+      if (hasTotalUsagePercent) lines.push(ctx.line.progress({
+        label: "Total usage", used: pu.totalPercentUsed, limit: 100,
+        format: { kind: "percent" }, resetsAt: ctx.util.toIso(usage.billingCycleEnd),
+        periodDurationMs: billingPeriodMs,
+      }))
+    } else if (isTeamAccount) {
       if (!hasPlanUsageLimit) {
         return null
       }
@@ -761,7 +778,8 @@ globalThis.__OPENUSAGE_PLUGIN_REGISTRATION_ID__ = "cursor";
       }))
     }
 
-    if (typeof pu.autoPercentUsed === "number" && Number.isFinite(pu.autoPercentUsed)) {
+    const showModelPools = !(isTeamAccount && !flags.hasModelPools && pu.autoPercentUsed === 0 && pu.apiPercentUsed === 0)
+    if (showModelPools && typeof pu.autoPercentUsed === "number" && Number.isFinite(pu.autoPercentUsed) && pu.autoPercentUsed >= 0) {
       lines.push(ctx.line.progress({
         label: "Cursor Models",
         used: pu.autoPercentUsed,
@@ -772,7 +790,7 @@ globalThis.__OPENUSAGE_PLUGIN_REGISTRATION_ID__ = "cursor";
       }))
     }
 
-    if (typeof pu.apiPercentUsed === "number" && Number.isFinite(pu.apiPercentUsed)) {
+    if (showModelPools && typeof pu.apiPercentUsed === "number" && Number.isFinite(pu.apiPercentUsed) && pu.apiPercentUsed >= 0) {
       lines.push(ctx.line.progress({
         label: "Other Models",
         used: pu.apiPercentUsed,
@@ -1335,7 +1353,7 @@ globalThis.__OPENUSAGE_PLUGIN_REGISTRATION_ID__ = "cursor";
     const hasPlanUsageLimit = hasPlanUsage &&
       typeof usage.planUsage.limit === "number" &&
       Number.isFinite(usage.planUsage.limit)
-    const planUsageLimitMissing = hasPlanUsage && !hasPlanUsageLimit
+    const planUsageLimitMissing = hasPlanUsage && !hasPlanUsageLimit && !getConnectUsageMetricFlags(usage).hasModelPools
     const hasTotalUsagePercent = hasPlanUsage &&
       typeof usage.planUsage.totalPercentUsed === "number" &&
       Number.isFinite(usage.planUsage.totalPercentUsed)

@@ -1,5 +1,17 @@
 # Changelog
 
+## 2.0.2 - 2026-10-04
+
+- Adopt Antigravity's Hub request identity, keeping permission denial distinct from expired authentication.
+- Read Codex `token_usage_record` request ledgers with thread/session ownership, explicit child-history boundaries, replay and legacy-mirror deduplication. Retain identity through private cache reloads and migrate older cache summaries.
+- Support OpenCode 2 current credentials and logout semantics, assistant/completed-compaction history, and migrated message deduplication in explicitly selected databases.
+- Prefer Cursor Teams model pools over legacy dollar meters and omit unknown combined usage. Preserve dollar readback when zero pool fields are placeholders.
+- Update Muse Code browser fallback to bind blank-email sessions through matching team membership.
+- Add opt-in Muse (`muse.ai`), LithosAI and WorkBuddy web providers with provider-owned icons. Keep prepaid balances, weekly quotas, top-ups and spend distinct; bound action discovery and scope cookie/CSRF injection to declared provider routes.
+- Expose provider-specific setup requirements in dashboard Collection settings, including WorkBuddy's cookie-owning Browser User-Agent. Live sessions remain unqualified; TypeSafe Cloudflare protection remains explicit.
+
+See [release notes](docs/releases/v2.0.2.md) and the [publication record](docs/releases/v2.0.2-publication.md) for qualification and channel availability.
+
 ## 2.0.1 - 2026-09-30
 
 - Add independent dashboard Display settings for provider visibility, ordering, names, trackers, layout, themes, thresholds and notifications. Choose only a provider's own related logo variants, with separate monochrome/colour controls and optional uploaded logos.

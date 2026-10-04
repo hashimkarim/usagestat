@@ -16,7 +16,7 @@
   ],
   "upstream": {
     "repository": "https://github.com/steipete/CodexBar",
-    "revision": "25bba9b7fd9ce83c33053958f7366e23b2dc8a82",
+    "revision": "6ba06fe9ec1522dd5c59e16810115bce28aa148f",
     "path": "Sources/CodexBarCore/Resources/Plugins/aixy.js",
     "sha256": "975d98525503e286f9425c2a1d64fe00da8e2fdc0b00890e15c2cbcb9a37c125",
     "license": "MIT"

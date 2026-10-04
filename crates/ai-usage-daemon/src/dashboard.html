@@ -643,11 +643,15 @@ html[data-density="compact"] .overview-panel{padding:12px 14px}
 .collection-fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin-top:16px}
 .collection-fields .full{grid-column:1/-1}
 .collection-field textarea{min-height:70px;padding:9px;background:var(--s1);border:1px solid var(--bd);border-radius:5px;color:var(--tx);font:12px var(--mono)}
-.setting-table{width:100%;border-collapse:collapse}
+.setting-table{width:100%;border-collapse:collapse;table-layout:fixed}
 .setting-table td{padding:5px 4px;vertical-align:middle}
+.setting-table td:nth-child(1){width:32%}
+.setting-table td:nth-child(2){width:12%}
+.setting-table td:nth-child(3){width:46%}
+.setting-table td:nth-child(4){width:10%}
 .setting-table input,.setting-table select{max-width:100%;min-width:0}
 .setting-table .ctrl-input{width:100%}
-@media(max-width:520px){.setting-table tr{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));border-bottom:1px solid var(--bd)}.setting-table td{min-width:0}}
+@media(max-width:520px){.setting-table tr{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));border-bottom:1px solid var(--bd)}.setting-table td{min-width:0;width:auto!important}}
 .settings-section details{margin-top:16px}
 .settings-section details summary{cursor:pointer;font-size:13px;color:var(--tx)}
 .upload-control{position:relative;display:flex!important;align-items:center;gap:12px;min-height:44px;width:100%;margin:0!important;padding:5px;
@@ -2174,7 +2178,7 @@ function bindDisplayExtras(root){
 }
 
 function collectionField(key,label,value='',hint='',secret=false,configured=false){return `<div class="collection-field"><label>${esc(label)}<input class="ctrl-input" name="${key}" type="${secret?'password':'text'}" value="${esc(value)}" placeholder="${configured?'Saved · leave empty to keep':esc(hint)}" autocomplete="off"${secret?' data-secret="true"':''}></label>${secret?`<label class="settings-note"><input type="checkbox" data-clear="${key}"> Clear saved value</label>`:''}</div>`;}
-function settingEditorRow(key='',entry={}){return `<tr data-extra-setting><td><input class="ctrl-input" data-setting-name aria-label="Setting name" placeholder="Setting name" value="${esc(key)}"${key?' readonly':''}></td><td><select class="ctrl-select" data-setting-type aria-label="Setting type">${[['string','Text'],['number','Number'],['boolean','True / false']].map(([v,n])=>selectOption(v,n,entry.type||'string')).join('')}</select></td><td><input class="ctrl-input" data-setting-value aria-label="Setting value" type="${entry.secret?'password':'text'}" value="${entry.secret?'':esc(entry.value??'')}" placeholder="${entry.configured&&entry.secret?'Saved · leave empty to keep':'Value'}" autocomplete="off"${entry.secret?' data-secret="true"':''}></td><td><label><input type="checkbox" data-setting-clear> Clear</label></td></tr>`;}
+function settingEditorRow(key='',entry={}){return `<tr data-extra-setting${entry.configured===false?' data-unconfigured="true"':''}><td>${entry.title?`<span>${esc(entry.title)}</span>`:''}<input class="ctrl-input" data-setting-name aria-label="Setting name" placeholder="Setting name" value="${esc(key)}"${key?' readonly':''}>${entry.hint?`<span class="setting-hint">${esc(entry.hint)}</span>`:''}</td><td><select class="ctrl-select" data-setting-type aria-label="Setting type">${[['string','Text'],['number','Number'],['boolean','True / false']].map(([v,n])=>selectOption(v,n,entry.type||'string')).join('')}</select></td><td><input class="ctrl-input" data-setting-value aria-label="${esc(entry.title||key||'Setting value')}" type="${entry.secret?'password':'text'}" value="${entry.secret?'':esc(entry.value??'')}" placeholder="${entry.configured&&entry.secret?'Saved · leave empty to keep':'Value'}" autocomplete="off"${entry.secret?' data-secret="true"':''}></td><td><label><input type="checkbox" data-setting-clear> Clear</label></td></tr>`;}
 function renderCollectionSettings(root){
   const data=Backend?.data;
   root.innerHTML=`<div class="settings-heading"><div><h1>Collection settings</h1><p class="settings-description">Configure what this backend measures. Changes are shared with Bar and other clients. Display settings remain independent.</p></div><button class="action-btn" onclick="switchTab('overview')">Back to Overview</button></div>${settingsNavigation()}
@@ -2208,7 +2212,8 @@ function renderCollectionSettings(root){
         ${collectionField('workspaceId','Workspace / project ID',entry.workspaceId||'')}
         ${collectionField('customCommand','Custom usage command','','Command that returns usage JSON',true,entry.customCommandConfigured)}
         <div class="full"><p class="settings-note">Auto uses the provider’s normal local credential discovery. API keys and cookies override discovery where supported by the chosen source. Saving does not sign in to the provider. Enabled Custom commands run locally with your user permissions.</p></div>
-        <details class="full"><summary>Provider-specific settings</summary><p class="settings-note">Edit named provider settings as text, numbers or true / false. Existing saved secrets remain hidden and are preserved unless replaced or cleared.</p><table class="setting-table"><tbody>${Object.entries(entry.settings||{}).map(([key,value])=>settingEditorRow(key,value)).join('')}${settingEditorRow()}</tbody></table><button class="action-btn" type="button" data-add-setting>Add setting</button></details>
+        ${catalog?.setupHelp?`<div class="full"><p class="settings-note">${esc(catalog.setupHelp)}</p></div>`:''}
+        <details class="full"><summary>Provider-specific settings</summary><p class="settings-note">Edit named provider settings as text, numbers or true / false. Existing saved secrets remain hidden and are preserved unless replaced or cleared.</p><table class="setting-table"><tbody>${UsageDashboardBackend.settingRows(catalog,entry.settings||{}).map(([key,value])=>settingEditorRow(key,value)).join('')}${settingEditorRow()}</tbody></table><button class="action-btn" type="button" data-add-setting>Add setting</button></details>
         </div><div class="settings-actions"><button class="action-btn" type="submit"${catalog?'':' disabled'}>Save collection settings</button>${entry.instanceId?'<button class="action-btn" type="button" data-remove-source>Delete source</button>':''}</div>${!catalog?'<p class="settings-note">This provider plugin is unavailable. Its saved configuration is retained.</p>':''}</form></details>`;
     }).join('')}</div>`);
   root.querySelectorAll('form').forEach(form=>{const dirty=()=>{S.collectionDirty=true;form.dataset.dirty='true';};form.addEventListener('input',dirty);form.addEventListener('change',dirty);});
@@ -2226,7 +2231,7 @@ function captureCollectionDrafts(exclude){
   document.getElementById('panel-settings').querySelectorAll('form').forEach(form=>{
     const key=form.dataset.collectionForm||form.getAttribute('id');if(form.dataset.dirty!=='true'||key===exclude)return;
     const fields=[...form.querySelectorAll('[name]')].map(input=>({name:input.name,value:input.value,checked:input.checked}));
-    const settings=[...form.querySelectorAll('[data-extra-setting]')].map(row=>({name:row.querySelector('[data-setting-name]').value,value:row.querySelector('[data-setting-value]').value,type:row.querySelector('[data-setting-type]').value,secret:row.querySelector('[data-setting-value]').dataset.secret==='true',clear:row.querySelector('[data-setting-clear]').checked}));
+    const settings=[...form.querySelectorAll('[data-extra-setting]')].map(row=>({name:row.querySelector('[data-setting-name]').value,value:row.querySelector('[data-setting-value]').value,type:row.querySelector('[data-setting-type]').value,title:row.querySelector('[data-setting-value]').getAttribute('aria-label'),hint:row.querySelector('.setting-hint')?.textContent,unconfigured:row.dataset.unconfigured==='true',secret:row.querySelector('[data-setting-value]').dataset.secret==='true',clear:row.querySelector('[data-setting-clear]').checked}));
     result.set(key,{fields,settings,open:form.closest('details')?.open});
   });
   return result;
@@ -2234,7 +2239,7 @@ function captureCollectionDrafts(exclude){
 function restoreCollectionDrafts(root){
   let restored=false;root.querySelectorAll('form').forEach(form=>{const key=form.dataset.collectionForm||form.getAttribute('id'),draft=S.collectionDrafts?.get(key);if(!draft)return;
     draft.fields.forEach(field=>{const input=form.elements.namedItem(field.name);if(input){input.value=field.value;if(input.type==='checkbox')input.checked=field.checked;}});
-    const tbody=form.querySelector('tbody');if(tbody){tbody.innerHTML=draft.settings.map(row=>settingEditorRow(row.name,{type:row.type,secret:row.secret,configured:row.secret})).join('');[...tbody.children].forEach((row,i)=>{row.querySelector('[data-setting-value]').value=draft.settings[i].value;row.querySelector('[data-setting-clear]').checked=draft.settings[i].clear;});}
+    const tbody=form.querySelector('tbody');if(tbody){tbody.innerHTML=draft.settings.map(row=>settingEditorRow(row.name,{type:row.type,title:row.title,hint:row.hint,secret:row.secret,configured:!row.unconfigured})).join('');[...tbody.children].forEach((row,i)=>{row.querySelector('[data-setting-value]').value=draft.settings[i].value;row.querySelector('[data-setting-clear]').checked=draft.settings[i].clear;});}
     if(draft.open&&form.closest('details'))form.closest('details').open=true;form.dataset.dirty='true';restored=true;
   });S.collectionDirty=restored;
 }
@@ -2258,7 +2263,7 @@ function collectionFormPatch(form){
     if(!/^[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,127}$/.test(key)||['__proto__','constructor','prototype'].includes(key))throw new Error('Use a valid provider setting name.');
     const input=row.querySelector('[data-setting-value]');
     if(row.querySelector('[data-setting-clear]').checked)patch.settings[key]=null;
-    else if(!input.dataset.secret||input.value)patch.settings[key]=UsageDashboardBackend.settingValue(input.value,row.querySelector('[data-setting-type]').value);
+    else if((row.dataset.unconfigured!=='true'||input.value)&&(!input.dataset.secret||input.value))patch.settings[key]=UsageDashboardBackend.settingValue(input.value,row.querySelector('[data-setting-type]').value);
   });
   return patch;
 }

@@ -187,7 +187,7 @@ test("Claude OAuth transport uses the installed CLI version without sending any 
 
 test("OpenCode Go saves daily local costs without replacing official quotas", () => {
   const app = load("opencode-go", { provider: { apiKey: "key" },
-    sqlite: () => JSON.stringify([{ createdMs: Date.parse("2026-09-04T12:00:00Z"), cost: 1.25 }]),
+    sqlite: (db,sql) => JSON.stringify(sql.includes('sqlite_master')?[{name:'message'}]:[{ createdMs: Date.parse("2026-09-04T12:00:00Z"), cost: 1.25 }]),
     request: () => response({ usage: { rolling: { percent: 20 }, weekly: { percent: 30 } } }) });
   const result = app.probe();
   assert.equal(result.source, "api");
@@ -210,7 +210,7 @@ test("OpenCode Go supports relative resets and rejects malformed optional window
 
 test("OpenCode Go local mode labels estimates and skips web enrichment", () => {
   const app = load("opencode-go", { source: "local", provider: { apiKey: "key", cookieHeader: "session=token" },
-    sqlite: (db, sql) => JSON.stringify(sql.includes("present") ? [{ present: 1 }] : [{ createdMs: Date.parse(NOW) - 1000, cost: 1 }]),
+    sqlite: (db, sql) => JSON.stringify(sql.includes('sqlite_master')?[{name:'message'}]:[{ createdMs: Date.parse(NOW) - 1000, cost: 1 }]),
     request: () => { throw new Error("local mode must not request web data"); } });
   const result = app.probe();
   assert.equal(result.source, "local-estimate");
@@ -304,6 +304,43 @@ test("Cursor retains ordinary quotas when Grok Bot is unavailable or pooled", ()
     assert.equal(metric(result, "Total usage").used, 10);
     assert.equal(metric(result, "Grok Bot usage"), undefined);
   }
+});
+
+function cursorTeam(planUsage) {
+  return load('cursor', {credentials:{accessToken:'fixture-token'},request:req=>{
+    if(req.url.endsWith('GetCurrentPeriodUsage')) return response({enabled:true,planUsage});
+    if(req.url.endsWith('GetPlanInfo')) return response({planInfo:{planName:'team'}});
+    return response({});
+  }});
+}
+test('Cursor Teams prioritizes independent model pools without inventing a combined percentage',()=>{
+  for(const limit of [undefined,2000]) {
+    const app=cursorTeam({limit,totalSpend:700,autoPercentUsed:20,apiPercentUsed:65});
+    const result=app.probe();
+    assert.equal(metric(result,'Cursor Models').used,20);
+    assert.equal(metric(result,'Other Models').used,65);
+    assert.equal(metric(result,'Total usage'),undefined);
+    assert.ok(!app.requests.some(req=>req.url.includes('/api/usage')));
+  }
+  const result=cursorTeam({limit:2000,totalSpend:700,totalPercentUsed:42,autoPercentUsed:20,apiPercentUsed:65}).probe();
+  assert.equal(metric(result,'Total usage').used,42);
+  assert.equal(metric(result,'Total usage').format.kind,'percent');
+});
+test('Cursor Teams keeps legacy dollar usage when zero pools are placeholders',()=>{
+  const result=cursorTeam({limit:20,totalSpend:7,autoPercentUsed:0,apiPercentUsed:0}).probe();
+  assert.equal(metric(result,'Total usage').used,7);
+  assert.equal(metric(result,'Total usage').limit,20);
+  assert.equal(metric(result,'Total usage').format.kind,'dollars');
+  assert.equal(metric(result,'Cursor Models'),undefined);
+  assert.equal(metric(result,'Other Models'),undefined);
+});
+test('Cursor Teams accepts measured zero pools but not a missing second pool',()=>{
+  const empty=cursorTeam({autoPercentUsed:0,apiPercentUsed:0}).probe();
+  assert.equal(metric(empty,'Cursor Models').used,0);
+  assert.equal(metric(empty,'Other Models').used,0);
+  assert.equal(metric(empty,'Total usage'),undefined);
+  const partial=cursorTeam({limit:2000,totalSpend:700,autoPercentUsed:20}).probe();
+  assert.equal(metric(partial,'Total usage').format.kind,'dollars');
 });
 
 function kiro(usage, overages) {
