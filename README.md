@@ -45,15 +45,13 @@ network requests, API exposure and deletion controls.
 
 ## Install
 
-The stable backend is **[v2.0.2](docs/releases/v2.0.2.md)** for Linux
-x64/ARM64 (glibc 2.39+). Its [release qualification record](docs/releases/v2.0.2-publication.md)
+The stable backend is **[v2.1.0](docs/releases/v2.1.0.md)** for Linux
+x64/ARM64 (glibc 2.39+). Its [release qualification record](docs/releases/v2.1.0-publication.md)
 tracks publication and checks; package feeds can lag the GitHub release.
-It updates provider compatibility, Codex accounting and OpenCode 2 storage,
-and adds three opt-in providers with dashboard setup guidance. Independent
-dashboard settings and RPM service updates remain available. `/v1/providers`,
-`/v1/usage` and optional SDK run ingestion keep their existing contracts.
-AgenticDriver consumers should read the migration notes before configuring
-capture or account quotas.
+It adds 20 opt-in providers and updates quota, credentials and billing history
+across existing integrations. `/v1/providers`, `/v1/usage` and optional SDK run
+ingestion keep their existing contracts. AgenticDriver consumers should read
+the migration notes before configuring capture or account quotas.
 
 **[Try v2.0.0-alpha.4 on Windows, macOS or Linux](docs/alpha.md).** The unsigned
 backend alpha includes native archives and a Windows per-user installer. Native
@@ -95,12 +93,12 @@ each channel's actual availability.
 
 Choose a package manager already available on your system. Published packages
 and stable release downloads target **Linux**; the stable Homebrew formula is also
-Linux-only. See the [v2.0.2 publication record](docs/releases/v2.0.2-publication.md)
+Linux-only. See the [v2.1.0 publication record](docs/releases/v2.1.0-publication.md)
 for current versions and feed publication status.
 
 | Channel | Published OS / CPU support | Package |
 | --- | --- | --- |
-| [npm](https://www.npmjs.com/package/@hashimkarim/usagestat) | Linux with glibc 2.39+ · x86-64, ARM64; Node 24+ | `@hashimkarim/usagestat@2.0.2` |
+| [npm](https://www.npmjs.com/package/@hashimkarim/usagestat) | Linux with glibc 2.39+ · x86-64, ARM64; Node 24+ | `@hashimkarim/usagestat@2.1.0` |
 | [Arch Linux / AUR](https://aur.archlinux.org/packages/usagestat-bin) | Arch Linux · x86-64 | `usagestat-bin` — release binaries |
 | [Homebrew](https://github.com/hashimkarim/homebrew-tap/blob/main/Formula/usagestat.rb) | Linux with system glibc 2.39+ · x86-64, ARM64 | `hashimkarim/tap/usagestat` |
 | [Fedora COPR](https://copr.fedorainfracloud.org/coprs/hashimkarim/usagestat/) | Fedora 43, 44, 45, Rawhide · x86-64 | `usagestat` |

@@ -1,0 +1,161 @@
+{
+  "schemaVersion": 1,
+  "releaseTag": "v2.1.0",
+  "sourceCommit": "a3530fccb6439f7b4a246c8623eda737b0137e43",
+  "publishedAt": "2026-10-26T19:27:11Z",
+  "github": {
+    "releaseUrl": "https://github.com/hashimkarim/usagestat/releases/tag/v2.1.0",
+    "verifiedAssets": [
+      {
+        "name": "usagestat-artifacts.json",
+        "size": 209658,
+        "sha256": "38c169dc34b6cec1f9ead7b424bd3e59adce0fb646f70c6dc5f43fd15dc3d90b"
+      },
+      {
+        "name": "usagestat-artifacts.json.sha256",
+        "size": 91,
+        "sha256": "184efc9461daf46db1a74bc335d25edaee0d1f2773b8065bf54a610c0967b5f7"
+      },
+      {
+        "name": "usagestat-linux-aarch64",
+        "size": 15285520,
+        "sha256": "c74456cb558dcf0fb2460868b3e3e76c7aa6d5f02b651d90354349ccfd6cef84"
+      },
+      {
+        "name": "usagestat-linux-aarch64.manifest.json",
+        "size": 92800,
+        "sha256": "41bf053f1cacba6e4b5edcb4262a2bbf96fe59df2664a45c960cd16f42a32c1f"
+      },
+      {
+        "name": "usagestat-linux-aarch64.manifest.json.sha256",
+        "size": 104,
+        "sha256": "a206e8039dbfe4163a3f6002f13c488864d85172ffc3947c7ce4143101f8c29b"
+      },
+      {
+        "name": "usagestat-linux-aarch64.sha256",
+        "size": 90,
+        "sha256": "d9ea53ef3e2dfe1339020bb11c5491f9ca189644eddf9bc1aef8e587d38d36e9"
+      },
+      {
+        "name": "usagestat-linux-aarch64.tar.gz",
+        "size": 12997066,
+        "sha256": "88b6a6d71fb6dfd8f1da5b32d68734f391dca9f469e998fd074047b7c0c4da58"
+      },
+      {
+        "name": "usagestat-linux-aarch64.tar.gz.sha256",
+        "size": 97,
+        "sha256": "a87d64723eea028d79692ba25ae10e09645399efc7690c21155ea292f900a01a"
+      },
+      {
+        "name": "usagestat-linux-x86_64",
+        "size": 15536600,
+        "sha256": "8989c472bf08309df81ab51e6239531bb9a04b823e00b8cfe61996b86960afbd"
+      },
+      {
+        "name": "usagestat-linux-x86_64.manifest.json",
+        "size": 92792,
+        "sha256": "e80c004a3e815d2bde8691f308ed7f8cae1953d92b083172b610cfd9d11d6ee4"
+      },
+      {
+        "name": "usagestat-linux-x86_64.manifest.json.sha256",
+        "size": 103,
+        "sha256": "9a7d4de4632b8410022ea603da9c0387bb0ee3681771b1e94741ec0aee126aa6"
+      },
+      {
+        "name": "usagestat-linux-x86_64.sha256",
+        "size": 89,
+        "sha256": "368d97be6fe8e02c6d7f59b3c7b35e0d4ce3942c0da5af97dfcbbf2f525bcbf1"
+      },
+      {
+        "name": "usagestat-linux-x86_64.tar.gz",
+        "size": 13370657,
+        "sha256": "d2009e2bb9d865894aa6dbc237012b165cccfb335b66ce7e6c6b8c5209e6a9c3"
+      },
+      {
+        "name": "usagestat-linux-x86_64.tar.gz.sha256",
+        "size": 96,
+        "sha256": "d077c63230cde73890176effdd243ea523e99093bfa8bf33c101ee69bdf3de3c"
+      }
+    ]
+  },
+  "nativeQualification": {
+    "sourceCommit": "a3530fccb6439f7b4a246c8623eda737b0137e43",
+    "run": "https://github.com/hashimkarim/usagestat/actions/runs/40380738517",
+    "allFiveTargetsPassed": true,
+    "completeSameSourceEvidence": true
+  },
+  "releaseWorkflow": {
+    "url": "https://github.com/hashimkarim/usagestat/actions/runs/40382375220",
+    "attempt": 3,
+    "tagImmutable": true
+  },
+  "npm": {
+    "packages": [
+      {
+        "name": "@hashimkarim/usagestat-linux-x64-gnu",
+        "version": "2.1.0",
+        "integrity": "sha512-VwOgtvJ4m9PAJ5fOEdaEd0W4mzgDL7fxyDqCrkSnuex2GNDzs7oC/3VXglf+bcrDXqJtgKyqZqvTNqenmV5rlw==",
+        "sourceCommit": "a3530fccb6439f7b4a246c8623eda737b0137e43",
+        "invocationId": "https://github.com/hashimkarim/usagestat/actions/runs/40382375220/attempts/3",
+        "contentsVerified": true
+      },
+      {
+        "name": "@hashimkarim/usagestat-linux-arm64-gnu",
+        "version": "2.1.0",
+        "integrity": "sha512-OBfabMXgPjWoL9+KRnR/bf9TrK0uCuZfYWc87lFUx+mR1wU2UlXmAGjKwGboB9CUBs+3WNCWit8s/B1OqE8ooQ==",
+        "sourceCommit": "a3530fccb6439f7b4a246c8623eda737b0137e43",
+        "invocationId": "https://github.com/hashimkarim/usagestat/actions/runs/40382375220/attempts/3",
+        "contentsVerified": true
+      },
+      {
+        "name": "@hashimkarim/usagestat",
+        "version": "2.1.0",
+        "integrity": "sha512-QBpUXyawYDqIjuC8mRu2aokE+zRuf/HAkC1CkXsyiqOJIV2cdmzxrlZbFUnFTcn18BmrcSp0gMTMYnFAG9Ie8A==",
+        "sourceCommit": "a3530fccb6439f7b4a246c8623eda737b0137e43",
+        "invocationId": "https://github.com/hashimkarim/usagestat/actions/runs/40382375220/attempts/3",
+        "contentsVerified": true
+      }
+    ],
+    "registrySignaturesVerified": 2,
+    "attestationsVerified": 2,
+    "publicInstallChecks": 7
+  },
+  "channels": {
+    "aur": {
+      "version": "2.1.0-1",
+      "commit": "3664b0b0d4618b64aef122bac6940b57232654e7",
+      "recipeVerified": true,
+      "rpcMetadata": "cached 2.0.2 at first check"
+    },
+    "homebrew": {
+      "version": "2.1.0",
+      "archiveHashesVerified": true
+    },
+    "copr": {
+      "version": "2.1.0",
+      "sha256": "2ff9c34e5ac0f5f9dfb3b60289ecccf34a09afdd6bac1d71ae220a29ee03ae01",
+      "size": 9232199,
+      "rpmSignatureVerified": true,
+      "repositoryChecksumVerified": true,
+      "binaryVersion": "usagestat 2.1.0",
+      "providers": 120,
+      "buildId": 11211246,
+      "chroots": [
+        "fedora-43-x86_64",
+        "fedora-44-x86_64",
+        "fedora-45-x86_64",
+        "fedora-rawhide-x86_64"
+      ],
+      "buildsSucceeded": true
+    },
+    "ppa": {
+      "buildId": 33874513,
+      "status": "uploading-awaiting-apt-publication",
+      "version": "2.1.0-1ppa1",
+      "buildUrl": "https://launchpad.net/~hashimkarim/+archive/ubuntu/usagestat/+build/33874513",
+      "signedAptAvailability": "not-yet-advertised"
+    }
+  },
+  "previousStableAndAlphaUnchanged": true,
+  "verifiedAt": "2026-10-26T19:56:54.619583+00:00"
+}
