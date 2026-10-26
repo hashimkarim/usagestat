@@ -22,8 +22,9 @@ Server 2025. Older candidate OS floors remain unverified. Linux requires glibc
 Alpha packages are published separately from the stable repositories. The
 destinations below were checked for alpha.4 on September 28, 2026. Fedora, AUR,
 Homebrew, Scoop, and npm have published alpha.4. Ubuntu's build succeeded and is
-awaiting Launchpad publication. WinGet passed upstream validation and awaits
-review/merge; Chocolatey's package validation is passing, with community
+awaiting Launchpad publication. WinGet subsequently published alpha.3 on October
+21; alpha.4 awaits review of its privacy metadata and updated manifests.
+Chocolatey's package validation is passing, with community
 installation tests/review pending. See the
 [publication record](releases/v2.0.0-alpha.4-publication.md)
 for verification and recovery details. Check the installed version with
@@ -37,7 +38,7 @@ for verification and recovery details. Check the installed version with
 | Linux / macOS | [Homebrew](https://github.com/hashimkarim/homebrew-tap/blob/main/Formula/usagestat-alpha.rb) | `hashimkarim/tap/usagestat-alpha` | Linux x86-64/ARM64; macOS Intel/Apple Silicon |
 | Windows | [Scoop bucket](https://github.com/hashimkarim/scoop-bucket/blob/main/bucket/usagestat-alpha.json) | `usagestat-alpha` | Windows x64; published and installation tested |
 | Windows | [Chocolatey submission](https://community.chocolatey.org/packages/usagestat/2.0.0-alpha000004) | `usagestat --pre` | Windows x64; alpha.4 validation passing, community installation tests/review pending |
-| Windows | [WinGet submission](https://github.com/microsoft/winget-pkgs/pull/442668) | `HashimKarim.UsageStat.Alpha` | Windows x64; alpha.4 passed all upstream automated checks, review/merge pending |
+| Windows | [WinGet update](https://github.com/microsoft/winget-pkgs/pull/442668) | `HashimKarim.UsageStat.Alpha` | Windows x64; alpha.3 published, alpha.4 review pending |
 | All five native targets | [npm](https://www.npmjs.com/package/@hashimkarim/usagestat) | `@hashimkarim/usagestat@alpha` | Published: Linux x64/ARM64, macOS Intel/Apple Silicon, Windows x64 |
 
 For alpha.1, Ubuntu's signed
@@ -149,9 +150,13 @@ community review approval is a separate step.
 
 WinGet's native installation, resource and removal tests passed in
 [run 34298557248](https://github.com/hashimkarim/usagestat/actions/runs/34298557248).
-The owner's CLA response and all ten upstream automated validation checks passed.
-Review and merge are still pending. WinGet commands will be added once available
-in the public source. These packages
+The [alpha.3 submission](https://github.com/microsoft/winget-pkgs/pull/432970)
+was merged and its publication pipeline succeeded on October 21, 2026. Install
+that version with `winget install --id HashimKarim.UsageStat.Alpha --exact --version 2.0.0-alpha.3`.
+Alpha.4 is still under review; see its linked update above. Before upgrades, stop
+the daemon with `usagestat daemon disable`; afterward run `usagestat daemon relocate`
+and restore its previous startup state. For removal, unregister the daemon first,
+then run `winget uninstall --id HashimKarim.UsageStat.Alpha --exact`. These packages
 contain the unsigned backend; package-manager availability does not qualify
 desktop login, provider authentication, signing, or the bar frontend.
 

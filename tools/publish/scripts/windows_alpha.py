@@ -24,6 +24,7 @@ from release_channel import alpha_version, alpha_order
 ARCH = {"x64": "64bit"}
 SECRET_NAMES = {"winget": "WINDOWS_WINGET_TOKEN", "scoop": "WINDOWS_SCOOP_TOKEN", "chocolatey": "WINDOWS_CHOCO_API_KEY"}
 ROOT = Path(__file__).resolve().parents[3]
+WINGET_MANIFEST_VERSION = "1.28.0"
 
 def version(tag):
     return alpha_version(tag if tag.startswith("v") else "v" + tag)
@@ -155,16 +156,17 @@ def recipes(t, tag, records, channel):
                 item["Scope"] = a["scope"]
             installers.append(item)
         documents = {
-            f"{base}.yaml": {**common, "DefaultLocale": "en-US", "ManifestType": "version", "ManifestVersion": "1.10.0"},
+            f"{base}.yaml": {**common, "DefaultLocale": "en-US", "ManifestType": "version", "ManifestVersion": WINGET_MANIFEST_VERSION},
             f"{base}.locale.en-US.yaml": {**common, "PackageLocale": "en-US", "Publisher": t["publisher"],
                                          "PackageName": t["name"], "License": t["license"], "ShortDescription": t["description"],
                                          "PackageUrl": t["homepage"], "LicenseUrl": f"{t['homepage']}/blob/{tag}/LICENSE",
+                                         "PrivacyUrl": f"{t['homepage']}/blob/main/PRIVACY.md",
                                          "ReleaseNotesUrl": f"{t['homepage']}/releases/tag/{tag}",
-                                         "ManifestType": "defaultLocale", "ManifestVersion": "1.10.0"},
-            f"{base}.installer.yaml": {**common, "Installers": installers, "ManifestType": "installer", "ManifestVersion": "1.10.0"}}
+                                         "ManifestType": "defaultLocale", "ManifestVersion": WINGET_MANIFEST_VERSION},
+            f"{base}.installer.yaml": {**common, "Installers": installers, "ManifestType": "installer", "ManifestVersion": WINGET_MANIFEST_VERSION}}
         schema_types = {'version': 'version', 'defaultLocale': 'defaultLocale', 'installer': 'installer'}
         return {p: '# yaml-language-server: $schema=https://aka.ms/winget-manifest.' +
-                schema_types[d['ManifestType']] + '.1.10.0.schema.json\n' + yaml(d) + "\n" for p, d in documents.items()}
+                schema_types[d['ManifestType']] + f'.{WINGET_MANIFEST_VERSION}.schema.json\n' + yaml(d) + "\n" for p, d in documents.items()}
     package = c["id"]
     fields = {"id": package, "version": chocolatey_version(v), "title": t["name"], "authors": t["publisher"],
               "description": t["description"], "projectUrl": t["homepage"],

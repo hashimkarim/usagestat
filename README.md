@@ -3,6 +3,9 @@
 Track AI provider quotas, token usage, and costs through a scriptable CLI,
 a local dashboard, and an HTTP API.
 
+Read the [privacy policy](PRIVACY.md) for credential access, local storage,
+network requests, API exposure and deletion controls.
+
 <p>
   <a href="https://github.com/hashimkarim/usagestat/releases/tag/v2.0.0-alpha.4"><picture>
     <source media="(prefers-color-scheme: dark)" srcset="https://shieldcn.dev/badge/Preview-v2.0.0--alpha.4-B45309.svg?variant=outline&amp;size=sm&amp;logo=github&amp;mode=dark">
@@ -58,8 +61,8 @@ bar frontends, desktop acceptance and signing remain pending. Stable package-man
 
 Separate **[alpha packages and installation instructions](docs/alpha.md#alpha-package-repositories)**
 are available through Fedora COPR, the Ubuntu PPA, AUR, Homebrew (including macOS),
-Scoop and npm. Chocolatey and WinGet await upstream review; all WinGet automated
-checks passed.
+Scoop and npm. WinGet has published alpha.3; alpha.4 awaits review of its updated
+privacy metadata and manifests. Chocolatey awaits community review.
 The linked guide tracks
 each channel's actual availability.
 

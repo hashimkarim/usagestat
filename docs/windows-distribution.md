@@ -7,9 +7,9 @@ package is published; Chocolatey has accepted `usagestat 2.0.0-alpha000001` for
 community review. Chocolatey selects prereleases with `--pre` rather than an alpha
 package ID, as required by its naming rules.
 See [Windows package managers](alpha.md#windows-package-managers) for installation,
-updates and removal. WinGet's [tested submission](https://github.com/microsoft/winget-pkgs/pull/431692)
-passed the owner's CLA check and all upstream automated validation; review/merge
-remain pending.
+updates and removal. WinGet's [alpha.3 submission](https://github.com/microsoft/winget-pkgs/pull/432970)
+was merged and published. The [alpha.4 update](https://github.com/microsoft/winget-pkgs/pull/442668)
+awaits review of its privacy metadata and updated manifests.
 The [npm alpha](alpha.md#npm) is also published for Windows x64.
 Windows minimum-version, standard-user desktop and distinct-version upgrades
 remain pending. Windows ARM64 and 32-bit builds are not included.
