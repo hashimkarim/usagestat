@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "id": "flora",
+  "name": "FLORA",
+  "version": "0.1.0",
+  "entry": "plugin.js",
+  "enabledByDefault": false,
+  "supportedModes": [
+    "api"
+  ],
+  "autoMode": "api",
+  "usageDashboardUrl": "https://app.flora.ai",
+  "envVars": [
+    "FLORA_API_KEY",
+    "FLORA_WORKSPACE_ID"
+  ],
+  "setupFields": [
+    {
+      "key": "FLORA_WORKSPACE_ID",
+      "title": "Workspace ID",
+      "type": "string",
+      "description": "Provider-specific account or source selection."
+    }
+  ],
+  "upstream": {
+    "repository": "https://github.com/steipete/CodexBar",
+    "revision": "6070b29a1a5d51193a634dc1b0a14a67c39d0ccc",
+    "path": "Sources/CodexBarCore/Resources/Plugins/flora.js",
+    "sha256": "451732a2e088769dcd023770cfa378c2c386eea8fad137c6db676b6e305e569f",
+    "license": "MIT"
+  }
+}

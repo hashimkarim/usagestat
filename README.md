@@ -214,23 +214,11 @@ Plugins are discovered from:
 3. Installed `share/usagestat/plugins` and `lib/usagestat/plugins` under the binary prefix
 4. `./plugins`
 
-The source tree bundles **100 providers**:
-
-- `abacus-ai`, `aiand`, `alibaba`, `alibaba-token-plan`, `amp`, `antigravity`, `antigravity-cli`
-- `antigravity-ide`, `augment`, `aws-bedrock`, `azure-openai`, `chutes`, `claude`, `clawrouter`
-- `clinepass`, `codebuddy`, `codebuff`, `codex`, `command-code`, `copilot`, `crof`
-- `crofai`, `cursor`, `cursor-nightly`, `deepgram`, `deepinfra`, `deepseek`, `devin`
-- `doubao`, `droid`, `elevenlabs`, `factory`, `fireworks-ai`, `gemini`, `grok`
-- `groqcloud`, `ibmbob`, `jetbrains-ai-assistant`, `kilo`, `kimi`, `kimi-k2`, `kiro`
-- `litellm`, `llm-proxy`, `longcat`, `manus`, `mimo`, `minimax`, `mistral`
-- `moonshot`, `nanogpt`, `neuralwatt`, `notion`, `ollama`, `openai-api`, `opencode`
-- `opencode-go`, `openrouter`, `perplexity`, `poe`, `qoder`, `qwencloud`, `sakana`
-- `stepfun`, `sub2api`, `synthetic`, `t3chat`, `venice`, `vertex-ai`, `warp`
-- `wayfinder`, `windsurf`, `xai`, `zai`, `zed`, `zenmux`, `zoommate`
-- `aixy`, `atlascloud`, `bifrost`, `coderabbit`, `devpass`, `gemini-apps`, `gitkraken`
-- `helmcode`, `huggingface`, `hyper`, `llmman`, `muse`, `nous`, `pi`, `raycast`
-- `replicate`, `typesafe`, `v0`, `vercel`, `xkiro`
-- `lithosai`, `museai`, `workbuddy`
+The [generated provider inventory](docs/provider-compatibility.md) lists the
+current catalog, source modes and validation coverage. Provider-specific setup
+fields appear under dashboard **Settings → Collection**. New providers are
+opt-in; enable only the accounts you use. See [provider sources](docs/provider-sources.md)
+for billing scope, manual sessions and alternate sources.
 
 The released `v2.0.0` and `v2.0.1` packages contain 97 providers. `v2.0.2` adds
 three opt-in web providers: Muse (`muse.ai`, separate from Muse Code), LithosAI
@@ -251,8 +239,9 @@ unqualified. TypeSafe's Cloudflare protection remains a limitation, reported
 as an unavailable measurement rather than an expired login or zero usage.
 
 OpenCode Go reads the current credential table in a selected OpenCode 2 database
-and deduplicates migrated history. A present empty table means logout; its old
-imported `auth.json` is not reused. Set `databasePath` for a preview channel or
+and deduplicates migrated history. After the credential-import migration completes, an empty table means logout;
+its imported `auth.json` is not reused. Before that marker exists, `auth.json`
+remains authoritative. Set `databasePath` for a preview channel or
 additional source to keep credentials and history on that selected database.
 
 `usagestat --json list` includes provider-owned UI metadata. Icon paths are

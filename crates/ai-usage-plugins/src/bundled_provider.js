@@ -27,16 +27,17 @@
   function context(ctx, definition, options) {
     const provider = ctx.provider || {};
     const settings = provider.settings || {};
-    const scoped = !!provider.instanceId && provider.instanceId !== definition.id;
+    const scoped = !!provider.instanceId && provider.instanceId !== (options.providerId || definition.id);
     const env = key => scoped ? null : clean(ctx.host.env.get(key));
     const secretKeys = definition.settings.filter(s => s.type === 'secure').map(s => s.key);
     function get(key) {
+      if (key === 'MESSAGES') return null;
       if (own(settings, key)) {
         const value = String(settings[key]);
         return key === 'LLMMAN_HOST' ? value.replace(/\/+$/, '').replace(/\/v1$/, '') : value;
       }
       if (key === 'SOURCE_MODE') return ctx.sourceMode;
-      if (key === 'V0_SCOPE' || key === 'GITKRAKEN_ORG_ID' || key === 'MUSE_WEB_TEAM_ID')
+      if (['V0_SCOPE','GITKRAKEN_ORG_ID','MUSE_WEB_TEAM_ID','COSMIC_PROJECT_ID','EXA_API_KEY_ID','FLORA_WORKSPACE_ID','VERCEL_TEAM_ID'].includes(key))
         return clean(provider.workspaceId) || env(key);
       if (/_BASE_URL$/.test(key) || key === 'LLMMAN_HOST' || key === 'PORTAL_URL') {
         const value = clean(settings.baseUrl) || clean(settings.baseURL) || env(key) || options.defaults?.[key] || null;
@@ -47,7 +48,7 @@
     function secret(key) {
       if (!secretKeys.includes(key)) return null;
       if (own(settings, key)) return clean(String(settings[key]));
-      if (key === secretKeys[0] && own(provider, 'apiKey')) return clean(provider.apiKey);
+      if (options.genericApiKey !== false && key === secretKeys[0] && own(provider, 'apiKey')) return clean(provider.apiKey);
       const explicit = env(key);
       if (explicit || scoped) return explicit;
       if (key === 'MUSE_DEVICE_TOKEN') {
@@ -67,7 +68,7 @@
       }
       return null;
     }
-    const cookie = own(provider, 'cookieHeader') ? clean(provider.cookieHeader) : env(definition.id.toUpperCase() + '_COOKIE');
+    const cookie = own(provider, 'cookieHeader') ? clean(provider.cookieHeader) : env(options.cookieEnv || definition.id.toUpperCase() + '_COOKIE');
     const rejected = new Set();
     const allowedDomains = definition.cookieDomains || [];
     const domainAllowed = domain => allowedDomains.includes(domain);
@@ -83,7 +84,7 @@
       const headers = Object.assign({Accept: 'application/json'}, requestOptions.headers);
       if (definition.auth) {
         const token = secret(definition.auth.secret);
-        if (!token) throw failure('authRequired', `Set ${definition.auth.secret} or this provider's apiKey.`);
+        if (!token) throw failure('authRequired', `Set ${definition.auth.secret}${options.genericApiKey === false ? ' in provider settings.' : " or this provider's apiKey."}`);
         const auth = definition.auth;
         const name = auth.type === 'header' ? auth.header : auth.type === 'x-api-key' ? 'x-api-key' : 'Authorization';
         const value = auth.type === 'bearer' ? `Bearer ${token}` : auth.type === 'authorization-scheme' ? `${auth.scheme} ${token}` : token;
@@ -141,6 +142,15 @@
         post: (url, opts) => request('POST', url, opts),
         getJSON: async (url, opts) => { const r = await request('GET', url, opts); return {...r, json: JSON.parse(r.bodyText)}; },
         postJSON: async (url, opts) => { const r = await request('POST', url, opts); return {...r, json: JSON.parse(r.bodyText)}; },
+        getWithOptional: async (url, optional, opts) => {
+          const primary = await request('GET', url, opts);
+          primary.optional = null;
+          if (primary.status >= 200 && primary.status < 300) {
+            try { primary.optional = await request('GET', optional, {...opts,timeoutSeconds:Math.min(5,Number(opts?.timeoutSeconds) || 5)}); }
+            catch (error) { if (error.transportClass === 'cancelled') throw error; }
+          }
+          return primary;
+        },
       },
       browser: {
         supportedBrowsers: 'manual cookie headers (automatic browser import is unavailable)',
@@ -196,12 +206,15 @@
     const lines = [];
     function window(label, value) {
       if (!value) return;
-      if (finite(value.usedPercent)) {
-        lines.push(ctx.line.progress({label, used: Math.max(0, value.usedPercent), limit: 100,
+      label = clean(value.title) || label;
+      if (value.usageKnown !== false && finite(value.usedPercent)) {
+        const absolute = finite(value.quotaLimit) && value.quotaLimit > 0 && clean(value.quotaUnit);
+        lines.push(ctx.line.progress({label, used: Math.max(0, value.usedPercent) * (absolute ? value.quotaLimit / 100 : 1), limit: absolute ? value.quotaLimit : 100,
+          format: absolute ? {kind:'count',suffix:value.quotaUnit} : {kind:'percent'},
           resetsAt: value.resetsAt ? iso(value.resetsAt).toISOString() : undefined,
           periodDurationMs: finite(value.windowMinutes) && value.windowMinutes > 0 ? value.windowMinutes * 60000 : undefined,
           detail: value.resetDescription || undefined}));
-      } else if (value.resetDescription || value.resetsAt) {
+      } else if (value.usageKnown === false || value.resetDescription || value.resetsAt) {
         lines.push(ctx.line.text({label, value: value.resetDescription || 'Usage unavailable',
           subtitle: value.resetsAt ? iso(value.resetsAt).toISOString() : undefined}));
       }
@@ -212,13 +225,14 @@
       if (extra.usageKnown === false) delete value.usedPercent;
       window(extra.title || extra.id, value);
     }
-    if (!options.balanceOnly && usage.cost && finite(usage.cost.used)) {
+    if (usage.cost && finite(usage.cost.used)) {
       const cost = usage.cost;
       const label = cost.period || 'Spend';
       // A billing cap is not necessarily an allowance. Only explicit windows become quota meters.
-      lines.push(ctx.line.text({label, value: cost.currency + ' ' + number(cost.used, {minimumFractionDigits: 2}),
+      if (!options.balanceOnly) lines.push(ctx.line.text({label, value: cost.currency + ' ' + number(cost.used, {minimumFractionDigits: 2}),
         subtitle: finite(cost.limit) && cost.limit > 0 ? 'Budget: ' + cost.currency + ' ' + number(cost.limit) : undefined}));
-      if (finite(cost.balance)) lines.push(ctx.line.text({label: 'Balance', value: cost.currency + ' ' + number(cost.balance, {minimumFractionDigits: 2})}));
+      if (finite(cost.balance) && !(usage.details || []).some(section => section.rows?.some(row => row.label === 'Balance')))
+        lines.push(ctx.line.text({label: 'Balance', value: cost.currency + ' ' + number(cost.balance, {minimumFractionDigits: 2})}));
     }
     for (const section of usage.details || []) {
       for (const row of section.rows || []) lines.push(ctx.line.text({label: row.label, value: row.value,
@@ -228,14 +242,19 @@
     if (usage.identity?.organization) lines.push(ctx.line.text({label: 'Organization', value: usage.identity.organization}));
     if (usage.subscriptionRenewsAt) lines.push(ctx.line.text({label: 'Renews', value: iso(usage.subscriptionRenewsAt).toISOString()}));
     if (usage.subscriptionExpiresAt) lines.push(ctx.line.text({label: 'Expires', value: iso(usage.subscriptionExpiresAt).toISOString()}));
-    return {displayName: definition.name, plan: usage.identity?.loginMethod, source: ctx.sourceMode === 'auto' ? options.autoMode || 'api' : ctx.sourceMode,
+    if (usage.dataConfidence === 'estimated' || usage.dataConfidence === 'unknown')
+      lines.push(ctx.line.text({label:'Measurement',value:usage.dataConfidence === 'estimated' ? 'Estimated' : 'Unknown'}));
+    return {displayName: options.displayName || definition.name, plan: usage.identity?.loginMethod, source: clean(fetched?.sourceLabel) || (ctx.sourceMode === 'auto' ? options.autoMode || 'api' : ctx.sourceMode),
       lines, ...(usage.empty || !lines.length ? {state: 'no-data'} : {})};
   }
-  globalThis.defineProvider = definition => {
-    const options = globalThis.__usagestat_bundled_options || {labels: ['Usage', 'Weekly', 'Additional'], defaults: {}};
-    globalThis.__usagestat_plugin = {
-      id: definition.id,
+  globalThis.__usagestat_bundledProvider = (definition, options) => {
+    return {
+      id: options.providerId || definition.id,
       probe: async ctx => result(ctx, definition, options, await definition.fetchUsage(context(ctx, definition, options))),
     };
+  };
+  globalThis.defineProvider = definition => {
+    globalThis.__usagestat_plugin = globalThis.__usagestat_bundledProvider(definition,
+      globalThis.__usagestat_bundled_options || {labels: ['Usage', 'Weekly', 'Additional'], defaults: {}});
   };
 })();

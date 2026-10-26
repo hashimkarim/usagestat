@@ -116,10 +116,21 @@ function sqliteFixture(t,sql){
   run('import sqlite3,sys; c=sqlite3.connect(sys.argv[1]); c.executescript(sys.argv[2]); c.close()',[db,sql]);
   return{db,read:(selected,query)=>{assert.equal(selected,db);return run('import sqlite3,json,sys; c=sqlite3.connect("file:"+sys.argv[1]+"?mode=ro",uri=True); c.row_factory=sqlite3.Row; print(json.dumps([dict(r) for r in c.execute(sys.argv[2])]))',[db,query]);}};
 }
+test('OpenCode v1 credential tables do not shadow the live auth file before import',t=>{
+  for(const migration of ['', 'CREATE TABLE migration(id TEXT PRIMARY KEY,time_completed INTEGER);']){
+    const db=sqliteFixture(t,'CREATE TABLE credential(id TEXT,integration_id TEXT,active INTEGER,time_updated INTEGER,time_created INTEGER,value TEXT);'+migration);
+    const app=load('opencode-go',{platform,source:'api',provider:{settings:{databasePath:db.db}},
+      files:{[db.db]:'exists','/test/home/.local/share/opencode/auth.json':'{"opencode-go":{"key":"v1-live-fixture"}}'},sqlite:db.read,
+      request:req=>{assert.equal(req.headers.Authorization,'Bearer v1-live-fixture');return response({usage:{rolling:{percent:20}}});}});
+    assert.equal(metric(app.probe(),'Session').used,20);
+  }
+});
 test('OpenCode 2 selected channel reads current credentials and deduplicates migrated messages',t=>{
   const data=JSON.stringify({model:{providerID:'opencode-go'},cost:1.25,tokens:{input:10,output:5,reasoning:3,cache:{read:2,write:1}}});
   const old=JSON.stringify({providerID:'opencode-go',role:'assistant',cost:1.25,tokens:{input:10,output:5,reasoning:3,cache:{read:2,write:1}}});
-  const db=sqliteFixture(t,`CREATE TABLE credential(id TEXT,integration_id TEXT,active INTEGER,time_updated INTEGER,time_created INTEGER,value TEXT);
+  const db=sqliteFixture(t,`CREATE TABLE migration(id TEXT PRIMARY KEY,time_completed INTEGER);
+    INSERT INTO migration VALUES('20260805200742_import_legacy_credentials',1);
+    CREATE TABLE credential(id TEXT,integration_id TEXT,active INTEGER,time_updated INTEGER,time_created INTEGER,value TEXT);
     INSERT INTO credential VALUES('old','opencode-go',0,10,1,'{"key":"inactive-fixture"}'),('new','opencode-go',1,20,2,'{"key":"active-fixture"}');
     CREATE TABLE message(id TEXT,time_created INTEGER,data TEXT);CREATE TABLE session_message(id TEXT,time_created INTEGER,type TEXT,data TEXT);
     INSERT INTO message VALUES('migrated',1788580800000,'${old}');INSERT INTO session_message VALUES('migrated',1788580800000,'assistant','${data}');
@@ -132,7 +143,7 @@ test('OpenCode 2 selected channel reads current credentials and deduplicates mig
   assert.equal(app.ingested[0].daily[0].totalTokens,36,'Reasoning is not counted twice');
 });
 test('OpenCode 2 logout and unreadable storage cannot revive the stale auth import',t=>{
-  const db=sqliteFixture(t,"CREATE TABLE credential(id TEXT,integration_id TEXT,active INTEGER,time_updated INTEGER,time_created INTEGER,value TEXT);");
+  const db=sqliteFixture(t,"CREATE TABLE migration(id TEXT PRIMARY KEY,time_completed INTEGER);INSERT INTO migration VALUES('20260805200742_import_legacy_credentials',1);CREATE TABLE credential(id TEXT,integration_id TEXT,active INTEGER,time_updated INTEGER,time_created INTEGER,value TEXT);");
   const files={[db.db]:'exists','/test/home/.local/share/opencode/auth.json':'{"opencode-go":{"key":"stale-private"}}'};
   const app=load('opencode-go',{platform,source:'api',provider:{settings:{databasePath:db.db}},files,sqlite:db.read});
   assert.throws(app.probe,/API key missing/);assert.equal(app.requests.length,0);

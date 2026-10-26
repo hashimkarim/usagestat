@@ -12,7 +12,8 @@
     monthly: 60,
   };
 
-  const TABLES_SQL = "SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('message','session_message','credential')";
+  const TABLES_SQL = "SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('message','session_message','credential','migration')";
+  const CREDENTIALS_IMPORTED_SQL = "SELECT 1 AS imported FROM migration WHERE id = '20260805200742_import_legacy_credentials' LIMIT 1";
   const CREDENTIAL_SQL = `SELECT value FROM credential
     WHERE integration_id = 'opencode-go' AND (active IS NULL OR active = 1)
     ORDER BY active DESC, time_updated DESC, id DESC LIMIT 1`;
@@ -328,15 +329,19 @@
     const configured = trim(ctx.provider && ctx.provider.apiKey) || env(ctx, "OPENCODE_GO_API_KEY");
     if (configured) return configured;
     const inline = ctx.host.env.get("OPENCODE_AUTH_CONTENT");
-    // A v2 credential table is authoritative even after logout. The one-time
-    // imported auth.json must never revive a deleted or inactive account.
+    // OpenCode 1 also creates credential tables, but still signs in through
+    // auth.json. Only the completed v2 import makes database logout authoritative.
     if (!inline) {
       const database = databasePath(ctx);
       if (ctx.host.fs.exists(database)) {
         try {
           const tables = ctx.util.tryParseJson(ctx.host.sqlite.query(database, TABLES_SQL));
           if (!Array.isArray(tables)) throw new Error('Invalid schema');
-          if (tables.some(table => table.name === 'credential')) {
+          const imported = tables.some(table => table.name === 'migration')
+            ? ctx.util.tryParseJson(ctx.host.sqlite.query(database, CREDENTIALS_IMPORTED_SQL)) : [];
+          if (!Array.isArray(imported)) throw new Error('Invalid migration result');
+          if (imported.length) {
+            if (!tables.some(table => table.name === 'credential')) throw new Error('Imported credential storage is missing');
             const rows = ctx.util.tryParseJson(ctx.host.sqlite.query(database, CREDENTIAL_SQL));
             if (!Array.isArray(rows)) throw new Error('Invalid credential result');
             if (!rows.length) return null;
@@ -622,6 +627,9 @@
     if (ctx.util.isAuthStatus(result.resp.status)) throw "OpenCode Go key was rejected. Sign into OpenCode Go again.";
     if (result.resp.status < 200 || result.resp.status >= 300) throw "OpenCode Go usage API returned HTTP " + result.resp.status + ".";
     const usage = result.json && result.json.usage;
+    const dateHeader = Object.entries(result.resp.headers || {}).find(([key]) => key.toLowerCase() === 'date');
+    const serverTime = dateHeader && Date.parse(dateHeader[1]);
+    const referenceTime = Number.isFinite(serverTime) ? serverTime : Date.parse(ctx.nowIso);
     const specs = [["rolling", "Session", FIVE_HOURS_MS], ["weekly", "Weekly", WEEK_MS], ["monthly", "Monthly", null]];
     const lines = [];
     for (const spec of specs) {
@@ -630,8 +638,11 @@
       const percent = window && readNumber(window.percent);
       if (!Number.isFinite(percent)) throw "OpenCode Go usage API returned an invalid quota.";
       const resetInSec = readNumber(window.resetInSec);
-      const resetsAt = ctx.util.toIso(window.resetsAt) || (resetInSec !== null && resetInSec >= 0
-        ? ctx.util.toIso(Date.parse(ctx.nowIso) + resetInSec * 1000) : null);
+      let resetsAt = ctx.util.toIso(window.resetsAt) || (resetInSec !== null && resetInSec >= 0
+        ? ctx.util.toIso(referenceTime + resetInSec * 1000) : null);
+      if (window.resetsAt != null && !ctx.util.toIso(window.resetsAt)) throw 'OpenCode Go usage API returned an invalid reset.';
+      if (spec[0] === 'rolling' && percent === 0 && resetsAt && Math.abs(Date.parse(resetsAt)-referenceTime-FIVE_HOURS_MS)<=2000)
+        resetsAt = null;
       lines.push(ctx.line.progress({ label: spec[1], used: Math.max(0, Math.min(100, percent)), limit: 100,
         format: { kind: "percent" }, resetsAt, periodDurationMs: spec[2] }));
     }

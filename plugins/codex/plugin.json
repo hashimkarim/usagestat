@@ -13,7 +13,7 @@
     },
     {
       "label": "Usage dashboard",
-      "url": "https://chatgpt.com/codex/cloud/settings/analytics#usage"
+      "url": "https://chatgpt.com/settings/usage?tab=overview"
     }
   ],
   "supportedModes": ["oauth", "local", "web"],

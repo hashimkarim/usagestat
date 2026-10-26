@@ -12,6 +12,7 @@
   }
 
   function env(ctx, name) {
+    if (ctx.provider && ctx.provider.instanceId && ctx.provider.instanceId !== 'xai') return null;
     try {
       return clean(ctx.host.env.get(name));
     } catch (_) {
@@ -135,6 +136,14 @@
     });
     var balance = balanceUsd(balanceJson.total && balanceJson.total.val);
     var metrics = [ctx.line.text({ label: "Balance", value: balance < 0 ? "Deficit: $" + (-balance).toFixed(2) : "$" + balance.toFixed(2) })];
+    try {
+      var preview = ctx.util.requestJson({method:'GET',url:BASE_URL+'/v1/billing/teams/'+encodeURIComponent(id)+'/postpaid/invoice/preview',
+        headers:{Authorization:'Bearer '+key,Accept:'application/json'},timeoutMs:5000});
+      var cents = preview.json && preview.json.coreInvoice && preview.json.coreInvoice.amountAfterVat;
+      if (preview.resp.status>=200 && preview.resp.status<300 && typeof cents==='string' && /^-?\d+$/.test(cents) && Number.isSafeInteger(Number(cents)))
+        metrics.push(ctx.line.text({label:'Live remaining (est.)',value:'$'+(balance-Number(cents)/100).toFixed(2),
+          subtitle:'Prepaid balance less the current invoice preview; not a settled charge.'}));
+    } catch (_) {ctx.host.log.warn('xAI invoice preview unavailable');}
 
     var daily = fetchDaily(ctx, key, id);
     if (daily.length) {

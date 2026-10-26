@@ -26,7 +26,7 @@ test("Ollama keeps fractional usage and does not borrow a later window", () => {
 
 test("Ollama API-only access never invents quota meters", () => {
   const app = load("ollama", { source: "api", provider: { apiKey: "key" },
-    request: (req) => req.method === "POST" ? response({}, 400) : response({ models: [{ name: "model-cloud" }] }) });
+    request: (req) => req.url.endsWith('/api/balance') ? response({},404) : req.method === "POST" ? response({}, 400) : response({ models: [{ name: "model-cloud" }] }) });
   const result = app.probe();
   assert.equal(result.source, "api");
   assert.equal(metric(result, "Cloud Models").value, "1 available");

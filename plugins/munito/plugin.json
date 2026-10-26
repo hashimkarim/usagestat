@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "id": "munito",
+  "name": "Munito",
+  "version": "0.1.0",
+  "entry": "plugin.js",
+  "enabledByDefault": false,
+  "supportedModes": [
+    "api"
+  ],
+  "autoMode": "api",
+  "usageDashboardUrl": "https://app.munito.ai",
+  "envVars": [
+    "MUNITO_API_KEY"
+  ],
+  "setupFields": [],
+  "upstream": {
+    "repository": "https://github.com/steipete/CodexBar",
+    "revision": "6070b29a1a5d51193a634dc1b0a14a67c39d0ccc",
+    "path": "Sources/CodexBarCore/Resources/Plugins/munito.js",
+    "sha256": "6feee407bd3765acb723bca995e660ee9dc8d556e51bfdff158686e3ffaf0ffe",
+    "license": "MIT"
+  }
+}

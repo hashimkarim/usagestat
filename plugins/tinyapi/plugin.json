@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "id": "tinyapi",
+  "name": "TinyApi",
+  "version": "0.1.0",
+  "entry": "plugin.js",
+  "enabledByDefault": false,
+  "supportedModes": [
+    "web"
+  ],
+  "autoMode": "web",
+  "usageDashboardUrl": "https://tinyapi.rest",
+  "webUrl": "https://tinyapi.rest",
+  "envVars": [
+    "TINYAPI_COOKIE"
+  ],
+  "setupFields": [],
+  "upstream": {
+    "repository": "https://github.com/steipete/CodexBar",
+    "revision": "6070b29a1a5d51193a634dc1b0a14a67c39d0ccc",
+    "path": "Sources/CodexBarCore/Resources/Plugins/tinyapi.js",
+    "sha256": "14f874b433198e9bfb9f1d689a0822f35ac8d97945cab015c039f836eed4ef17",
+    "license": "MIT"
+  }
+}

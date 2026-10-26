@@ -25,5 +25,22 @@
   "envVars": [
     "QWEN_CLOUD_COOKIE",
     "QWEN_CLOUD_COOKIE_HEADER"
+  ],
+  "upstreamSources": [
+    {
+      "repository": "https://github.com/steipete/CodexBar",
+      "revision": "6070b29a1a5d51193a634dc1b0a14a67c39d0ccc",
+      "path": "Sources/CodexBarCore/Resources/Plugins/qwencloud-team.js",
+      "sha256": "11a7e231c1705a83f29b4509102abaa656b9888f63cfc132de0a520d94ee9301",
+      "license": "MIT"
+    }
+  ],
+  "setupFields": [
+    {
+      "key": "teamTokenPlan",
+      "title": "Team Token Plan",
+      "type": "boolean",
+      "description": "Read the Team subscription for this cookie; otherwise read the Individual subscription. No fallback between scopes."
+    }
   ]
 }

@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "id": "abliteration",
+  "name": "abliteration.ai",
+  "version": "0.1.0",
+  "entry": "plugin.js",
+  "enabledByDefault": false,
+  "supportedModes": [
+    "api"
+  ],
+  "autoMode": "api",
+  "usageDashboardUrl": "https://abliteration.ai",
+  "envVars": [
+    "ABLITERATION_API_KEY"
+  ],
+  "setupFields": [],
+  "upstream": {
+    "repository": "https://github.com/steipete/CodexBar",
+    "revision": "6070b29a1a5d51193a634dc1b0a14a67c39d0ccc",
+    "path": "Sources/CodexBarCore/Resources/Plugins/abliteration.js",
+    "sha256": "16982dfb14ae7e1181c688f5084e6b17ea84f72a28c1a98623ebc03c1dff5516",
+    "license": "MIT"
+  }
+}

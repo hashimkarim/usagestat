@@ -43,6 +43,7 @@
   }
 
   function env(ctx, name) {
+    if (ctx.provider.instanceId && ctx.provider.instanceId !== 'kimi') return null
     try { return clean(ctx.host.env.get(name)) } catch (_) { return null }
   }
 
@@ -51,6 +52,7 @@
   }
 
   function cliSession(ctx) {
+    if (ctx.provider.instanceId && ctx.provider.instanceId !== 'kimi') return null
     const override = env(ctx, "KIMI_CODE_HOME")
     const homes = override ? [override] : ["~/.kimi-code", "~/.kimi"]
     for (const home of homes) {
@@ -110,23 +112,35 @@
       if (!data) return result
       const pool = data.subscriptionBalance
       const ratio = pool && readNumber(pool.amountUsedRatio)
-      if (Number.isFinite(ratio) && pool && (!pool.feature || pool.feature === "FEATURE_OMNI") && (!pool.type || pool.type === "SUBSCRIPTION")) {
+      if (Number.isFinite(ratio) && ratio >= 0 && pool && (!pool.feature || pool.feature === "FEATURE_OMNI") && (!pool.type || pool.type === "SUBSCRIPTION")) {
         const reset = ctx.util.toIso(pool.expireTime)
         const monthly = ctx.line.progress({ label: "Monthly", used: Math.max(0, Math.min(100, ratio * 100)), limit: 100,
           format: { kind: "percent" }, resetsAt: reset, periodDurationMs: ctx.util.calendarMonthDuration(reset) })
         // Automatic summaries use the first quota. Reset Code windows cannot
         // make an exhausted membership pool available again.
-        if (ratio >= 1) result.lines.unshift(monthly)
-        else result.lines.push(monthly)
+        const existing = result.lines.findIndex(line => line.label === 'Monthly')
+        if (ratio >= 1) {
+          if (existing >= 0) result.lines.splice(existing,1)
+          result.lines.unshift(monthly)
+        } else if (existing < 0) result.lines.push(monthly)
       }
       const weekly = data.ratelimitCode7d
       const weeklyRatio = weekly && readNumber(weekly.ratio)
-      if (weekly && weekly.enabled !== false && Number.isFinite(weeklyRatio)) {
+      if (weekly && weekly.enabled !== false && Number.isFinite(weeklyRatio) && weeklyRatio >= 0) {
         const reset = ctx.util.toIso(weekly.resetTime)
         const used = Math.max(0, Math.min(100, weeklyRatio * 100))
-        if (!result.lines.some((line) => line.label === "Weekly" && Math.abs(line.used - used) < 0.01 && (line.resetsAt || null) === reset)) {
+        if (!result.lines.some((line) => line.label === "Weekly" && Math.abs(line.used - used) <= 1 && reset && line.resetsAt && Math.abs(Date.parse(line.resetsAt) - Date.parse(reset)) <= 300000)) {
           result.lines.push(ctx.line.progress({ label: "Code 7-day", used, limit: 100, format: { kind: "percent" }, resetsAt: reset, periodDurationMs: WEEK_MS }))
         }
+      }
+      for (const gift of Array.isArray(data.giftBalances) ? data.giftBalances : []) {
+        if (!gift || gift.feature && gift.feature !== 'FEATURE_OMNI' || gift.type && gift.type !== 'GIFT') continue
+        const used = readNumber(gift.amountUsedRatio)
+        const expires = gift.expireTime == null ? null : ctx.util.parseDateMs(gift.expireTime)
+        if (used === null || used < 0 || gift.expireTime != null && !Number.isFinite(expires) || expires !== null && expires <= Date.parse(ctx.nowIso)) continue
+        result.lines.push(ctx.line.text({label:clean(gift.displayName) || 'Bonus credits',
+          value: String(Math.round(Math.max(0,1-used)*1000)/10) + '% remaining',
+          subtitle:expires !== null ? 'Expires ' + ctx.util.toIso(expires) : undefined}))
       }
     } catch (_) { ctx.host.log.warn("Kimi membership enrichment unavailable") }
     return result
@@ -265,7 +279,7 @@
     let data = ctx.util.tryParseJson(resp.bodyText)
     if (source === "web") {
       const coding = data && Array.isArray(data.usages) && data.usages.find((item) => item.scope === "FEATURE_CODING")
-      data = coding ? { usage: coding.detail, limits: coding.limits } : null
+      data = coding ? { usage: coding.detail, limits: coding.limits } : data && Array.isArray(data.usages) ? {} : null
     }
     if (!data || typeof data !== "object") {
       throw "Usage response invalid. Try again later."
@@ -324,15 +338,26 @@
       }
     }
 
-    if (lines.length === 0) {
-      throw "Kimi usage response did not contain measurable quota counters."
+    // Current Code responses expose ratio pools independently of legacy counters.
+    for (const [key,label,period] of [['limit_5h','Session',5*3600000],['limit_7d','Weekly',WEEK_MS],['limit_month_total','Monthly',null]]) {
+      const pool = data.usages && !Array.isArray(data.usages) && data.usages[key]
+      const ratio = pool && readNumber(pool.used_ratio)
+      if (!Number.isFinite(ratio) || ratio < 0) continue
+      const reset = ctx.util.toIso(pool.reset_time)
+      const previous = lines.findIndex(line => line.label === label)
+      if (previous >= 0 && lines[previous].periodDurationMs === period && reset && lines[previous].resetsAt &&
+          Math.abs(Date.parse(reset)-Date.parse(lines[previous].resetsAt)) <= 2000 && lines[previous].used > ratio*100) continue
+      const line = ctx.line.progress({label,used:Math.min(100,ratio*100),limit:100,format:{kind:'percent'},resetsAt:reset,
+        periodDurationMs:period || ctx.util.calendarMonthDuration(reset)})
+      if (label === 'Monthly' && ratio >= 1) {
+        if (previous >= 0) lines.splice(previous,1)
+        lines.unshift(line)
+      } else if (previous >= 0) lines[previous] = line
+      else lines.push(line)
     }
-
-    return enrichMembership(ctx, {
-      source,
-      plan: parsePlanLabel(data),
-      lines,
-    }, token)
+    const result = enrichMembership(ctx, {source,plan:parsePlanLabel(data),lines}, token)
+    if (result.lines.length === 0) throw "Kimi usage response did not contain measurable quota counters."
+    return result
   }
 
   globalThis.__openusage_plugin = { id: "kimi", probe }

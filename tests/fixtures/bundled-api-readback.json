@@ -1,0 +1,201 @@
+{
+  "abliteration": {
+    "body": {
+      "data": {
+        "total_credits": 100,
+        "total_usage": 25
+      }
+    },
+    "label": "Balance",
+    "value": "$75.00",
+    "quotaLabel": "Credits"
+  },
+  "aerostack": {
+    "body": {
+      "usage": {
+        "ai_tokens": {
+          "used": 25,
+          "limit": 100
+        }
+      },
+      "period": "2026-09",
+      "tier": "Pro"
+    },
+    "label": "Tokens used",
+    "value": "25",
+    "quotaLabel": "Monthly AI tokens"
+  },
+  "chatbox": {
+    "body": {
+      "data": {
+        "unified_token_usage_details": [
+          {
+            "type": "plan",
+            "token_usage": 25,
+            "token_limit": 100
+          }
+        ],
+        "name": "Fixture Pro",
+        "status": "active"
+      }
+    },
+    "label": "Plan",
+    "used": 25
+  },
+  "cosmic": {
+    "scope": "project-fixture",
+    "body": {
+      "usage": {
+        "ai": {
+          "input_tokens": 25,
+          "output_tokens": 10
+        }
+      },
+      "plan_info": {
+        "ai_tokens": {
+          "max_input": "100",
+          "max_output": 100
+        }
+      }
+    },
+    "label": "Input tokens",
+    "used": 25
+  },
+  "exa": {
+    "scope": "key-fixture",
+    "body": {
+      "total_cost_usd": 1.25,
+      "period": {
+        "start": "2026-09-01T00:00:00.000Z",
+        "end": "2026-09-05T12:00:00.000Z"
+      }
+    },
+    "label": "Spend",
+    "value": "USD 1.25"
+  },
+  "fal": {
+    "body": {
+      "credits": {
+        "current_balance": "-1.25",
+        "currency": "USD"
+      },
+      "username": "fixture"
+    },
+    "label": "Credit balance",
+    "value": "USD -1.25"
+  },
+  "flora": {
+    "scope": "ws_fixture",
+    "body": {
+      "available_cost": 12.5,
+      "balance_scope": "workspace",
+      "spend": {
+        "status": "unavailable",
+        "reason": "permission_missing"
+      }
+    },
+    "label": "Available",
+    "value": "USD 12.50"
+  },
+  "futureagi": {
+    "settings": {
+      "FI_SECRET_KEY": "fixture-secondary"
+    },
+    "body": {
+      "status": true,
+      "result": {
+        "billing_period_start": "2026-09-01",
+        "billing_period_end": "2026-10-01",
+        "dimensions": [
+          {
+            "key": "ai_credits",
+            "display_name": "AI credits",
+            "display_unit": "credits",
+            "current_usage": 25,
+            "free_allowance": 100
+          }
+        ],
+        "total_estimated_cost": 1.25
+      }
+    },
+    "label": "AI credits",
+    "used": 25
+  },
+  "linkup": {
+    "body": {
+      "balance": 12.5
+    },
+    "label": "Credit balance",
+    "value": "$12.50"
+  },
+  "munito": {
+    "body": {
+      "periods": [
+        {
+          "period": "day",
+          "spent_usd": 2.5,
+          "limit_usd": 10
+        },
+        {
+          "period": "month",
+          "spent_usd": 25,
+          "limit_usd": 100
+        }
+      ]
+    },
+    "label": "Daily spend limit",
+    "used": 25
+  },
+  "sailresearch": {
+    "body": {
+      "object": "usage.summary",
+      "available": true,
+      "has_metronome_customer": true,
+      "balance_unavailable": false,
+      "balance": 1250,
+      "period_spend": 250,
+      "effective_range": "30d"
+    },
+    "label": "Credit balance",
+    "value": "$12.50"
+  },
+  "sofya": {
+    "body": {
+      "credits": 12.5,
+      "plan_credits": 10,
+      "purchased_credits": 2.5,
+      "is_free_tier": false
+    },
+    "label": "Available credits",
+    "value": "12.5"
+  },
+  "soniox": {
+    "body": {
+      "available_balance_usd": "12.5",
+      "invoice_billing_enabled": false
+    },
+    "monthly": {
+      "usage_usd": "25",
+      "monthly_budget_usd": "100",
+      "month": "2026-09"
+    },
+    "label": "Monthly budget",
+    "used": 25
+  },
+  "tavily": {
+    "body": {
+      "account": {
+        "plan_usage": 25,
+        "plan_limit": 100,
+        "paygo_usage": 0,
+        "paygo_limit": null
+      },
+      "key": {
+        "usage": 25,
+        "limit": null
+      }
+    },
+    "label": "Account plan",
+    "used": 25
+  }
+}

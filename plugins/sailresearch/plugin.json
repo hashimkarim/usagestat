@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "id": "sailresearch",
+  "name": "Sail Research",
+  "version": "0.1.0",
+  "entry": "plugin.js",
+  "enabledByDefault": false,
+  "supportedModes": [
+    "api"
+  ],
+  "autoMode": "api",
+  "usageDashboardUrl": "https://sailresearch.com",
+  "envVars": [
+    "SAIL_API_KEY"
+  ],
+  "setupFields": [],
+  "upstream": {
+    "repository": "https://github.com/steipete/CodexBar",
+    "revision": "6070b29a1a5d51193a634dc1b0a14a67c39d0ccc",
+    "path": "Sources/CodexBarCore/Resources/Plugins/sailresearch.js",
+    "sha256": "3823be0a067659d6ae8dc4691e1b346cc7c7656e7f57134c12d898babcebb809",
+    "license": "MIT"
+  }
+}

@@ -16,9 +16,17 @@
     "MUSE_WEB_TEAM_ID",
     "MUSE_COOKIE"
   ],
+  "setupFields": [
+    {
+      "key": "MUSE_WEB_TEAM_ID",
+      "title": "Browser team ID",
+      "type": "string",
+      "description": "Provider-specific account or source selection."
+    }
+  ],
   "upstream": {
     "repository": "https://github.com/steipete/CodexBar",
-    "revision": "6ba06fe9ec1522dd5c59e16810115bce28aa148f",
+    "revision": "6070b29a1a5d51193a634dc1b0a14a67c39d0ccc",
     "path": "Sources/CodexBarCore/Resources/Plugins/muse.js",
     "sha256": "85b6f9489f4e004d027cca1fe2a0a87884792d0be7aa50ef7b8df3b17902c424",
     "license": "MIT"

@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "id": "aerostack",
+  "name": "Aerostack",
+  "version": "0.1.0",
+  "entry": "plugin.js",
+  "enabledByDefault": false,
+  "supportedModes": [
+    "api"
+  ],
+  "autoMode": "api",
+  "usageDashboardUrl": "https://app.aerostack.dev",
+  "envVars": [
+    "AEROSTACK_TOKEN"
+  ],
+  "setupFields": [],
+  "upstream": {
+    "repository": "https://github.com/steipete/CodexBar",
+    "revision": "6070b29a1a5d51193a634dc1b0a14a67c39d0ccc",
+    "path": "Sources/CodexBarCore/Resources/Plugins/aerostack.js",
+    "sha256": "f0ead202fc5ee40481ea22122b7f4d9238013cbc68cb6b218592d6a64439a9f3",
+    "license": "MIT"
+  }
+}

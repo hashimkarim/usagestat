@@ -1,4 +1,3 @@
-globalThis.__OPENUSAGE_PLUGIN_REGISTRATION_ID__ = "cursor";
 (function () {
   const KEYCHAIN_ACCESS_TOKEN_SERVICE = "cursor-access-token"
   const KEYCHAIN_REFRESH_TOKEN_SERVICE = "cursor-refresh-token"
@@ -1137,13 +1136,21 @@ globalThis.__OPENUSAGE_PLUGIN_REGISTRATION_ID__ = "cursor";
       if (!Number.isFinite(percent) || percent < 0) return result
       const resetMs = ctx.util.parseDateMs(usage.nextResetTimestampUtc)
       const startMs = ctx.util.parseDateMs(usage.currentPeriodStart)
+      const paid = usage.hasNonZeroIncludedLimit === true || usage.includedLimitZero === false
+      const requestsPrimary = result.lines.some(item => item.type === 'progress' && item.label === 'Requests')
+      if (usage.isUnified === true && paid && Number.isFinite(resetMs) && resetMs > Date.parse(ctx.nowIso) && !requestsPrimary) {
+        result.lines = result.lines.filter(item => !['Total usage','Cursor Models','Other Models','Grok Bot usage'].includes(item.label))
+        result.lines.unshift(ctx.line.progress({label:'Weekly',used:Math.min(100,percent),limit:100,format:{kind:'percent'},
+          resetsAt:ctx.util.toIso(resetMs),periodDurationMs:7*24*60*60*1000}))
+        return result
+      }
       const line = ctx.line.progress({
         label: "Grok Bot usage",
         used: Math.min(100, percent),
         limit: 100,
         format: { kind: "percent" },
         resetsAt: Number.isFinite(resetMs) ? ctx.util.toIso(resetMs) : undefined,
-        periodDurationMs: Number.isFinite(startMs) && Number.isFinite(resetMs) && resetMs > startMs
+        periodDurationMs: paid ? 7*24*60*60*1000 : Number.isFinite(startMs) && Number.isFinite(resetMs) && resetMs > startMs
           ? resetMs - startMs : 7 * 24 * 60 * 60 * 1000,
       })
       let insertAt = result.lines.length

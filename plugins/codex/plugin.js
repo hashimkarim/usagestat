@@ -375,8 +375,9 @@
   function formatCodexPlan(ctx, planType) {
     const rawPlan = typeof planType === "string" ? planType.trim() : ""
     if (!rawPlan) return null
-    if (rawPlan.toLowerCase() === "prolite") return "Pro 5x"
-    if (rawPlan.toLowerCase() === "pro") return "Pro 20x"
+    if (rawPlan.toLowerCase() === "prolite") return "Pro 100"
+    if (rawPlan.toLowerCase() === "pro") return "Pro 200"
+    if (rawPlan.toLowerCase() === "promax") return "Pro 500"
     if (rawPlan.toLowerCase() === "self_serve_business_prolite") return "Business Premium"
     return ctx.fmt.planLabel(rawPlan) || null
   }

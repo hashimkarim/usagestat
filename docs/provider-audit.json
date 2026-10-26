@@ -29,6 +29,61 @@
       "auditNote": "Configured credentials and HTTP request code inspected; real credentials, API responses and provider/account behavior remain unverified on each OS."
     },
     {
+      "id": "abliteration",
+      "manifest": "plugins/abliteration/plugin.json",
+      "entry": "plugins/abliteration/plugin.js",
+      "entrySha256": "612441b172cb84e94153820d3dc20e1509a171659bc64f6f70ba87d8df04093d",
+      "declaredModes": [
+        "api"
+      ],
+      "autoMode": "api",
+      "osStatus": {
+        "linux": "I",
+        "macos": "I",
+        "windows": "I"
+      },
+      "liveCredentialQualification": "unverified",
+      "methods": [
+        "configured token/key",
+        "native bundled-provider adapter"
+      ],
+      "hostCalls": [],
+      "literalPathEvidence": [],
+      "branchesOnSourceMode": false,
+      "fixtures": [
+        "tests/bundled-providers.test.cjs",
+        "tests/provider-inspo-20261026.test.cjs"
+      ],
+      "auditNote": "Vendored CodexBar provider with a bounded native asynchronous host adapter and explicit credential/endpoint routing. Disabled by default. Adapter fixtures do not qualify real credentials, browser import, or every optional upstream workflow; cache TTL is not persisted."
+    },
+    {
+      "id": "aerostack",
+      "manifest": "plugins/aerostack/plugin.json",
+      "entry": "plugins/aerostack/plugin.js",
+      "entrySha256": "6980caf4ad4b67b22086fe9dd84e38f75b3fb19de6fb353bc6011f20c9a98737",
+      "declaredModes": [
+        "api"
+      ],
+      "autoMode": "api",
+      "osStatus": {
+        "linux": "I",
+        "macos": "I",
+        "windows": "I"
+      },
+      "liveCredentialQualification": "unverified",
+      "methods": [
+        "native bundled-provider adapter"
+      ],
+      "hostCalls": [],
+      "literalPathEvidence": [],
+      "branchesOnSourceMode": false,
+      "fixtures": [
+        "tests/bundled-providers.test.cjs",
+        "tests/provider-inspo-20261026.test.cjs"
+      ],
+      "auditNote": "Vendored CodexBar provider with a bounded native asynchronous host adapter and explicit credential/endpoint routing. Disabled by default. Adapter fixtures do not qualify real credentials, browser import, or every optional upstream workflow; cache TTL is not persisted."
+    },
+    {
       "id": "aiand",
       "manifest": "plugins/aiand/plugin.json",
       "entry": "plugins/aiand/plugin.js",
@@ -62,7 +117,7 @@
       "id": "aixy",
       "manifest": "plugins/aixy/plugin.json",
       "entry": "plugins/aixy/plugin.js",
-      "entrySha256": "34375adf81ea629101b0657e2eea95894b89a0deb712c27633f18b1f4a75e08e",
+      "entrySha256": "61af408c0200303bb4cb0b57e02048fb7122627599ab45a77744d29ac16b958b",
       "declaredModes": [
         "api"
       ],
@@ -81,7 +136,8 @@
       "literalPathEvidence": [],
       "branchesOnSourceMode": false,
       "fixtures": [
-        "tests/bundled-providers.test.cjs"
+        "tests/bundled-providers.test.cjs",
+        "tests/provider-inspo-20261026.test.cjs"
       ],
       "auditNote": "Vendored CodexBar provider with a bounded native asynchronous host adapter and explicit credential/endpoint routing. Disabled by default. Adapter fixtures do not qualify real credentials, browser import, or every optional upstream workflow; cache TTL is not persisted."
     },
@@ -173,7 +229,7 @@
       "id": "antigravity",
       "manifest": "plugins/antigravity/plugin.json",
       "entry": "plugins/antigravity/plugin.js",
-      "entrySha256": "e51b889922fe7fce7d06fe3c37ff882781f9db953e7bb07c0043b87a3943ba9e",
+      "entrySha256": "84f7fcb2cb2a39a4f3fc77a8b7566cdc822224134a283d1cc0b88bf5113fdbc6",
       "declaredModes": [
         "oauth",
         "local"
@@ -210,7 +266,8 @@
         "tests/provider-remaining-paths.test.cjs",
         "tools/portability/ide_discovery.py",
         "tests/inspo-sync-20260929.test.cjs",
-        "tests/antigravity-access.test.cjs"
+        "tests/antigravity-access.test.cjs",
+        "tests/provider-inspo-20261026.test.cjs"
       ],
       "auditNote": "Native IDE roots and profile/cache isolation fixtures; private OAuth schema/current app still unverified. Grouped session/weekly quota fixtures cover Starter, unknown values, explicit cadence and legacy fallbacks. HTTP 403 quota permission denials remain distinct from expired authentication; fixtures preserve model fallback and one 401 refresh."
     },
@@ -218,7 +275,7 @@
       "id": "antigravity-cli",
       "manifest": "plugins/antigravity-cli/plugin.json",
       "entry": "plugins/antigravity-cli/plugin.js",
-      "entrySha256": "555e1d8471545d4a4e677640dab673ffa2d41605e6713789872561ad5fe3e744",
+      "entrySha256": "bb2b29f90789ea6efe036aa2763cb6d5a73b83d60ca34856079d2d72b8887734",
       "declaredModes": [
         "oauth",
         "local"
@@ -246,7 +303,8 @@
       "branchesOnSourceMode": false,
       "fixtures": [
         "tests/inspo-sync-20260929.test.cjs",
-        "tests/antigravity-access.test.cjs"
+        "tests/antigravity-access.test.cjs",
+        "tests/provider-inspo-20261026.test.cjs"
       ],
       "auditNote": "Exact gemini/antigravity account only; upstream keyring target/encoding and CLI-state versions need verification. Grouped session/weekly quota fixtures cover Starter, unknown values, explicit cadence and legacy fallbacks. HTTP 403 quota permission denials remain distinct from expired authentication; fixtures preserve model fallback and one 401 refresh."
     },
@@ -254,7 +312,7 @@
       "id": "antigravity-ide",
       "manifest": "plugins/antigravity-ide/plugin.json",
       "entry": "plugins/antigravity-ide/plugin.js",
-      "entrySha256": "120e636fe7a7554da35e439ae684d4ccc574b7b8ce05e52d9fd4a5ae3b283f7b",
+      "entrySha256": "99ab647e100e8095da355189c068101cd91e405c411b15bbd86175e8542121b0",
       "declaredModes": [
         "local"
       ],
@@ -277,7 +335,8 @@
       "branchesOnSourceMode": false,
       "fixtures": [
         "tools/portability/ide_discovery.py",
-        "tests/inspo-sync-20260929.test.cjs"
+        "tests/inspo-sync-20260929.test.cjs",
+        "tests/provider-inspo-20261026.test.cjs"
       ],
       "auditNote": "Native discovery/argument fixtures; real IDE version and process permissions pending #12/#20. Grouped session/weekly quota fixtures cover Starter, unknown values, explicit cadence and legacy fallbacks."
     },
@@ -285,7 +344,7 @@
       "id": "atlascloud",
       "manifest": "plugins/atlascloud/plugin.json",
       "entry": "plugins/atlascloud/plugin.js",
-      "entrySha256": "ad20742d3c0f4a1e41f86408d4ae9535af8c5225706d2dee1ce70b87ee8a0c23",
+      "entrySha256": "42f143fc5f5ce6315d1f885ace3c816f61cd91032c1c4aa494fba6de4e9ca5f8",
       "declaredModes": [
         "api"
       ],
@@ -304,7 +363,8 @@
       "literalPathEvidence": [],
       "branchesOnSourceMode": false,
       "fixtures": [
-        "tests/bundled-providers.test.cjs"
+        "tests/bundled-providers.test.cjs",
+        "tests/provider-inspo-20261026.test.cjs"
       ],
       "auditNote": "Vendored CodexBar provider with a bounded native asynchronous host adapter and explicit credential/endpoint routing. Disabled by default. Adapter fixtures do not qualify real credentials, browser import, or every optional upstream workflow; cache TTL is not persisted."
     },
@@ -397,7 +457,7 @@
       "id": "bifrost",
       "manifest": "plugins/bifrost/plugin.json",
       "entry": "plugins/bifrost/plugin.js",
-      "entrySha256": "45e9c1a3c9254e430dc804c168296fdf74353b418ff345315520b7535453ca8e",
+      "entrySha256": "25cc381bcbec2b7b897ad7a9b999d25587394fcf657f132332ce95ec807b0028",
       "declaredModes": [
         "api"
       ],
@@ -416,7 +476,35 @@
       "literalPathEvidence": [],
       "branchesOnSourceMode": false,
       "fixtures": [
-        "tests/bundled-providers.test.cjs"
+        "tests/bundled-providers.test.cjs",
+        "tests/provider-inspo-20261026.test.cjs"
+      ],
+      "auditNote": "Vendored CodexBar provider with a bounded native asynchronous host adapter and explicit credential/endpoint routing. Disabled by default. Adapter fixtures do not qualify real credentials, browser import, or every optional upstream workflow; cache TTL is not persisted."
+    },
+    {
+      "id": "chatbox",
+      "manifest": "plugins/chatbox/plugin.json",
+      "entry": "plugins/chatbox/plugin.js",
+      "entrySha256": "dd280ca8498a7ea34b06ff542992c48345f0dc88deb256a06ee4f2a697574107",
+      "declaredModes": [
+        "api"
+      ],
+      "autoMode": "api",
+      "osStatus": {
+        "linux": "I",
+        "macos": "I",
+        "windows": "I"
+      },
+      "liveCredentialQualification": "unverified",
+      "methods": [
+        "native bundled-provider adapter"
+      ],
+      "hostCalls": [],
+      "literalPathEvidence": [],
+      "branchesOnSourceMode": false,
+      "fixtures": [
+        "tests/bundled-providers.test.cjs",
+        "tests/provider-inspo-20261026.test.cjs"
       ],
       "auditNote": "Vendored CodexBar provider with a bounded native asynchronous host adapter and explicit credential/endpoint routing. Disabled by default. Adapter fixtures do not qualify real credentials, browser import, or every optional upstream workflow; cache TTL is not persisted."
     },
@@ -450,7 +538,7 @@
       "id": "claude",
       "manifest": "plugins/claude/plugin.json",
       "entry": "plugins/claude/plugin.js",
-      "entrySha256": "48ece30db5a4ed37b499e0e71b675a2528e1369a203fd29506ca22a7a711b6e8",
+      "entrySha256": "a0ee308beb3995ea97b954eb1025177706b078b2e0fac21dbf1ca948b57f2287",
       "declaredModes": [
         "oauth",
         "cli",
@@ -498,9 +586,39 @@
         "tests/plugin-contracts.test.cjs",
         "tests/provider-updates.test.cjs",
         "tests/quota-regressions.test.cjs",
-        "tests/inspo-sync-20260927.test.cjs"
+        "tests/inspo-sync-20260927.test.cjs",
+        "tests/provider-inspo-20261026.test.cjs"
       ],
       "auditNote": "Native local collectors and macOS profile/account isolation fixtures. OAuth/web/API credentials and real app versions unverified."
+    },
+    {
+      "id": "claudeplatform",
+      "manifest": "plugins/claudeplatform/plugin.json",
+      "entry": "plugins/claudeplatform/plugin.js",
+      "entrySha256": "ca0b1d8c952666023c243616459187f117eb90b832588522119cb051f21ed172",
+      "declaredModes": [
+        "web"
+      ],
+      "autoMode": "web",
+      "osStatus": {
+        "linux": "I",
+        "macos": "I",
+        "windows": "I"
+      },
+      "liveCredentialQualification": "unverified",
+      "methods": [
+        "native bundled-provider adapter",
+        "native scoped cookie session"
+      ],
+      "hostCalls": [],
+      "literalPathEvidence": [],
+      "branchesOnSourceMode": false,
+      "fixtures": [
+        "tests/bundled-providers.test.cjs",
+        "tests/provider-inspo-20261026.test.cjs",
+        "crates/ai-usage-plugins/src/cookie_sessions.rs"
+      ],
+      "auditNote": "Vendored CodexBar provider with a bounded native asynchronous host adapter and explicit credential/endpoint routing. Disabled by default. Adapter fixtures do not qualify real credentials, browser import, or every optional upstream workflow; cache TTL is not persisted. Manual cookie injection is native, instance-bound and restricted to reviewed HTTPS routes; automatic browser import and live acceptance are unverified."
     },
     {
       "id": "clawrouter",
@@ -669,7 +787,7 @@
       "id": "codex",
       "manifest": "plugins/codex/plugin.json",
       "entry": "plugins/codex/plugin.js",
-      "entrySha256": "424e9a4eef907712b10aa3a7b4eab54253a3746b1ad79d4220af3c96cc8621ab",
+      "entrySha256": "db6bf17d94ba9605816be3646a190f67bd1fd145178218f98697556536da84e4",
       "declaredModes": [
         "oauth",
         "local",
@@ -711,7 +829,8 @@
         "tools/portability/codex_auth.py",
         "tools/portability/local_usage.py",
         "crates/ai-usage-daemon/src/codex_usage.rs",
-        "tests/inspo-sync-20260927.test.cjs"
+        "tests/inspo-sync-20260927.test.cjs",
+        "tests/provider-inspo-20261026.test.cjs"
       ],
       "auditNote": "Native file/direct-keyring/age auth, canonical profile/revision/account guards and collectors. Encrypted store is read-only; config layers and non-OAuth auth modes are not interpreted."
     },
@@ -793,6 +912,33 @@
       "auditNote": "Bounded CLI helper host and native home expansion; real gh/Copilot auth stores, CLI versions and account mappings unverified."
     },
     {
+      "id": "cosmic",
+      "manifest": "plugins/cosmic/plugin.json",
+      "entry": "plugins/cosmic/plugin.js",
+      "entrySha256": "cf2b882cb15a3c47b6e09b7bd89894e508b453a6ad35d718e725b7f7be97e114",
+      "declaredModes": [
+        "api"
+      ],
+      "autoMode": "api",
+      "osStatus": {
+        "linux": "I",
+        "macos": "I",
+        "windows": "I"
+      },
+      "liveCredentialQualification": "unverified",
+      "methods": [
+        "native bundled-provider adapter"
+      ],
+      "hostCalls": [],
+      "literalPathEvidence": [],
+      "branchesOnSourceMode": false,
+      "fixtures": [
+        "tests/bundled-providers.test.cjs",
+        "tests/provider-inspo-20261026.test.cjs"
+      ],
+      "auditNote": "Vendored CodexBar provider with a bounded native asynchronous host adapter and explicit credential/endpoint routing. Disabled by default. Adapter fixtures do not qualify real credentials, browser import, or every optional upstream workflow; cache TTL is not persisted."
+    },
+    {
       "id": "crof",
       "manifest": "plugins/crof/plugin.json",
       "entry": "plugins/crof/plugin.js",
@@ -848,7 +994,7 @@
       "id": "cursor",
       "manifest": "plugins/cursor/plugin.json",
       "entry": "plugins/cursor/plugin.js",
-      "entrySha256": "f24b1c7fe46f7a3f45fe17ed67c668b1cab7c49bc4364a754f8130f6d3c51cd3",
+      "entrySha256": "9e39019c36684978421398749e77cdbdd9203a4d3bc2b855717c0e5f07a1caaf",
       "declaredModes": [
         "oauth",
         "local"
@@ -888,15 +1034,17 @@
         "tests/provider-account-isolation.test.cjs",
         "tests/plugin-contracts.test.cjs",
         "tests/provider-updates.test.cjs",
-        "tests/quota-regressions.test.cjs"
+        "tests/quota-regressions.test.cjs",
+        "tests/provider-inspo-20261026.test.cjs",
+        "crates/ai-usage-plugins/src/cursor_usage_export/events.rs"
       ],
-      "auditNote": "Native DB resolver and stable/custom-profile isolation. Shared CLI fallback only for default stable profile; SQLite refresh writeback capability needs audit."
+      "auditNote": "Native DB resolver and stable/custom-profile isolation. Shared CLI fallback only for default stable profile; SQLite refresh writeback capability needs audit. Event history accepts complete pages of billed charges, scopes private derived caches to account/profile/timezone, and falls back to CSV when evidence is incomplete."
     },
     {
       "id": "cursor-nightly",
       "manifest": "plugins/cursor-nightly/plugin.json",
-      "entry": "plugins/cursor-nightly/plugin.js",
-      "entrySha256": "9175cbcabd4bf791c7f56c1a06bba176699d0ace1453e3245068567566f79533",
+      "entry": "plugins/cursor/plugin.js",
+      "entrySha256": "9e39019c36684978421398749e77cdbdd9203a4d3bc2b855717c0e5f07a1caaf",
       "declaredModes": [
         "oauth",
         "local"
@@ -936,9 +1084,11 @@
         "tests/provider-account-isolation.test.cjs",
         "tests/plugin-contracts.test.cjs",
         "tests/provider-updates.test.cjs",
-        "tests/quota-regressions.test.cjs"
+        "tests/quota-regressions.test.cjs",
+        "tests/provider-inspo-20261026.test.cjs",
+        "crates/ai-usage-plugins/src/cursor_usage_export/events.rs"
       ],
-      "auditNote": "Separate native DB and override; shared stable CLI auth/history excluded. SQLite refresh writeback capability needs audit."
+      "auditNote": "Separate native DB and override; shared stable CLI auth/history excluded. SQLite refresh writeback capability needs audit. Event history accepts complete pages of billed charges, scopes private derived caches to account/profile/timezone, and falls back to CSV when evidence is incomplete."
     },
     {
       "id": "deepgram",
@@ -1076,7 +1226,7 @@
       "id": "devpass",
       "manifest": "plugins/devpass/plugin.json",
       "entry": "plugins/devpass/plugin.js",
-      "entrySha256": "5acf72712a88424b2da5c4c871df6964603a938d4141b7404bef61098b9b2d1b",
+      "entrySha256": "cbc37e43d0b043ba268aac248809ac6f6a6398b0780ffa8997634980a85876a4",
       "declaredModes": [
         "api"
       ],
@@ -1095,7 +1245,8 @@
       "literalPathEvidence": [],
       "branchesOnSourceMode": false,
       "fixtures": [
-        "tests/bundled-providers.test.cjs"
+        "tests/bundled-providers.test.cjs",
+        "tests/provider-inspo-20261026.test.cjs"
       ],
       "auditNote": "Vendored CodexBar provider with a bounded native asynchronous host adapter and explicit credential/endpoint routing. Disabled by default. Adapter fixtures do not qualify real credentials, browser import, or every optional upstream workflow; cache TTL is not persisted."
     },
@@ -1203,6 +1354,34 @@
       "auditNote": "Configured credentials and HTTP request code inspected; real credentials, API responses and provider/account behavior remain unverified on each OS."
     },
     {
+      "id": "exa",
+      "manifest": "plugins/exa/plugin.json",
+      "entry": "plugins/exa/plugin.js",
+      "entrySha256": "d9c24d26600ed10d2265f4d90868868ebe81e2adedfc217b429b226ecd5bf7ad",
+      "declaredModes": [
+        "api"
+      ],
+      "autoMode": "api",
+      "osStatus": {
+        "linux": "I",
+        "macos": "I",
+        "windows": "I"
+      },
+      "liveCredentialQualification": "unverified",
+      "methods": [
+        "configured token/key",
+        "native bundled-provider adapter"
+      ],
+      "hostCalls": [],
+      "literalPathEvidence": [],
+      "branchesOnSourceMode": false,
+      "fixtures": [
+        "tests/bundled-providers.test.cjs",
+        "tests/provider-inspo-20261026.test.cjs"
+      ],
+      "auditNote": "Vendored CodexBar provider with a bounded native asynchronous host adapter and explicit credential/endpoint routing. Disabled by default. Adapter fixtures do not qualify real credentials, browser import, or every optional upstream workflow; cache TTL is not persisted."
+    },
+    {
       "id": "factory",
       "manifest": "plugins/factory/plugin.json",
       "entry": "plugins/factory/plugin.js",
@@ -1251,6 +1430,33 @@
       "auditNote": "Configured API keys and manual web credentials are implemented; legacy file/keychain paths remain. V2 encrypted files still require absent AES-GCM host methods; real auth formats/account selection are unverified."
     },
     {
+      "id": "fal",
+      "manifest": "plugins/fal/plugin.json",
+      "entry": "plugins/fal/plugin.js",
+      "entrySha256": "c11b6d30e6f1edbf387f61f37b665d144ba28d242ffadcf8d3b3e312d1060a7e",
+      "declaredModes": [
+        "api"
+      ],
+      "autoMode": "api",
+      "osStatus": {
+        "linux": "I",
+        "macos": "I",
+        "windows": "I"
+      },
+      "liveCredentialQualification": "unverified",
+      "methods": [
+        "native bundled-provider adapter"
+      ],
+      "hostCalls": [],
+      "literalPathEvidence": [],
+      "branchesOnSourceMode": false,
+      "fixtures": [
+        "tests/bundled-providers.test.cjs",
+        "tests/provider-inspo-20261026.test.cjs"
+      ],
+      "auditNote": "Vendored CodexBar provider with a bounded native asynchronous host adapter and explicit credential/endpoint routing. Disabled by default. Adapter fixtures do not qualify real credentials, browser import, or every optional upstream workflow; cache TTL is not persisted."
+    },
+    {
       "id": "fireworks-ai",
       "manifest": "plugins/fireworks-ai/plugin.json",
       "entry": "plugins/fireworks-ai/plugin.js",
@@ -1275,6 +1481,62 @@
       "branchesOnSourceMode": false,
       "fixtures": [],
       "auditNote": "Configured credentials and HTTP request code inspected; real credentials, API responses and provider/account behavior remain unverified on each OS."
+    },
+    {
+      "id": "flora",
+      "manifest": "plugins/flora/plugin.json",
+      "entry": "plugins/flora/plugin.js",
+      "entrySha256": "c67c2c4c7b4286837b7898011371074bbc27f59f187b30b89dbfe71226256e19",
+      "declaredModes": [
+        "api"
+      ],
+      "autoMode": "api",
+      "osStatus": {
+        "linux": "I",
+        "macos": "I",
+        "windows": "I"
+      },
+      "liveCredentialQualification": "unverified",
+      "methods": [
+        "configured token/key",
+        "native bundled-provider adapter"
+      ],
+      "hostCalls": [],
+      "literalPathEvidence": [],
+      "branchesOnSourceMode": false,
+      "fixtures": [
+        "tests/bundled-providers.test.cjs",
+        "tests/provider-inspo-20261026.test.cjs"
+      ],
+      "auditNote": "Vendored CodexBar provider with a bounded native asynchronous host adapter and explicit credential/endpoint routing. Disabled by default. Adapter fixtures do not qualify real credentials, browser import, or every optional upstream workflow; cache TTL is not persisted."
+    },
+    {
+      "id": "futureagi",
+      "manifest": "plugins/futureagi/plugin.json",
+      "entry": "plugins/futureagi/plugin.js",
+      "entrySha256": "a057ccedac78bf50530b7774c5d5a377c62ea76951ba302d5fe880e6ae9cd4a9",
+      "declaredModes": [
+        "api"
+      ],
+      "autoMode": "api",
+      "osStatus": {
+        "linux": "I",
+        "macos": "I",
+        "windows": "I"
+      },
+      "liveCredentialQualification": "unverified",
+      "methods": [
+        "configured token/key",
+        "native bundled-provider adapter"
+      ],
+      "hostCalls": [],
+      "literalPathEvidence": [],
+      "branchesOnSourceMode": false,
+      "fixtures": [
+        "tests/bundled-providers.test.cjs",
+        "tests/provider-inspo-20261026.test.cjs"
+      ],
+      "auditNote": "Vendored CodexBar provider with a bounded native asynchronous host adapter and explicit credential/endpoint routing. Disabled by default. Adapter fixtures do not qualify real credentials, browser import, or every optional upstream workflow; cache TTL is not persisted."
     },
     {
       "id": "gemini",
@@ -1322,7 +1584,7 @@
       "id": "gemini-apps",
       "manifest": "plugins/gemini-apps/plugin.json",
       "entry": "plugins/gemini-apps/plugin.js",
-      "entrySha256": "84c08d82429650d6ce028a57621ed74e460464a25cd90fcf1f03d7503a56848d",
+      "entrySha256": "1d26c4da013575c02ca45cb46bae3e087b389315aa5838071af3e40517e9140e",
       "declaredModes": [
         "web"
       ],
@@ -1334,25 +1596,26 @@
       },
       "liveCredentialQualification": "unverified",
       "methods": [
-        "manual web credential"
+        "manual web credential",
+        "native bundled-provider adapter",
+        "native scoped cookie session"
       ],
-      "hostCalls": [
-        "chromiumCookies.read",
-        "crypto.sha1Hex",
-        "env.get"
-      ],
+      "hostCalls": [],
       "literalPathEvidence": [],
       "branchesOnSourceMode": false,
       "fixtures": [
-        "tests/inspo-sync-20260927.test.cjs"
+        "tests/bundled-providers.test.cjs",
+        "tests/inspo-sync-20260927.test.cjs",
+        "tests/provider-inspo-20261026.test.cjs",
+        "crates/ai-usage-plugins/src/cookie_sessions.rs"
       ],
-      "auditNote": "Explicit web-session SAPISID hash authentication and HTTP/1 RPC fixtures. Browser-bound live sessions and current RPC schema remain unverified."
+      "auditNote": "Manual instance-scoped opaque cookie session on the permitted Gemini GraphQL usage route. Stable provider identity and GEMINI_COOKIE alias preserved. Browser-bound live sessions remain unverified. Manual cookie injection is native, instance-bound and restricted to reviewed HTTPS routes; automatic browser import and live acceptance are unverified."
     },
     {
       "id": "gitkraken",
       "manifest": "plugins/gitkraken/plugin.json",
       "entry": "plugins/gitkraken/plugin.js",
-      "entrySha256": "42ed3911dd7a94f1e7236431e2dfe05642a06ea8ac31b6426eb4fcbc40e5447c",
+      "entrySha256": "33bc4586aa9425991edebec88778b7c0a47417c7375c61ef7abb2019985d3ad7",
       "declaredModes": [
         "api"
       ],
@@ -1370,7 +1633,8 @@
       "literalPathEvidence": [],
       "branchesOnSourceMode": false,
       "fixtures": [
-        "tests/bundled-providers.test.cjs"
+        "tests/bundled-providers.test.cjs",
+        "tests/provider-inspo-20261026.test.cjs"
       ],
       "auditNote": "Vendored CodexBar provider with a bounded native asynchronous host adapter and explicit credential/endpoint routing. Disabled by default. Adapter fixtures do not qualify real credentials, browser import, or every optional upstream workflow; cache TTL is not persisted."
     },
@@ -1440,7 +1704,34 @@
       "id": "helmcode",
       "manifest": "plugins/helmcode/plugin.json",
       "entry": "plugins/helmcode/plugin.js",
-      "entrySha256": "a5734830d942e4e10eaecd33035dc725dd43615bb8bdb88d138ee2db632c3b34",
+      "entrySha256": "818d04c3e9f73f619c738e8c1ea3094fdef76206aafc610d2ddb7983840bcaad",
+      "declaredModes": [
+        "web"
+      ],
+      "autoMode": "web",
+      "osStatus": {
+        "linux": "I",
+        "macos": "I",
+        "windows": "I"
+      },
+      "liveCredentialQualification": "unverified",
+      "methods": [
+        "native bundled-provider adapter"
+      ],
+      "hostCalls": [],
+      "literalPathEvidence": [],
+      "branchesOnSourceMode": false,
+      "fixtures": [
+        "tests/bundled-providers.test.cjs",
+        "tests/provider-inspo-20261026.test.cjs"
+      ],
+      "auditNote": "Vendored CodexBar provider with a bounded native asynchronous host adapter and explicit credential/endpoint routing. Disabled by default. Adapter fixtures do not qualify real credentials, browser import, or every optional upstream workflow; cache TTL is not persisted."
+    },
+    {
+      "id": "huggingface",
+      "manifest": "plugins/huggingface/plugin.json",
+      "entry": "plugins/huggingface/plugin.js",
+      "entrySha256": "67ed10a2050a4747ea4a68461bce93f0758e6086b6e80864129c7d60c7f3ee8c",
       "declaredModes": [
         "web"
       ],
@@ -1459,34 +1750,8 @@
       "literalPathEvidence": [],
       "branchesOnSourceMode": false,
       "fixtures": [
-        "tests/bundled-providers.test.cjs"
-      ],
-      "auditNote": "Vendored CodexBar provider with a bounded native asynchronous host adapter and explicit credential/endpoint routing. Disabled by default. Adapter fixtures do not qualify real credentials, browser import, or every optional upstream workflow; cache TTL is not persisted."
-    },
-    {
-      "id": "huggingface",
-      "manifest": "plugins/huggingface/plugin.json",
-      "entry": "plugins/huggingface/plugin.js",
-      "entrySha256": "a8fe6413186e5f0f4cc725383d0e2125c8e338fc7fbb43e02da8ee11ea931a1c",
-      "declaredModes": [
-        "api"
-      ],
-      "autoMode": "api",
-      "osStatus": {
-        "linux": "I",
-        "macos": "I",
-        "windows": "I"
-      },
-      "liveCredentialQualification": "unverified",
-      "methods": [
-        "manual web credential",
-        "native bundled-provider adapter"
-      ],
-      "hostCalls": [],
-      "literalPathEvidence": [],
-      "branchesOnSourceMode": false,
-      "fixtures": [
-        "tests/bundled-providers.test.cjs"
+        "tests/bundled-providers.test.cjs",
+        "tests/provider-inspo-20261026.test.cjs"
       ],
       "auditNote": "Vendored CodexBar provider with a bounded native asynchronous host adapter and explicit credential/endpoint routing. Disabled by default. Adapter fixtures do not qualify real credentials, browser import, or every optional upstream workflow; cache TTL is not persisted."
     },
@@ -1494,7 +1759,7 @@
       "id": "hyper",
       "manifest": "plugins/hyper/plugin.json",
       "entry": "plugins/hyper/plugin.js",
-      "entrySha256": "a406ea387ff96c6facbfa606b72636b386539a3c745e9d190c51105b084486cf",
+      "entrySha256": "3f8c5469b2a39a63c759fc2612242e0286f6a1443bc13e6bfd9f581b4f1e920f",
       "declaredModes": [
         "api",
         "web"
@@ -1515,7 +1780,8 @@
       "literalPathEvidence": [],
       "branchesOnSourceMode": false,
       "fixtures": [
-        "tests/bundled-providers.test.cjs"
+        "tests/bundled-providers.test.cjs",
+        "tests/provider-inspo-20261026.test.cjs"
       ],
       "auditNote": "Vendored CodexBar provider with a bounded native asynchronous host adapter and explicit credential/endpoint routing. Disabled by default. Adapter fixtures do not qualify real credentials, browser import, or every optional upstream workflow; cache TTL is not persisted."
     },
@@ -1616,7 +1882,7 @@
       "id": "kimi",
       "manifest": "plugins/kimi/plugin.json",
       "entry": "plugins/kimi/plugin.js",
-      "entrySha256": "f15ee9b8e7f1e4fafee8208953c220fe622a0200e3924d217dd177817e1386a9",
+      "entrySha256": "9f27a362c7552dce3da9f1bc8c37b5f5125ca7aaa82f6da9803a725435268f96",
       "declaredModes": [
         "api",
         "oauth",
@@ -1652,7 +1918,7 @@
         "tests/quota-regressions.test.cjs",
         "tests/kimi-updates.test.cjs"
       ],
-      "auditNote": "Configured Code API key, read-only isolated CLI-home OAuth and optional web membership enrichment. Exhausted monthly quota is primary. Real CLI/Desktop schemas and account stores remain unverified."
+      "auditNote": "Configured Code API key, read-only isolated CLI-home OAuth and optional web membership enrichment. Exhausted monthly quota is primary. Real CLI/Desktop schemas and account stores remain unverified. Current ratio pools and expiring gift credits are covered by tests/provider-inspo-20261026.test.cjs; exhausted monthly pools retain primary precedence."
     },
     {
       "id": "kimi-k2",
@@ -1722,6 +1988,63 @@
       "auditNote": "Native app-support/custom-root fixtures, included/overage credit parsing, and validated supported IDE API profile regions. CLI SQLite credential import and live app/account versions remain unverified."
     },
     {
+      "id": "langdock",
+      "manifest": "plugins/langdock/plugin.json",
+      "entry": "plugins/langdock/plugin.js",
+      "entrySha256": "e365b7f818a1675c16ec9747ddc7c8c7bd87c76e801f44351e780e951de99153",
+      "declaredModes": [
+        "web"
+      ],
+      "autoMode": "web",
+      "osStatus": {
+        "linux": "I",
+        "macos": "I",
+        "windows": "I"
+      },
+      "liveCredentialQualification": "unverified",
+      "methods": [
+        "native bundled-provider adapter",
+        "native scoped cookie session"
+      ],
+      "hostCalls": [],
+      "literalPathEvidence": [],
+      "branchesOnSourceMode": false,
+      "fixtures": [
+        "tests/bundled-providers.test.cjs",
+        "tests/provider-inspo-20261026.test.cjs",
+        "crates/ai-usage-plugins/src/cookie_sessions.rs"
+      ],
+      "auditNote": "Vendored CodexBar provider with a bounded native asynchronous host adapter and explicit credential/endpoint routing. Disabled by default. Adapter fixtures do not qualify real credentials, browser import, or every optional upstream workflow; cache TTL is not persisted. Manual cookie injection is native, instance-bound and restricted to reviewed HTTPS routes; automatic browser import and live acceptance are unverified."
+    },
+    {
+      "id": "linkup",
+      "manifest": "plugins/linkup/plugin.json",
+      "entry": "plugins/linkup/plugin.js",
+      "entrySha256": "18b06969afa104c9461f741fb8b4faac88bf4715bf66502177aaab886b209476",
+      "declaredModes": [
+        "api"
+      ],
+      "autoMode": "api",
+      "osStatus": {
+        "linux": "I",
+        "macos": "I",
+        "windows": "I"
+      },
+      "liveCredentialQualification": "unverified",
+      "methods": [
+        "configured token/key",
+        "native bundled-provider adapter"
+      ],
+      "hostCalls": [],
+      "literalPathEvidence": [],
+      "branchesOnSourceMode": false,
+      "fixtures": [
+        "tests/bundled-providers.test.cjs",
+        "tests/provider-inspo-20261026.test.cjs"
+      ],
+      "auditNote": "Vendored CodexBar provider with a bounded native asynchronous host adapter and explicit credential/endpoint routing. Disabled by default. Adapter fixtures do not qualify real credentials, browser import, or every optional upstream workflow; cache TTL is not persisted."
+    },
+    {
       "id": "litellm",
       "manifest": "plugins/litellm/plugin.json",
       "entry": "plugins/litellm/plugin.js",
@@ -1754,7 +2077,7 @@
       "id": "lithosai",
       "manifest": "plugins/lithosai/plugin.json",
       "entry": "plugins/lithosai/plugin.js",
-      "entrySha256": "3ba7bed78f248183bd70f0bbf6d59f6714106715ba57175e20c8870850115f53",
+      "entrySha256": "93fe7bc005bfe4482f05b8ef5c55ff9c3ae74b5aefd953f73cc5b61fbd964e27",
       "declaredModes": [
         "web"
       ],
@@ -1777,7 +2100,8 @@
         "tests/bundled-providers.test.cjs",
         "tests/provider-inspo-20261004.test.cjs",
         "crates/ai-usage-plugins/src/cookie_sessions.rs",
-        "crates/ai-usage-plugins/src/runtime.rs"
+        "crates/ai-usage-plugins/src/runtime.rs",
+        "tests/provider-inspo-20261026.test.cjs"
       ],
       "auditNote": "Instance-bound manual session plus same-origin CSRF echo on three permitted console routes. Signed prepaid balance and optional UTC spend; no fabricated quota. Rust/QuickJS and synthetic fixtures only; real sessions unverified."
     },
@@ -1811,7 +2135,7 @@
       "id": "llmman",
       "manifest": "plugins/llmman/plugin.json",
       "entry": "plugins/llmman/plugin.js",
-      "entrySha256": "0a48644a19793d07cfa38e10673ffe192ff38df09f3a673a691e86f9e4a4fd35",
+      "entrySha256": "c6f3b1cdeac931c8558bfec1b44bdc09605597ecb8ecb8f2e10e077572859f26",
       "declaredModes": [
         "api"
       ],
@@ -1830,7 +2154,8 @@
       "literalPathEvidence": [],
       "branchesOnSourceMode": false,
       "fixtures": [
-        "tests/bundled-providers.test.cjs"
+        "tests/bundled-providers.test.cjs",
+        "tests/provider-inspo-20261026.test.cjs"
       ],
       "auditNote": "Vendored CodexBar provider with a bounded native asynchronous host adapter and explicit credential/endpoint routing. Disabled by default. Adapter fixtures do not qualify real credentials, browser import, or every optional upstream workflow; cache TTL is not persisted."
     },
@@ -2003,10 +2328,38 @@
       "auditNote": "Configured credentials and HTTP request code inspected; real credentials, API responses and provider/account behavior remain unverified on each OS."
     },
     {
+      "id": "munito",
+      "manifest": "plugins/munito/plugin.json",
+      "entry": "plugins/munito/plugin.js",
+      "entrySha256": "a824763f1b00345fdbcf56ba37700e3247b84b384f5c2f708bb362dcfde7c3d6",
+      "declaredModes": [
+        "api"
+      ],
+      "autoMode": "api",
+      "osStatus": {
+        "linux": "I",
+        "macos": "I",
+        "windows": "I"
+      },
+      "liveCredentialQualification": "unverified",
+      "methods": [
+        "configured token/key",
+        "native bundled-provider adapter"
+      ],
+      "hostCalls": [],
+      "literalPathEvidence": [],
+      "branchesOnSourceMode": false,
+      "fixtures": [
+        "tests/bundled-providers.test.cjs",
+        "tests/provider-inspo-20261026.test.cjs"
+      ],
+      "auditNote": "Vendored CodexBar provider with a bounded native asynchronous host adapter and explicit credential/endpoint routing. Disabled by default. Adapter fixtures do not qualify real credentials, browser import, or every optional upstream workflow; cache TTL is not persisted."
+    },
+    {
       "id": "muse",
       "manifest": "plugins/muse/plugin.json",
       "entry": "plugins/muse/plugin.js",
-      "entrySha256": "e1e55685de63d92bef97f852045def8f01b2a0a6a7abf755fc2cfd9b64835489",
+      "entrySha256": "198377e85c848b5b86c8e6529790aa90f6299bca7f3eae6c30681becd148a381",
       "declaredModes": [
         "api"
       ],
@@ -2025,7 +2378,8 @@
       "branchesOnSourceMode": false,
       "fixtures": [
         "tests/bundled-providers.test.cjs",
-        "tests/provider-inspo-20261004.test.cjs"
+        "tests/provider-inspo-20261004.test.cjs",
+        "tests/provider-inspo-20261026.test.cjs"
       ],
       "auditNote": "Vendored CodexBar provider with a bounded native asynchronous host adapter and explicit credential/endpoint routing. Disabled by default. Adapter fixtures do not qualify real credentials, browser import, or every optional upstream workflow; cache TTL is not persisted."
     },
@@ -2033,7 +2387,7 @@
       "id": "museai",
       "manifest": "plugins/museai/plugin.json",
       "entry": "plugins/museai/plugin.js",
-      "entrySha256": "04f206c20f962450f272395775318905a353ba33fb416fdeb175f9a43000a6bd",
+      "entrySha256": "6960a341047970237d34b079b346b211adf040f36bb9f694a406eec1b1f26167",
       "declaredModes": [
         "web"
       ],
@@ -2053,7 +2407,8 @@
       "branchesOnSourceMode": false,
       "fixtures": [
         "tests/bundled-providers.test.cjs",
-        "tests/provider-inspo-20261004.test.cjs"
+        "tests/provider-inspo-20261004.test.cjs",
+        "tests/provider-inspo-20261026.test.cjs"
       ],
       "auditNote": "Separate muse.ai web provider; bounded action discovery and instance-local public action ID caching. Manual cookies only; weekly percentages and reported top-ups remain separate. Real sessions unverified."
     },
@@ -2143,7 +2498,7 @@
       "id": "nous",
       "manifest": "plugins/nous/plugin.json",
       "entry": "plugins/nous/plugin.js",
-      "entrySha256": "446dd24358b73f6fb8c5f9b406df955fb8a8e2da7441b2652bdd1bdbe3766842",
+      "entrySha256": "0b465e67521597392ad9dbd42efa584be1838b6b2e81c49e9a2eab8aaf2785a8",
       "declaredModes": [
         "api"
       ],
@@ -2162,7 +2517,8 @@
       "literalPathEvidence": [],
       "branchesOnSourceMode": false,
       "fixtures": [
-        "tests/bundled-providers.test.cjs"
+        "tests/bundled-providers.test.cjs",
+        "tests/provider-inspo-20261026.test.cjs"
       ],
       "auditNote": "Vendored CodexBar provider with a bounded native asynchronous host adapter and explicit credential/endpoint routing. Disabled by default. Adapter fixtures do not qualify real credentials, browser import, or every optional upstream workflow; cache TTL is not persisted."
     },
@@ -2170,7 +2526,7 @@
       "id": "ollama",
       "manifest": "plugins/ollama/plugin.json",
       "entry": "plugins/ollama/plugin.js",
-      "entrySha256": "24f4b42240e82496a33b68d97c1771a9ff6411b546fc7a02c76abb6ff21a32e2",
+      "entrySha256": "8e58f645ef033304ec913c8181fda63ab2e3be132db7155a0c11956a5a340c9e",
       "declaredModes": [
         "api",
         "web"
@@ -2195,7 +2551,8 @@
       "fixtures": [
         "tests/plugin-contracts.test.cjs",
         "tests/provider-updates.test.cjs",
-        "tests/quota-regressions.test.cjs"
+        "tests/quota-regressions.test.cjs",
+        "tests/provider-inspo-20261026.test.cjs"
       ],
       "auditNote": "Configured credentials and HTTP request code inspected; real credentials, API responses and provider/account behavior remain unverified on each OS."
     },
@@ -2256,7 +2613,7 @@
       "id": "opencode-go",
       "manifest": "plugins/opencode-go/plugin.json",
       "entry": "plugins/opencode-go/plugin.js",
-      "entrySha256": "bf3a95eb67ca55a45c83bf7da4388e13d95e84d5e9b58ad641c0e947a768111d",
+      "entrySha256": "d4e291cae8b3998fdd8e03161b87200cea6d885108681db8aa9199dc51d4c6b6",
       "declaredModes": [
         "api",
         "local",
@@ -2290,7 +2647,8 @@
         "tests/plugin-contracts.test.cjs",
         "tests/provider-updates.test.cjs",
         "tests/quota-regressions.test.cjs",
-        "tests/provider-inspo-20261004.test.cjs"
+        "tests/provider-inspo-20261004.test.cjs",
+        "tests/provider-inspo-20261026.test.cjs"
       ],
       "auditNote": "Upstream XDG roots, explicit channel/database selection, v2 current credential/logout authority, assistant/completed-compaction history and migrated-ID deduplication covered by fixtures. Real app/account/API versions remain unverified."
     },
@@ -2327,6 +2685,33 @@
         "tests/inspo-sync-20260909.test.cjs"
       ],
       "auditNote": "Configured credentials and HTTP request code inspected; real credentials, API responses and provider/account behavior remain unverified on each OS."
+    },
+    {
+      "id": "parallel",
+      "manifest": "plugins/parallel/plugin.json",
+      "entry": "plugins/parallel/plugin.js",
+      "entrySha256": "39e7b51600386ed9bd0f07f551613bf0f37dbe81ea1b441a12961b9db33be824",
+      "declaredModes": [
+        "web"
+      ],
+      "autoMode": "web",
+      "osStatus": {
+        "linux": "I",
+        "macos": "I",
+        "windows": "I"
+      },
+      "liveCredentialQualification": "unverified",
+      "methods": [
+        "native bundled-provider adapter"
+      ],
+      "hostCalls": [],
+      "literalPathEvidence": [],
+      "branchesOnSourceMode": false,
+      "fixtures": [
+        "tests/bundled-providers.test.cjs",
+        "tests/provider-inspo-20261026.test.cjs"
+      ],
+      "auditNote": "Vendored CodexBar provider with a bounded native asynchronous host adapter and explicit credential/endpoint routing. Disabled by default. Adapter fixtures do not qualify real credentials, browser import, or every optional upstream workflow; cache TTL is not persisted."
     },
     {
       "id": "perplexity",
@@ -2459,7 +2844,7 @@
       "id": "qwencloud",
       "manifest": "plugins/qwencloud/plugin.json",
       "entry": "plugins/qwencloud/plugin.js",
-      "entrySha256": "0b1ce4fb91e57794cf44bf45d645aa6e77e69bd885a54392c2d17df2c5190ebd",
+      "entrySha256": "76cb6845944e6d74d1e3714e74565e2957e4a63b69ba4149c68d21761c9b445b",
       "declaredModes": [
         "web"
       ],
@@ -2471,7 +2856,8 @@
       },
       "liveCredentialQualification": "unverified",
       "methods": [
-        "manual web credential"
+        "manual web credential",
+        "native scoped cookie session"
       ],
       "hostCalls": [
         "env.get"
@@ -2481,15 +2867,17 @@
       "fixtures": [
         "tests/plugin-contracts.test.cjs",
         "tests/provider-updates.test.cjs",
-        "tests/quota-regressions.test.cjs"
+        "tests/quota-regressions.test.cjs",
+        "tests/provider-inspo-20261026.test.cjs",
+        "crates/ai-usage-plugins/src/cookie_sessions.rs"
       ],
-      "auditNote": "Configured credentials and HTTP request code inspected; real credentials, API responses and provider/account behavior remain unverified on each OS."
+      "auditNote": " Manual cookie injection is native, instance-bound and restricted to reviewed HTTPS routes; automatic browser import and live acceptance are unverified. Individual subscription and explicit team Token Plan sources share the existing identity; empty team results do not fall back to another billing source."
     },
     {
       "id": "raycast",
       "manifest": "plugins/raycast/plugin.json",
       "entry": "plugins/raycast/plugin.js",
-      "entrySha256": "70e92a070c748b435f10a7a65fcca9bdc670a9689d9535e32ea4c4197a706b35",
+      "entrySha256": "168b7aa105276d7cf51397812d5c64c3ddce42ed1ee3958697f981cfc7eb9874",
       "declaredModes": [
         "web"
       ],
@@ -2507,7 +2895,8 @@
       "literalPathEvidence": [],
       "branchesOnSourceMode": false,
       "fixtures": [
-        "tests/bundled-providers.test.cjs"
+        "tests/bundled-providers.test.cjs",
+        "tests/provider-inspo-20261026.test.cjs"
       ],
       "auditNote": "Vendored CodexBar provider with a bounded native asynchronous host adapter and explicit credential/endpoint routing. Disabled by default. Adapter fixtures do not qualify real credentials, browser import, or every optional upstream workflow; cache TTL is not persisted."
     },
@@ -2515,7 +2904,7 @@
       "id": "replicate",
       "manifest": "plugins/replicate/plugin.json",
       "entry": "plugins/replicate/plugin.js",
-      "entrySha256": "da767a86a8e10ae78a92994b07d0a7857ead1d885d10cc560724f55ecdab2350",
+      "entrySha256": "26c3052ffe32a9270a26d35c77a2a66f2f9e1e9e5161c6072cea659d3aa39080",
       "declaredModes": [
         "web"
       ],
@@ -2534,7 +2923,36 @@
       "literalPathEvidence": [],
       "branchesOnSourceMode": false,
       "fixtures": [
-        "tests/bundled-providers.test.cjs"
+        "tests/bundled-providers.test.cjs",
+        "tests/provider-inspo-20261026.test.cjs"
+      ],
+      "auditNote": "Vendored CodexBar provider with a bounded native asynchronous host adapter and explicit credential/endpoint routing. Disabled by default. Adapter fixtures do not qualify real credentials, browser import, or every optional upstream workflow; cache TTL is not persisted."
+    },
+    {
+      "id": "sailresearch",
+      "manifest": "plugins/sailresearch/plugin.json",
+      "entry": "plugins/sailresearch/plugin.js",
+      "entrySha256": "b3681648d6e53a2d7e96d42585bdd7b8416b48cc34d41c4d8356cfd32cf10c66",
+      "declaredModes": [
+        "api"
+      ],
+      "autoMode": "api",
+      "osStatus": {
+        "linux": "I",
+        "macos": "I",
+        "windows": "I"
+      },
+      "liveCredentialQualification": "unverified",
+      "methods": [
+        "configured token/key",
+        "native bundled-provider adapter"
+      ],
+      "hostCalls": [],
+      "literalPathEvidence": [],
+      "branchesOnSourceMode": false,
+      "fixtures": [
+        "tests/bundled-providers.test.cjs",
+        "tests/provider-inspo-20261026.test.cjs"
       ],
       "auditNote": "Vendored CodexBar provider with a bounded native asynchronous host adapter and explicit credential/endpoint routing. Disabled by default. Adapter fixtures do not qualify real credentials, browser import, or every optional upstream workflow; cache TTL is not persisted."
     },
@@ -2567,6 +2985,62 @@
         "tests/quota-regressions.test.cjs"
       ],
       "auditNote": "Configured credentials and HTTP request code inspected; real credentials, API responses and provider/account behavior remain unverified on each OS."
+    },
+    {
+      "id": "sofya",
+      "manifest": "plugins/sofya/plugin.json",
+      "entry": "plugins/sofya/plugin.js",
+      "entrySha256": "41149f38c229b89b9c5c954540aacc825247e4eaed5bd608b89ae42059057778",
+      "declaredModes": [
+        "api"
+      ],
+      "autoMode": "api",
+      "osStatus": {
+        "linux": "I",
+        "macos": "I",
+        "windows": "I"
+      },
+      "liveCredentialQualification": "unverified",
+      "methods": [
+        "configured token/key",
+        "native bundled-provider adapter"
+      ],
+      "hostCalls": [],
+      "literalPathEvidence": [],
+      "branchesOnSourceMode": false,
+      "fixtures": [
+        "tests/bundled-providers.test.cjs",
+        "tests/provider-inspo-20261026.test.cjs"
+      ],
+      "auditNote": "Vendored CodexBar provider with a bounded native asynchronous host adapter and explicit credential/endpoint routing. Disabled by default. Adapter fixtures do not qualify real credentials, browser import, or every optional upstream workflow; cache TTL is not persisted."
+    },
+    {
+      "id": "soniox",
+      "manifest": "plugins/soniox/plugin.json",
+      "entry": "plugins/soniox/plugin.js",
+      "entrySha256": "def3f37ed5ff5a8ce74ee804df5fabb3d3a56c0829dea64130b3a1082058e443",
+      "declaredModes": [
+        "api"
+      ],
+      "autoMode": "api",
+      "osStatus": {
+        "linux": "I",
+        "macos": "I",
+        "windows": "I"
+      },
+      "liveCredentialQualification": "unverified",
+      "methods": [
+        "configured token/key",
+        "native bundled-provider adapter"
+      ],
+      "hostCalls": [],
+      "literalPathEvidence": [],
+      "branchesOnSourceMode": false,
+      "fixtures": [
+        "tests/bundled-providers.test.cjs",
+        "tests/provider-inspo-20261026.test.cjs"
+      ],
+      "auditNote": "Vendored CodexBar provider with a bounded native asynchronous host adapter and explicit credential/endpoint routing. Disabled by default. Adapter fixtures do not qualify real credentials, browser import, or every optional upstream workflow; cache TTL is not persisted."
     },
     {
       "id": "stepfun",
@@ -2691,37 +3165,10 @@
       "auditNote": "Manual cookies/full-cURL capture fixtures on all OS conventions. Challenge preserves credentials and gives full-cURL guidance. Real browser/device-bound sessions unverified."
     },
     {
-      "id": "typesafe",
-      "manifest": "plugins/typesafe/plugin.json",
-      "entry": "plugins/typesafe/plugin.js",
-      "entrySha256": "a74a28013260d9e309f27144b5984931ba712077952206d5146c32226aaf3904",
-      "declaredModes": [
-        "web"
-      ],
-      "autoMode": "web",
-      "osStatus": {
-        "linux": "I",
-        "macos": "I",
-        "windows": "I"
-      },
-      "liveCredentialQualification": "unverified",
-      "methods": [
-        "manual web credential",
-        "native bundled-provider adapter"
-      ],
-      "hostCalls": [],
-      "literalPathEvidence": [],
-      "branchesOnSourceMode": false,
-      "fixtures": [
-        "tests/bundled-providers.test.cjs"
-      ],
-      "auditNote": "Vendored CodexBar provider with a bounded native asynchronous host adapter and explicit credential/endpoint routing. Disabled by default. Adapter fixtures do not qualify real credentials, browser import, or every optional upstream workflow; cache TTL is not persisted. Cookie billing may be blocked by Cloudflare; challenge fixtures distinguish failed access from expired authentication. Reviewed upstream has no working challenge transport or documented API billing alternative."
-    },
-    {
-      "id": "v0",
-      "manifest": "plugins/v0/plugin.json",
-      "entry": "plugins/v0/plugin.js",
-      "entrySha256": "4ab946fb6306df4cca4502bebfd1a40fe392cd142f4dd3a0c87e8840cd880ff4",
+      "id": "tavily",
+      "manifest": "plugins/tavily/plugin.json",
+      "entry": "plugins/tavily/plugin.js",
+      "entrySha256": "3e0905ca50bf39adf8fff43fa67184fac889ac0604164c8931911b3547c92cb7",
       "declaredModes": [
         "api"
       ],
@@ -2740,7 +3187,118 @@
       "literalPathEvidence": [],
       "branchesOnSourceMode": false,
       "fixtures": [
-        "tests/bundled-providers.test.cjs"
+        "tests/bundled-providers.test.cjs",
+        "tests/provider-inspo-20261026.test.cjs"
+      ],
+      "auditNote": "Vendored CodexBar provider with a bounded native asynchronous host adapter and explicit credential/endpoint routing. Disabled by default. Adapter fixtures do not qualify real credentials, browser import, or every optional upstream workflow; cache TTL is not persisted."
+    },
+    {
+      "id": "tinyapi",
+      "manifest": "plugins/tinyapi/plugin.json",
+      "entry": "plugins/tinyapi/plugin.js",
+      "entrySha256": "d556103d4260f780ca272fb2ca507702aaea178391ff4708b677abb8629cd112",
+      "declaredModes": [
+        "web"
+      ],
+      "autoMode": "web",
+      "osStatus": {
+        "linux": "I",
+        "macos": "I",
+        "windows": "I"
+      },
+      "liveCredentialQualification": "unverified",
+      "methods": [
+        "native bundled-provider adapter"
+      ],
+      "hostCalls": [],
+      "literalPathEvidence": [],
+      "branchesOnSourceMode": false,
+      "fixtures": [
+        "tests/bundled-providers.test.cjs",
+        "tests/provider-inspo-20261026.test.cjs"
+      ],
+      "auditNote": "Vendored CodexBar provider with a bounded native asynchronous host adapter and explicit credential/endpoint routing. Disabled by default. Adapter fixtures do not qualify real credentials, browser import, or every optional upstream workflow; cache TTL is not persisted."
+    },
+    {
+      "id": "traecn",
+      "manifest": "plugins/traecn/plugin.json",
+      "entry": "plugins/traecn/plugin.js",
+      "entrySha256": "564fc0a0bd855678a9fe530fe43cbfc524e106aae80a2aeb7872128ba1df9047",
+      "declaredModes": [
+        "web"
+      ],
+      "autoMode": "web",
+      "osStatus": {
+        "linux": "I",
+        "macos": "I",
+        "windows": "I"
+      },
+      "liveCredentialQualification": "unverified",
+      "methods": [
+        "native bundled-provider adapter"
+      ],
+      "hostCalls": [],
+      "literalPathEvidence": [],
+      "branchesOnSourceMode": false,
+      "fixtures": [
+        "tests/bundled-providers.test.cjs",
+        "tests/provider-inspo-20261026.test.cjs"
+      ],
+      "auditNote": "Vendored CodexBar provider with a bounded native asynchronous host adapter and explicit credential/endpoint routing. Disabled by default. Adapter fixtures do not qualify real credentials, browser import, or every optional upstream workflow; cache TTL is not persisted."
+    },
+    {
+      "id": "typesafe",
+      "manifest": "plugins/typesafe/plugin.json",
+      "entry": "plugins/typesafe/plugin.js",
+      "entrySha256": "0ab5ed9664a2d53957f04650a1180e63f6ec37d385195913e090da6509aa71fe",
+      "declaredModes": [
+        "web"
+      ],
+      "autoMode": "web",
+      "osStatus": {
+        "linux": "I",
+        "macos": "I",
+        "windows": "I"
+      },
+      "liveCredentialQualification": "unverified",
+      "methods": [
+        "manual web credential",
+        "native bundled-provider adapter"
+      ],
+      "hostCalls": [],
+      "literalPathEvidence": [],
+      "branchesOnSourceMode": false,
+      "fixtures": [
+        "tests/bundled-providers.test.cjs",
+        "tests/provider-inspo-20261026.test.cjs"
+      ],
+      "auditNote": "Vendored CodexBar provider with a bounded native asynchronous host adapter and explicit credential/endpoint routing. Disabled by default. Adapter fixtures do not qualify real credentials, browser import, or every optional upstream workflow; cache TTL is not persisted. Cookie billing may be blocked by Cloudflare; challenge fixtures distinguish failed access from expired authentication. The upstream browser User-Agent is sent on billing requests, but fixtures cannot establish live challenge acceptance."
+    },
+    {
+      "id": "v0",
+      "manifest": "plugins/v0/plugin.json",
+      "entry": "plugins/v0/plugin.js",
+      "entrySha256": "4b44c6ae4bcdc25f76c3c61aab4715e397a7229a30fcec8a8df7a8b8f25d1e6e",
+      "declaredModes": [
+        "api"
+      ],
+      "autoMode": "api",
+      "osStatus": {
+        "linux": "I",
+        "macos": "I",
+        "windows": "I"
+      },
+      "liveCredentialQualification": "unverified",
+      "methods": [
+        "configured token/key",
+        "native bundled-provider adapter"
+      ],
+      "hostCalls": [],
+      "literalPathEvidence": [],
+      "branchesOnSourceMode": false,
+      "fixtures": [
+        "tests/bundled-providers.test.cjs",
+        "tests/provider-inspo-20261026.test.cjs"
       ],
       "auditNote": "Vendored CodexBar provider with a bounded native asynchronous host adapter and explicit credential/endpoint routing. Disabled by default. Adapter fixtures do not qualify real credentials, browser import, or every optional upstream workflow; cache TTL is not persisted."
     },
@@ -2779,7 +3337,7 @@
       "id": "vercel",
       "manifest": "plugins/vercel/plugin.json",
       "entry": "plugins/vercel/plugin.js",
-      "entrySha256": "f4c5d08582ce45f38141aa093fe6c7607a4c65e3f9a0fe59cad8c7d314e3f7be",
+      "entrySha256": "be9e134fc105fb4b357f54258f39fc6f3e4730456bc478c43dc34e364a15a2e0",
       "declaredModes": [
         "api"
       ],
@@ -2798,9 +3356,10 @@
       "literalPathEvidence": [],
       "branchesOnSourceMode": false,
       "fixtures": [
-        "tests/bundled-providers.test.cjs"
+        "tests/bundled-providers.test.cjs",
+        "tests/provider-inspo-20261026.test.cjs"
       ],
-      "auditNote": "Vendored CodexBar provider with a bounded native asynchronous host adapter and explicit credential/endpoint routing. Disabled by default. Adapter fixtures do not qualify real credentials, browser import, or every optional upstream workflow; cache TTL is not persisted."
+      "auditNote": "Vendored CodexBar provider with a bounded native asynchronous host adapter and explicit credential/endpoint routing. Disabled by default. Adapter fixtures do not qualify real credentials, browser import, or every optional upstream workflow; cache TTL is not persisted. Explicit personal-budget mode requires its own access token and scopes results to the selected user/team; Gateway balance remains the default."
     },
     {
       "id": "vertex-ai",
@@ -2930,7 +3489,7 @@
       "id": "workbuddy",
       "manifest": "plugins/workbuddy/plugin.json",
       "entry": "plugins/workbuddy/plugin.js",
-      "entrySha256": "ff107a1b54a9007f1b6b856ccf7e46486608550afda0c1e2ac41e12f0f6f8c15",
+      "entrySha256": "2d749a0535ed6c406f9ca86ff6ec98f800540bbffd25fff6a8df4122ae993bbb",
       "declaredModes": [
         "web"
       ],
@@ -2953,7 +3512,8 @@
         "tests/bundled-providers.test.cjs",
         "tests/provider-inspo-20261004.test.cjs",
         "crates/ai-usage-plugins/src/cookie_sessions.rs",
-        "crates/ai-usage-plugins/src/runtime.rs"
+        "crates/ai-usage-plugins/src/runtime.rs",
+        "tests/provider-inspo-20261026.test.cjs"
       ],
       "auditNote": "Instance-bound manual cookie requests on three permitted billing routes, with the full cookie-owning browser User-Agent configured in dashboard setup. Credit balance and optional China cycle reset. No automatic browser/desktop credential import; live sessions unverified."
     },
@@ -2961,7 +3521,7 @@
       "id": "xai",
       "manifest": "plugins/xai/plugin.json",
       "entry": "plugins/xai/plugin.js",
-      "entrySha256": "672ab195e4b5eeabaf83460fa90ce412bbfb2bb2fcdd3fb1398441503b8e993e",
+      "entrySha256": "4a3f2e057ea7f07d5741e0ba7d94dae74126682a1aceb6cb60a8dfe638924b82",
       "declaredModes": [
         "api"
       ],
@@ -2984,15 +3544,45 @@
       "fixtures": [
         "tests/plugin-contracts.test.cjs",
         "tests/provider-updates.test.cjs",
-        "tests/quota-regressions.test.cjs"
+        "tests/quota-regressions.test.cjs",
+        "tests/provider-inspo-20261026.test.cjs"
       ],
       "auditNote": "Configured credentials and HTTP request code inspected; real credentials, API responses and provider/account behavior remain unverified on each OS."
+    },
+    {
+      "id": "xapi",
+      "manifest": "plugins/xapi/plugin.json",
+      "entry": "plugins/xapi/plugin.js",
+      "entrySha256": "2ad4998de5aebc610a6a61c64f87ab727f565d0cea77cbc677906ad8e26b698d",
+      "declaredModes": [
+        "web"
+      ],
+      "autoMode": "web",
+      "osStatus": {
+        "linux": "I",
+        "macos": "I",
+        "windows": "I"
+      },
+      "liveCredentialQualification": "unverified",
+      "methods": [
+        "native bundled-provider adapter",
+        "native scoped cookie session"
+      ],
+      "hostCalls": [],
+      "literalPathEvidence": [],
+      "branchesOnSourceMode": false,
+      "fixtures": [
+        "tests/bundled-providers.test.cjs",
+        "tests/provider-inspo-20261026.test.cjs",
+        "crates/ai-usage-plugins/src/cookie_sessions.rs"
+      ],
+      "auditNote": "Vendored CodexBar provider with a bounded native asynchronous host adapter and explicit credential/endpoint routing. Disabled by default. Adapter fixtures do not qualify real credentials, browser import, or every optional upstream workflow; cache TTL is not persisted. Manual cookie injection is native, instance-bound and restricted to reviewed HTTPS routes; automatic browser import and live acceptance are unverified."
     },
     {
       "id": "xkiro",
       "manifest": "plugins/xkiro/plugin.json",
       "entry": "plugins/xkiro/plugin.js",
-      "entrySha256": "d9f0a3557116dc014a65f43444cf3b6bb44066262436ac9b0ad0094b32c39c95",
+      "entrySha256": "ab0c5a127ed909680e8f45f619a65e0d69b8eb72d37571b7770b6fe7de5f78ca",
       "declaredModes": [
         "api"
       ],
@@ -3011,7 +3601,8 @@
       "literalPathEvidence": [],
       "branchesOnSourceMode": false,
       "fixtures": [
-        "tests/bundled-providers.test.cjs"
+        "tests/bundled-providers.test.cjs",
+        "tests/provider-inspo-20261026.test.cjs"
       ],
       "auditNote": "Vendored CodexBar provider with a bounded native asynchronous host adapter and explicit credential/endpoint routing. Disabled by default. Adapter fixtures do not qualify real credentials, browser import, or every optional upstream workflow; cache TTL is not persisted."
     },

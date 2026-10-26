@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "id": "soniox",
+  "name": "Soniox",
+  "version": "0.1.0",
+  "entry": "plugin.js",
+  "enabledByDefault": false,
+  "supportedModes": [
+    "api"
+  ],
+  "autoMode": "api",
+  "usageDashboardUrl": "https://console.soniox.com",
+  "envVars": [
+    "SONIOX_ORG_API_KEY"
+  ],
+  "setupFields": [],
+  "upstream": {
+    "repository": "https://github.com/steipete/CodexBar",
+    "revision": "6070b29a1a5d51193a634dc1b0a14a67c39d0ccc",
+    "path": "Sources/CodexBarCore/Resources/Plugins/soniox.js",
+    "sha256": "205af76549b697bc66a8d1a16008463310c2ee218e4d9c5f44edbb7b2ceed0b0",
+    "license": "MIT"
+  }
+}

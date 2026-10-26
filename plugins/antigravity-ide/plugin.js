@@ -111,8 +111,10 @@
 
   function poolLabel(normalizedLabel) {
     var lower = normalizedLabel.toLowerCase()
+    if (lower.indexOf('argon') !== -1) return null
     if (lower.indexOf("gemini") !== -1 && lower.indexOf("pro") !== -1) return "Gemini Pro"
     if (lower.indexOf("gemini") !== -1 && lower.indexOf("flash") !== -1) return "Gemini Flash"
+    if (lower.indexOf('gemini') !== -1) return null
     // All non-Gemini models (Claude, GPT-OSS, etc.) share a single quota pool
     return "Claude"
   }
@@ -153,6 +155,7 @@
       var frac = qi.remainingFraction
       var rtime = (qi && qi.resetTime) || undefined
       var pool = poolLabel(normalizeLabel(label))
+      if (!pool) continue
       if (!deduped[pool] || frac < deduped[pool].remainingFraction) {
         deduped[pool] = {
           label: pool,
@@ -199,7 +202,7 @@
       locale: "en",
     }
 
-    var summaryLines = []
+    var summaryLines = null
     try {
       summaryLines = ctx.util.groupedQuotaLines(callLs(ctx, found.port, found.scheme, discovery.csrf,
         "RetrieveUserQuotaSummary", { forceRefresh: true }, 2000))
@@ -214,7 +217,7 @@
     }
     var hasUserStatus = data && data.userStatus
 
-    if (!hasUserStatus && !summaryLines.length) {
+    if (!hasUserStatus && summaryLines === null) {
       ctx.host.log.warn("GetUserStatus failed, trying GetCommandModelConfigs")
       data = callLs(ctx, found.port, found.scheme, discovery.csrf, "GetCommandModelConfigs", { metadata: metadata })
     }
@@ -225,7 +228,7 @@
       configs = (data.userStatus.cascadeModelConfigData || {}).clientModelConfigs || []
     } else if (data && data.clientModelConfigs) {
       configs = data.clientModelConfigs
-    } else if (summaryLines.length) {
+    } else if (summaryLines !== null) {
       configs = []
     } else {
       throw "Start Antigravity IDE and try again."
@@ -238,8 +241,8 @@
       filtered.push(configs[j])
     }
 
-    var lines = summaryLines.length ? summaryLines : buildModelLines(ctx, filtered)
-    if (lines.length === 0) throw "Start Antigravity IDE and try again."
+    var lines = summaryLines !== null ? summaryLines : buildModelLines(ctx, filtered)
+    if (lines.length === 0 && summaryLines === null) throw "Start Antigravity IDE and try again."
 
     var plan = null
     if (hasUserStatus) {

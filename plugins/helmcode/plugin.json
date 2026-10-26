@@ -14,11 +14,19 @@
   "envVars": [
     "HELMCODE_COOKIE"
   ],
+  "setupFields": [
+    {
+      "key": "TENANT",
+      "title": "Manual cookie tenant",
+      "type": "string",
+      "description": "Provider-specific account or source selection."
+    }
+  ],
   "upstream": {
     "repository": "https://github.com/steipete/CodexBar",
-    "revision": "6ba06fe9ec1522dd5c59e16810115bce28aa148f",
+    "revision": "6070b29a1a5d51193a634dc1b0a14a67c39d0ccc",
     "path": "Sources/CodexBarCore/Resources/Plugins/helmcode.js",
-    "sha256": "3192630337f9b8bbd577acb930357e54d1f02ec9435a49dcc01411448f072ff1",
+    "sha256": "9aa6a515eda5c361f340a6535342ccaba9365a06124eec1501e7744c33765430",
     "license": "MIT"
   }
 }

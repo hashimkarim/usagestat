@@ -48,8 +48,8 @@ test('Z.ai distinguishes unavailable plan quotas while retaining recognized wind
 
 function grouped(starter) {
   return {groups: ['Gemini Models', 'Claude and GPT models'].map((displayName, index) => ({displayName, buckets: [
-    {bucketId: index + '-weekly', displayName: 'Weekly Limit', window: 'weekly', remainingFraction: 0.75},
-    ...(starter ? [] : [{bucketId: index + '-5h', displayName: 'Five Hour Limit', window: '5h', remainingFraction: 0.5}]),
+    {bucketId: (index ? '3p' : 'gemini') + '-weekly', displayName: 'Weekly Limit', window: 'weekly', remainingFraction: 0.75},
+    ...(starter ? [] : [{bucketId: (index ? '3p' : 'gemini') + '-5h', displayName: 'Five Hour Limit', window: '5h', remainingFraction: 0.5}]),
   ]}))};
 }
 
@@ -71,7 +71,7 @@ for (const provider of ['antigravity', 'antigravity-cli']) {
     assert.equal(metric(result, 'Claude/GPT Weekly').periodDurationMs, 7 * 24 * 60 * 60 * 1000);
     assert.equal(Boolean(metric(result, 'Gemini Session')), !starter);
     if (!starter) assert.equal(metric(result, 'Gemini Session').periodDurationMs, 5 * 60 * 60 * 1000);
-    assert.equal(app.calls.http.length, 2);
+    assert.equal(app.calls.http.length, 3);
   });
 }
 
@@ -91,27 +91,27 @@ for (const provider of ['antigravity', 'antigravity-ide']) test(`${provider}: ID
   assert.ok(!app.calls.http.some(req => req.url.includes('/GetCommandModelConfigs')));
 });
 
-test('Antigravity explicit cadence and unknown quota values are preserved', () => {
+test('Antigravity recognized bucket IDs preserve unavailable values without assigning future pools', () => {
   const app = load('zai'); // Use the shipped shared parser without any external request.
   const lines = app.ctx.util.groupedQuotaLines({groups: [{displayName: 'Gemini Models', buckets: [
-    {bucketId: 'legacy-5h', displayName: 'Five Hour Limit', window: 'weekly', remainingFraction: 1},
+    {bucketId: 'gemini-weekly', displayName: 'Five Hour Limit', window: 'weekly', remainingFraction: 1},
     {bucketId: 'opaque', displayName: 'Weekly Limit', window: 'unknown', remaining: {remainingFraction: 0.5}},
-    {bucketId: 'disabled', remainingFraction: 1, disabled: true},
-    {bucketId: 'missing'},
+    {bucketId: 'gemini-5h', remainingFraction: 1, disabled: true},
+    {bucketId: '3p-weekly'},
   ]}]});
-  assert.equal(lines[0].periodDurationMs, 604800000);
-  assert.equal(lines[1].periodDurationMs, undefined);
-  assert.equal(lines[1].used, 50);
+  assert.equal(lines[0].value,'Unavailable');
+  assert.equal(lines[1].periodDurationMs,604800000);
+  assert.equal(lines[1].used,0);
   assert.equal(lines[2].type, 'text');
   assert.equal(lines[2].value, 'Unavailable');
-  assert.equal(lines[3].value, 'Unavailable');
+  assert.equal(lines.length,3);
 });
 
-test('Antigravity handles protobuf quota values and canonical cadence aliases', () => {
+test('Antigravity handles protobuf quota values for known pool IDs', () => {
   const app = load('antigravity');
   const buckets = [
-    {bucketId: 'oneof', window: '5-hour', remaining: {case: 'remainingFraction', value: 0.75}},
-    {bucketId: 'legacy-weekly', window: ' ', remainingFraction: 0.5},
+    {bucketId: 'gemini-5h', window: '5-hour', remaining: {case: 'remainingFraction', value: 0.75}},
+    {bucketId: 'gemini-weekly', window: ' ', remainingFraction: 0.5},
     {bucketId: 'unknown', displayName: 'Biweekly Limit', remainingFraction: 0.25},
   ];
   for (const code of [undefined, 0, '0', 'OK', 'ok', 'SUCCESS', 'success']) {
@@ -119,9 +119,9 @@ test('Antigravity handles protobuf quota values and canonical cadence aliases', 
     assert.equal(lines[0].used, 25);
     assert.equal(lines[0].periodDurationMs, 18000000);
     assert.equal(lines[1].periodDurationMs, 604800000);
-    assert.equal(lines[2].periodDurationMs, undefined);
+    assert.equal(lines.length,2);
   }
-  assert.deepEqual(Array.from(app.ctx.util.groupedQuotaLines({code: 403, groups: [{buckets}]})), []);
+  assert.equal(app.ctx.util.groupedQuotaLines({code:403,groups:[{buckets}]}),null);
   assert.deepEqual(Array.from(app.ctx.util.groupedQuotaLines({groups: [{buckets: [
     {bucketId: 'unknown', remaining: {case: 'unlimited', value: 1}},
   ]}]})), []);
@@ -147,6 +147,6 @@ test('Antigravity summary failures fall back to per-model quotas without manufac
   const result = app.probe();
   assert.equal(result.lines.length, 1);
   assert.equal(result.lines[0].used, 25);
-  assert.equal(app.calls.http.filter(req => req.url.endsWith(':retrieveUserQuotaSummary')).length, 1);
+  assert.equal(app.calls.http.filter(req => req.url.endsWith(':retrieveUserQuotaSummary')).length, 2);
   assert.ok(!app.calls.http.some(req => req.url.includes('oauth2.googleapis.com')));
 });

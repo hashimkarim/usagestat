@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "id": "claudeplatform",
+  "name": "Claude Platform",
+  "version": "0.1.0",
+  "entry": "plugin.js",
+  "enabledByDefault": false,
+  "supportedModes": [
+    "web"
+  ],
+  "autoMode": "web",
+  "usageDashboardUrl": "https://platform.claude.com/settings/billing",
+  "webUrl": "https://platform.claude.com",
+  "envVars": [
+    "CLAUDEPLATFORM_COOKIE"
+  ],
+  "setupFields": [],
+  "upstream": {
+    "repository": "https://github.com/steipete/CodexBar",
+    "revision": "6070b29a1a5d51193a634dc1b0a14a67c39d0ccc",
+    "path": "Sources/CodexBarCore/Resources/Plugins/claudeplatform.js",
+    "sha256": "d3c61855621fd4e5b5b753bdd223524e0ee7f4b55cfd63f24f23516ac33027e8",
+    "license": "MIT"
+  }
+}

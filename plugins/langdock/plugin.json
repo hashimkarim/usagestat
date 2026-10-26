@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "id": "langdock",
+  "name": "Langdock",
+  "version": "0.1.0",
+  "entry": "plugin.js",
+  "enabledByDefault": false,
+  "supportedModes": [
+    "web"
+  ],
+  "autoMode": "web",
+  "usageDashboardUrl": "https://app.langdock.com/settings/account/usage",
+  "webUrl": "https://langdock.com",
+  "envVars": [
+    "LANGDOCK_COOKIE"
+  ],
+  "setupFields": [],
+  "upstream": {
+    "repository": "https://github.com/steipete/CodexBar",
+    "revision": "6070b29a1a5d51193a634dc1b0a14a67c39d0ccc",
+    "path": "Sources/CodexBarCore/Resources/Plugins/langdock.js",
+    "sha256": "c950eb7566aea322bba26fc97735a7ba688b6cfb7fa6a5e06a2e0cb6fff6f831",
+    "license": "MIT"
+  }
+}

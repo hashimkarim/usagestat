@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "id": "linkup",
+  "name": "Linkup",
+  "version": "0.1.0",
+  "entry": "plugin.js",
+  "enabledByDefault": false,
+  "supportedModes": [
+    "api"
+  ],
+  "autoMode": "api",
+  "usageDashboardUrl": "https://app.linkup.so",
+  "envVars": [
+    "LINKUP_API_KEY"
+  ],
+  "setupFields": [],
+  "upstream": {
+    "repository": "https://github.com/steipete/CodexBar",
+    "revision": "6070b29a1a5d51193a634dc1b0a14a67c39d0ccc",
+    "path": "Sources/CodexBarCore/Resources/Plugins/linkup.js",
+    "sha256": "7857c63217818a2a9935397a8fe70621b42ab17115a43da2eab6b4a0ea27b775",
+    "license": "MIT"
+  }
+}

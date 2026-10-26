@@ -478,8 +478,10 @@
 
   function poolLabel(normalizedLabel) {
     var lower = normalizedLabel.toLowerCase()
+    if (lower.indexOf('argon') !== -1) return null
     if (lower.indexOf("gemini") !== -1 && lower.indexOf("pro") !== -1) return "Gemini Pro"
     if (lower.indexOf("gemini") !== -1 && lower.indexOf("flash") !== -1) return "Gemini Flash"
+    if (lower.indexOf('gemini') !== -1) return null
     // All non-Gemini models (Claude, GPT-OSS, etc.) share a single quota pool
     return "Claude"
   }
@@ -520,6 +522,7 @@
       var frac = qi.remainingFraction
       var rtime = (qi && qi.resetTime) || undefined
       var pool = poolLabel(normalizeLabel(label))
+      if (!pool) continue
       if (!deduped[pool] || frac < deduped[pool].remainingFraction) {
         deduped[pool] = {
           label: pool,
@@ -551,6 +554,8 @@
   // --- Cloud Code API ---
 
   function requestCloudCodeJson(ctx, path, token, userAgent, body, timeoutMs) {
+    var summaries = path === '/v1internal:retrieveUserQuotaSummary' ? [] : null
+    var denial = null
     for (var i = 0; i < CLOUD_CODE_URLS.length; i++) {
       try {
         var resp = ctx.host.http.request({
@@ -569,28 +574,32 @@
           ctx.host.log.warn("Cloud Code returned invalid response shape (" + CLOUD_CODE_URLS[i] + ")")
           continue
         }
-        if (resp.status === 401) return { _authFailed: true }
-        if (resp.status === 403) return { _quotaDenied: true }
+        if (resp.status === 401 || resp.status === 403) {
+          denial = resp.status === 401 ? { _authFailed:true } : { _quotaDenied:true }
+          if (!summaries) return denial
+          continue
+        }
         if (resp.status >= 200 && resp.status < 300) {
           var json = ctx.util.tryParseJson(resp.bodyText)
           if (!json || typeof json !== "object") {
             ctx.host.log.warn("Cloud Code returned invalid JSON (" + CLOUD_CODE_URLS[i] + ")")
             continue
           }
+          if (summaries) {summaries.push(json);continue}
           return json
         }
       } catch (e) {
         ctx.host.log.warn("Cloud Code request failed (" + CLOUD_CODE_URLS[i] + "): " + String(e))
       }
     }
-    return null
+    return summaries && summaries.length ? summaries : denial
   }
 
   function probeCloudCode(ctx, token, userAgent, skipSummary) {
     if (!skipSummary) {
       var summary = requestCloudCodeJson(ctx, "/v1internal:retrieveUserQuotaSummary", token, userAgent, {}, 2000)
       var lines = ctx.util.groupedQuotaLines(summary)
-      if (lines.length) return { _summaryLines: lines }
+      if (lines !== null) return { _summaryLines: lines }
     }
     return requestCloudCodeJson(ctx, FETCH_MODELS_PATH, token, userAgent, {})
   }
@@ -665,7 +674,7 @@
     var quotaData = null
     var summary = requestCloudCodeJson(ctx, "/v1internal:retrieveUserQuotaSummary", token, "agy", project ? { project: project } : {}, 2000)
     var summaryLines = ctx.util.groupedQuotaLines(summary)
-    if (summaryLines.length) return { plan: readAgyPlan(loadData), lines: summaryLines }
+    if (summaryLines !== null) return { plan: readAgyPlan(loadData), lines: summaryLines }
     if (project) {
       quotaData = requestCloudCodeJson(ctx, RETRIEVE_QUOTA_PATH, token, "agy", { project: project })
     }
@@ -696,7 +705,7 @@
       locale: "en",
     }
 
-    var summaryLines = []
+    var summaryLines = null
     try {
       summaryLines = ctx.util.groupedQuotaLines(callLs(ctx, found.port, found.scheme, discovery.csrf,
         "RetrieveUserQuotaSummary", { forceRefresh: true }, 2000))
@@ -711,7 +720,7 @@
     }
     var hasUserStatus = data && data.userStatus
 
-    if (!hasUserStatus && !summaryLines.length) {
+    if (!hasUserStatus && summaryLines === null) {
       ctx.host.log.warn("GetUserStatus failed, trying GetCommandModelConfigs")
       data = callLs(ctx, found.port, found.scheme, discovery.csrf, "GetCommandModelConfigs", { metadata: metadata })
     }
@@ -722,7 +731,7 @@
       configs = (data.userStatus.cascadeModelConfigData || {}).clientModelConfigs || []
     } else if (data && data.clientModelConfigs) {
       configs = data.clientModelConfigs
-    } else if (summaryLines.length) {
+    } else if (summaryLines !== null) {
       configs = []
     } else {
       return null
@@ -735,8 +744,8 @@
       filtered.push(configs[j])
     }
 
-    var lines = summaryLines.length ? summaryLines : buildModelLines(ctx, filtered)
-    if (lines.length === 0) return null
+    var lines = summaryLines !== null ? summaryLines : buildModelLines(ctx, filtered)
+    if (lines.length === 0 && summaryLines === null) return null
 
     var plan = null
     if (hasUserStatus) {

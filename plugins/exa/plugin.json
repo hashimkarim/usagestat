@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "id": "exa",
+  "name": "Exa",
+  "version": "0.1.0",
+  "entry": "plugin.js",
+  "enabledByDefault": false,
+  "supportedModes": [
+    "api"
+  ],
+  "autoMode": "api",
+  "usageDashboardUrl": "https://dashboard.exa.ai",
+  "envVars": [
+    "EXA_SERVICE_KEY",
+    "EXA_API_KEY_ID"
+  ],
+  "setupFields": [
+    {
+      "key": "EXA_API_KEY_ID",
+      "title": "API key ID",
+      "type": "string",
+      "description": "Provider-specific account or source selection."
+    }
+  ],
+  "upstream": {
+    "repository": "https://github.com/steipete/CodexBar",
+    "revision": "6070b29a1a5d51193a634dc1b0a14a67c39d0ccc",
+    "path": "Sources/CodexBarCore/Resources/Plugins/exa.js",
+    "sha256": "36d2cbf9973e160f2e0d2548ff1f9bbf254f94c9a09710004c0718749e5cdfbd",
+    "license": "MIT"
+  }
+}

@@ -5,15 +5,19 @@ const path = require('node:path');
 const vm = require('node:vm');
 const {createHash} = require('node:crypto');
 const {load, metric, response, ROOT} = require('./provider-sync-harness.cjs');
-const ids = 'aixy atlascloud bifrost devpass gitkraken helmcode huggingface hyper llmman muse museai lithosai workbuddy nous raycast replicate typesafe v0 vercel xkiro'.split(' ');
+const ids = fs.readdirSync(path.join(ROOT,'plugins')).filter(id => {
+  const file=path.join(ROOT,'plugins',id,'plugin.json');
+  return fs.existsSync(file) && JSON.parse(fs.readFileSync(file)).upstream?.repository === 'https://github.com/steipete/CodexBar';
+});
 
 test('bundled parsers have pinned provenance, licenses, opt-in manifests and valid exports', async () => {
   for (const id of ids) {
     const dir = path.join(ROOT, 'plugins', id);
     const manifest = JSON.parse(fs.readFileSync(path.join(dir, 'plugin.json')));
     const source = fs.readFileSync(path.join(dir, 'plugin.js'), 'utf8');
-    const original = source.slice(source.indexOf('\n', source.indexOf('\n') + 1) + 1);
-    assert.equal(createHash('sha256').update(original).digest('hex'), manifest.upstream.sha256, id);
+    const sources = new Map([...source.matchAll(/\/\/ BEGIN UPSTREAM ([^\n]+)\n([\s\S]*?)\n\/\/ END UPSTREAM/g)].map(match=>[match[1],match[2]]));
+    for(const input of [manifest.upstream,...(manifest.upstreamSources || [])])
+      assert.equal(createHash('sha256').update(sources.get(input.path)).digest('hex'), input.sha256, id);
     assert.equal(manifest.enabledByDefault, false);
     assert.ok(fs.readFileSync(path.join(dir, 'LICENSE'), 'utf8').includes('Peter Steinberger'));
     assert.ok(manifest.supportedModes.includes(manifest.autoMode));

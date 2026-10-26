@@ -11,13 +11,44 @@
   "autoMode": "api",
   "usageDashboardUrl": "https://vercel.com/d?to=%2F%5Bteam%5D%2F%7E%2Fai-gateway",
   "envVars": [
-    "AI_GATEWAY_API_KEY"
+    "AI_GATEWAY_API_KEY",
+    "VERCEL_ACCESS_TOKEN",
+    "VERCEL_TEAM_ID"
+  ],
+  "setupFields": [
+    {
+      "key": "personalBudget",
+      "title": "Read personal budget",
+      "type": "boolean",
+      "description": "Use a Vercel access token and Team ID instead of AI Gateway key credits."
+    },
+    {
+      "key": "VERCEL_ACCESS_TOKEN",
+      "title": "Vercel access token",
+      "type": "string",
+      "description": "Separate account token; the AI Gateway API key is not used for budgets."
+    },
+    {
+      "key": "VERCEL_TEAM_ID",
+      "title": "Team ID",
+      "type": "string",
+      "description": "Team ID or slug whose personal budget belongs to the token user."
+    }
   ],
   "upstream": {
     "repository": "https://github.com/steipete/CodexBar",
-    "revision": "6ba06fe9ec1522dd5c59e16810115bce28aa148f",
+    "revision": "6070b29a1a5d51193a634dc1b0a14a67c39d0ccc",
     "path": "Sources/CodexBarCore/Resources/Plugins/vercel.js",
     "sha256": "27b39f42709e93a2cfbf850171f198069553c99967f9b7ba6d16614862cb084a",
     "license": "MIT"
-  }
+  },
+  "upstreamSources": [
+    {
+      "repository": "https://github.com/steipete/CodexBar",
+      "revision": "6070b29a1a5d51193a634dc1b0a14a67c39d0ccc",
+      "path": "Sources/CodexBarCore/Resources/Plugins/vercel-budget.js",
+      "sha256": "a65d3affe808517590edc33e4d15b813ba1fa870b4435ef18cb7c7195ab376ad",
+      "license": "MIT"
+    }
+  ]
 }

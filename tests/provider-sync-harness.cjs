@@ -89,7 +89,8 @@ function load(id, options = {}) {
   const sandbox = vm.createContext({ __usagestat_ctx: ctx, __OPENUSAGE_PLUGIN_REGISTRATION_ID__: id, Date: Clock });
   vm.runInContext(utilityScript, sandbox);
   vm.runInContext(fs.readFileSync(path.join(ROOT, 'crates/ai-usage-plugins/src/bundled_provider.js'), 'utf8'), sandbox);
-  vm.runInContext(fs.readFileSync(path.join(ROOT, "plugins", id, "plugin.js"), "utf8"), sandbox, { filename: id + "/plugin.js" });
+  const manifest=JSON.parse(fs.readFileSync(path.join(ROOT,'plugins',id,'plugin.json'),'utf8'));
+  vm.runInContext(fs.readFileSync(path.resolve(ROOT, "plugins", id, manifest.entry), "utf8"), sandbox, { filename: id + "/"+manifest.entry });
   const plugin = sandbox.__usagestat_plugin || sandbox.__ai_usage_plugin || sandbox.__openusage_plugin;
   return { ctx, requests, ingested, logs, files, plugin,
     probe: () => {

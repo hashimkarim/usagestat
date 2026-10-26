@@ -14,9 +14,17 @@
     "PORTAL_URL",
     "NOUS_PORTAL_ACCESS_TOKEN"
   ],
+  "setupFields": [
+    {
+      "key": "PORTAL_URL",
+      "title": "Portal URL",
+      "type": "string",
+      "description": "Provider-specific account or source selection."
+    }
+  ],
   "upstream": {
     "repository": "https://github.com/steipete/CodexBar",
-    "revision": "6ba06fe9ec1522dd5c59e16810115bce28aa148f",
+    "revision": "6070b29a1a5d51193a634dc1b0a14a67c39d0ccc",
     "path": "Sources/CodexBarCore/Resources/Plugins/nous.js",
     "sha256": "160f5329bf4895a061d3bed74d0476283d3abad47e071fb868d667c0c5cb485e",
     "license": "MIT"

@@ -1,4 +1,6 @@
-//! Cursor token-level usage from the dashboard CSV export (same source as cstats).
+//! Cursor billing usage from complete dashboard event pages or its CSV export.
+
+mod events;
 
 use anyhow::{Context, Result, bail};
 use base64::Engine;
@@ -29,7 +31,7 @@ pub struct RowAgg {
     pub cost_usd: f64,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CsvUsageRow {
     /// Local calendar day `YYYY-MM-DD`.
     day_key: String,
@@ -210,8 +212,7 @@ pub fn query_daily_billing(
     } else {
         resolve_date_range(since, until)?
     };
-    let csv_text = fetch_csv_cached(plugin_id, &since, &until)?;
-    let rows = parse_usage_csv(&csv_text, &since, &until)?;
+    let rows = usage_rows(plugin_id, &since, &until)?;
     let by_day = aggregate_by_day(&rows);
     let mut out: Vec<DailyBillingRow> = by_day
         .into_iter()
@@ -348,18 +349,16 @@ pub struct UsageStatsPayload {
     pub totals: UsageStatsRowJson,
 }
 
-fn fetch_cursor_month_to_date_totals_uncached(plugin_id: &str) -> Option<CursorMtdTotals> {
-    if resolve_state_db_for_plugin(plugin_id).is_none() {
-        return None;
-    }
-    let (since, until) = month_to_date_range_local().ok()?;
-    let (start_ms, end_ms) = to_epoch_range_ms(&since, &until).ok()?;
-    let csv_text = download_cursor_usage_csv_for_plugin(plugin_id, start_ms, end_ms).ok()?;
-    let rows = parse_usage_csv(&csv_text, &since, &until).ok()?;
+fn fetch_cursor_month_to_date_totals_uncached(
+    session: &CursorSession,
+    since: String,
+    until: String,
+) -> Option<CursorMtdTotals> {
+    let rows = rows_for_session(session, &since, &until).ok()?;
     let agg = sum_csv_rows(&rows);
     Some(CursorMtdTotals {
         total_tokens: agg.total_tokens,
-        input_tokens: agg.input_no_cache,
+        input_tokens: agg.input_no_cache + agg.input_cache_write + agg.cache_read,
         output_tokens: agg.output,
         cost_usd: agg.cost_usd,
         since,
@@ -370,7 +369,8 @@ fn fetch_cursor_month_to_date_totals_uncached(plugin_id: &str) -> Option<CursorM
 /// Month-to-date totals from Cursor's dashboard CSV (cached ~45m per month).
 pub fn fetch_cursor_month_to_date_totals_for_plugin(plugin_id: &str) -> Option<CursorMtdTotals> {
     let (since, until) = month_to_date_range_local().ok()?;
-    let cache_key = format!("{plugin_id}:{since}-{until}");
+    let session = CursorSession::load(plugin_id).ok()?;
+    let cache_key = format!("{}:{since}-{until}", session.credential_key);
     if let Ok(guard) = MTD_CACHE.lock() {
         if let Some((key, at, totals)) = guard.as_ref() {
             if key == &cache_key && at.elapsed() < MTD_CACHE_TTL {
@@ -378,7 +378,7 @@ pub fn fetch_cursor_month_to_date_totals_for_plugin(plugin_id: &str) -> Option<C
             }
         }
     }
-    let totals = fetch_cursor_month_to_date_totals_uncached(plugin_id)?;
+    let totals = fetch_cursor_month_to_date_totals_uncached(&session, since, until)?;
     if let Ok(mut guard) = MTD_CACHE.lock() {
         *guard = Some((cache_key, Instant::now(), totals.clone()));
     }
@@ -615,20 +615,44 @@ fn resolve_cursor_access_token(db_path: &PathBuf) -> Result<String> {
     access.context("No usable Cursor access token. Open Cursor and sign in again.")
 }
 
-pub fn download_cursor_usage_csv_for_plugin(
-    plugin_id: &str,
-    start_ms: i64,
-    end_ms: i64,
-) -> Result<String> {
-    install_rustls_provider();
-    let db_path = resolve_state_db_for_plugin(plugin_id).with_context(|| {
-        format!(
-            "Cursor state.vscdb not found for {plugin_id}. Install Cursor or Cursor Nightly and sign in."
-        )
-    })?;
+struct CursorSession {
+    cookie: String,
+    account_key: String,
+    credential_key: String,
+}
 
-    let access = resolve_cursor_access_token(&db_path)?;
-    let cookie = build_session_cookie(&access)?;
+impl CursorSession {
+    fn load(plugin_id: &str) -> Result<Self> {
+        use sha2::{Digest, Sha256};
+        let db = resolve_state_db_for_plugin(plugin_id)
+            .context("Selected Cursor state.vscdb is unavailable")?;
+        let access = resolve_cursor_access_token(&db)?;
+        let payload = decode_jwt_payload(&access).context("Invalid Cursor access token")?;
+        let subject = payload
+            .sub
+            .as_deref()
+            .filter(|id| !id.trim().is_empty())
+            .context("Cursor token has no subject")?;
+        let zone = std::env::var("TZ")
+            .ok()
+            .filter(|value| !value.is_empty())
+            .or_else(|| iana_time_zone::get_timezone().ok())
+            .unwrap_or_else(|| Local::now().offset().to_string());
+        let account_key = format!(
+            "{:x}",
+            Sha256::digest(serde_json::to_vec(&(plugin_id, db, subject, zone))?)
+        );
+        let credential_key = format!("{:x}", Sha256::digest(format!("{account_key}:{access}")));
+        Ok(Self {
+            cookie: build_session_cookie(&access)?,
+            account_key,
+            credential_key,
+        })
+    }
+}
+
+fn download_csv(session: &CursorSession, start_ms: i64, end_ms: i64) -> Result<String> {
+    install_rustls_provider();
 
     let client = reqwest::blocking::Client::builder()
         .timeout(Duration::from_secs(120))
@@ -640,7 +664,7 @@ pub fn download_cursor_usage_csv_for_plugin(
     );
     let resp = client
         .get(&url)
-        .header("Cookie", cookie)
+        .header("Cookie", &session.cookie)
         .header("Accept", "text/csv")
         .header(
             "User-Agent",
@@ -660,8 +684,8 @@ pub fn download_cursor_usage_csv_for_plugin(
     Ok(resp.text()?)
 }
 
-fn fetch_csv_cached(plugin_id: &str, since: &str, until: &str) -> Result<String> {
-    let cache_key = format!("{plugin_id}:{since}-{until}");
+fn fetch_csv_cached(session: &CursorSession, since: &str, until: &str) -> Result<String> {
+    let cache_key = format!("{}:{since}-{until}", session.credential_key);
     if let Ok(guard) = CSV_RANGE_CACHE.lock() {
         if let Some((key, at, text)) = guard.as_ref() {
             if key == &cache_key && at.elapsed() < MTD_CACHE_TTL {
@@ -670,11 +694,27 @@ fn fetch_csv_cached(plugin_id: &str, since: &str, until: &str) -> Result<String>
         }
     }
     let (start_ms, end_ms) = to_epoch_range_ms(since, until)?;
-    let text = download_cursor_usage_csv_for_plugin(plugin_id, start_ms, end_ms)?;
+    let text = download_csv(session, start_ms, end_ms)?;
     if let Ok(mut guard) = CSV_RANGE_CACHE.lock() {
         *guard = Some((cache_key, Instant::now(), text.clone()));
     }
     Ok(text)
+}
+
+fn usage_rows(plugin_id: &str, since: &str, until: &str) -> Result<Vec<CsvUsageRow>> {
+    let session = CursorSession::load(plugin_id)?;
+    rows_for_session(&session, since, until)
+}
+
+fn rows_for_session(session: &CursorSession, since: &str, until: &str) -> Result<Vec<CsvUsageRow>> {
+    install_rustls_provider();
+    match events::fetch(session, since, until) {
+        Ok(rows) => Ok(rows),
+        Err(_) => {
+            let csv = fetch_csv_cached(session, since, until)?;
+            parse_usage_csv(&csv, since, until)
+        }
+    }
 }
 
 fn row_agg_to_json(key: String, a: &RowAgg) -> UsageStatsRowJson {
@@ -719,8 +759,7 @@ pub fn query_usage_stats(
         bail!("group must be 'model' or 'provider'");
     }
 
-    let csv_text = fetch_csv_cached(plugin_id, &since, &until)?;
-    let rows = parse_usage_csv(&csv_text, &since, &until)?;
+    let rows = usage_rows(plugin_id, &since, &until)?;
     let map = if group == "model" {
         aggregate_by_model(&rows)
     } else {

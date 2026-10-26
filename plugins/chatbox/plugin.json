@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "id": "chatbox",
+  "name": "Chatbox AI",
+  "version": "0.1.0",
+  "entry": "plugin.js",
+  "enabledByDefault": false,
+  "supportedModes": [
+    "api"
+  ],
+  "autoMode": "api",
+  "usageDashboardUrl": "https://chatboxai.app",
+  "envVars": [
+    "CHATBOX_LICENSE_KEY"
+  ],
+  "setupFields": [],
+  "upstream": {
+    "repository": "https://github.com/steipete/CodexBar",
+    "revision": "6070b29a1a5d51193a634dc1b0a14a67c39d0ccc",
+    "path": "Sources/CodexBarCore/Resources/Plugins/chatbox.js",
+    "sha256": "cf0ae84410aa3794635c0df1edf4936ae514a070968a189dc6ef613c5445f957",
+    "license": "MIT"
+  }
+}

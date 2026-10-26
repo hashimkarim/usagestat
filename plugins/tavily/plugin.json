@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "id": "tavily",
+  "name": "Tavily",
+  "version": "0.1.0",
+  "entry": "plugin.js",
+  "enabledByDefault": false,
+  "supportedModes": [
+    "api"
+  ],
+  "autoMode": "api",
+  "usageDashboardUrl": "https://app.tavily.com",
+  "envVars": [
+    "TAVILY_API_KEY"
+  ],
+  "setupFields": [],
+  "upstream": {
+    "repository": "https://github.com/steipete/CodexBar",
+    "revision": "6070b29a1a5d51193a634dc1b0a14a67c39d0ccc",
+    "path": "Sources/CodexBarCore/Resources/Plugins/tavily.js",
+    "sha256": "2859e56104c9e73d2650b87e034c5f2955c09ea7507e128a22e1ab42b5ae35a0",
+    "license": "MIT"
+  }
+}

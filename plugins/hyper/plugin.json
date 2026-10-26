@@ -16,11 +16,12 @@
     "HYPER_API_KEY",
     "HYPER_COOKIE"
   ],
+  "setupFields": [],
   "upstream": {
     "repository": "https://github.com/steipete/CodexBar",
-    "revision": "6ba06fe9ec1522dd5c59e16810115bce28aa148f",
+    "revision": "6070b29a1a5d51193a634dc1b0a14a67c39d0ccc",
     "path": "Sources/CodexBarCore/Resources/Plugins/hyper.js",
-    "sha256": "893e1a9a91e7af57522bcc39791d77d6fe3b8ae0d61384aee1768f5f419636cd",
+    "sha256": "a8201abe6997057547d6294882b27c4040ac03e151f7ac4678b7c28844170cd5",
     "license": "MIT"
   }
 }

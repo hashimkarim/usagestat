@@ -2,6 +2,7 @@
   var SETTINGS_URL = "https://ollama.com/settings";
   var TAGS_URL = "https://ollama.com/api/tags";
   var VALIDATION_URL = "https://ollama.com/api/web_search";
+  var BALANCE_URL = "https://ollama.com/api/balance";
   var SESSION_COOKIE = "__Secure-session";
   var SESSION_MS = 5 * 60 * 60 * 1000;
   var WEEK_MS = 7 * 24 * 60 * 60 * 1000;
@@ -21,6 +22,7 @@
   }
 
   function env(ctx, name) {
+    if (ctx.provider && ctx.provider.instanceId && ctx.provider.instanceId !== 'ollama') return null;
     try {
       return clean(ctx.host.env.get(name));
     } catch (_) {
@@ -89,6 +91,13 @@
   }
 
   function probeApi(ctx, apiKey) {
+    var balanceResponse = request(ctx, {method:'GET',url:BALANCE_URL,
+      headers:{Authorization:'Bearer '+apiKey,Accept:'application/json'},timeoutMs:15000});
+    if (balanceResponse.status !== 404) {
+      if (balanceResponse.status === 401 || balanceResponse.status === 403) throw "Ollama API key is invalid or revoked.";
+      if (balanceResponse.status !== 200) throw "Ollama balance API returned HTTP " + balanceResponse.status + ".";
+      return balanceResult(ctx, parseJson(ctx,balanceResponse.bodyText));
+    }
     var validation = request(ctx, {
       method: "POST",
       url: VALIDATION_URL,
@@ -145,6 +154,55 @@
         }),
       ],
     };
+  }
+
+  function balanceResult(ctx, payload) {
+    var data = payload && payload.data && typeof payload.data === 'object' ? payload.data : payload;
+    var fail = function() { throw 'Ollama returned an invalid credit balance response.'; };
+    if (!data || typeof data !== 'object' || Array.isArray(data)) return fail();
+    var amount = function(value) {
+      if (typeof value === 'string' && /^-?\d+(?:\.\d+)?$/.test(value.trim())) value = Number(value);
+      return typeof value === 'number' && Number.isFinite(value) ? value : fail();
+    };
+    var date = function(value) {
+      if (value == null) return null;
+      if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/.test(value)) return fail();
+      var parts=value.slice(0,10).split('-').map(Number),ms=Date.parse(value);
+      if (!Number.isFinite(ms) || parts[1]<1 || parts[1]>12 || parts[2]<1 || parts[2]>new Date(Date.UTC(parts[0],parts[1],0)).getUTCDate()) return fail();
+      return new Date(ms).toISOString();
+    };
+    var included=data.included,lines=[];
+    if (included != null && (typeof included !== 'object' || Array.isArray(included))) return fail();
+    if (included && (included.allowance_usd != null || included.balance_usd != null)) {
+      var allowance=amount(included.allowance_usd),balance=amount(included.balance_usd);
+      if (allowance<0) return fail();
+      var used=Math.max(0,allowance-balance),period=included.period;
+      if (period!=null && (typeof period!=='object' || Array.isArray(period))) return fail();
+      var until=date(period && period.until),from=date(period && period.from);
+      if (from && until && Date.parse(until)<=Date.parse(from)) return fail();
+      if (allowance>0) lines.push(ctx.line.progress({label:'Monthly credits',used:used,limit:allowance,
+        format:{kind:'dollars'},resetsAt:until || undefined,
+        periodDurationMs:from && until ? Date.parse(until)-Date.parse(from) : until ? ctx.util.calendarMonthDuration(until) : undefined}));
+      else lines.push(ctx.line.text({label:'Monthly allowance',value:'$0.00'}));
+      lines.push(ctx.line.text({label:'Monthly remaining',value:'$'+balance.toFixed(2)}));
+    }
+    var limits=included || data.limits || data;
+    for (var spec of [['session','Session',SESSION_MS],['weekly','Weekly',WEEK_MS],['monthly','Monthly',null]]) {
+      var window=limits[spec[0]] || limits[spec[0]+'_usage'];
+      if (!window) continue;
+      var raw=window.used_percent ?? window.usedPercent ?? window.percent ?? window.percentage;
+      var percent;
+      if (raw!=null) percent=amount(raw);
+      else if (window.remaining_percent!=null || window.remainingPercent!=null) percent=100-amount(window.remaining_percent ?? window.remainingPercent);
+      else if (window.usage!=null) {percent=amount(window.usage);if(percent<=1) percent*=100;}
+      else continue;
+      if (percent<0) return fail();
+      lines.push(ctx.line.progress({label:spec[1],used:percent,limit:100,format:{kind:'percent'},
+        periodDurationMs:spec[2] || undefined,resetsAt:date(window.resets_at || window.resetsAt) || undefined}));
+    }
+    if (data.purchased!=null) lines.push(ctx.line.text({label:'Purchased credits',value:'$'+amount(data.purchased.balance_usd).toFixed(2)}));
+    if (!lines.length) return fail();
+    return {displayName:'Ollama',source:'api',plan:typeof data.plan==='string' ? ctx.fmt.planLabel(data.plan) : 'API key',lines:lines};
   }
 
   function blockEnd(html, start, currentLabel) {

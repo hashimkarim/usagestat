@@ -346,11 +346,15 @@
 
   function requestJsonAcrossBases(ctx, path, token, body, options) {
     var urls = cloudCodeUrls(path)
+    var summaries = path === '/v1internal:retrieveUserQuotaSummary' ? [] : null
     for (var i = 0; i < urls.length; i += 1) {
       var data = requestJson(ctx, urls[i], token, body, options)
-      if (data) return data
+      if (data) {
+        if (summaries) summaries.push(data)
+        else return data
+      }
     }
-    return null
+    return summaries && summaries.length ? summaries : null
   }
 
   function makeAuthRetry(ctx, authState) {
@@ -425,6 +429,7 @@
 
   function poolForText(text) {
     var lower = String(text || "").toLowerCase()
+    if (lower.indexOf('argon') !== -1) return null
     if (lower.indexOf("gemini") !== -1 && lower.indexOf("pro") !== -1) return "Gemini Pro"
     if (lower.indexOf("gemini") !== -1 && lower.indexOf("flash") !== -1) return "Gemini Flash"
     if (lower.indexOf("gemini") !== -1) return null
@@ -549,7 +554,7 @@
     var summary = requestJsonAcrossBases(ctx, "/v1internal:retrieveUserQuotaSummary", authState.token,
       project ? { project: project } : {}, { optional: true, timeoutMs: 2000 })
     var summaryLines = ctx.util.groupedQuotaLines(summary)
-    if (summaryLines.length) return { plan: plan || undefined, lines: summaryLines }
+    if (summaryLines !== null) return { plan: plan || undefined, lines: summaryLines }
 
     var buckets = []
     // fetchAvailableModels rejects `metadata` in the body (HTTP 400); use {} like Antigravity IDE.

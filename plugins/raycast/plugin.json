@@ -14,9 +14,17 @@
   "envVars": [
     "RAYCAST_COOKIE"
   ],
+  "setupFields": [
+    {
+      "key": "webTimeoutSeconds",
+      "title": "Web timeout",
+      "type": "string",
+      "description": "Provider-specific account or source selection."
+    }
+  ],
   "upstream": {
     "repository": "https://github.com/steipete/CodexBar",
-    "revision": "6ba06fe9ec1522dd5c59e16810115bce28aa148f",
+    "revision": "6070b29a1a5d51193a634dc1b0a14a67c39d0ccc",
     "path": "Sources/CodexBarCore/Resources/Plugins/raycast.js",
     "sha256": "df8f6d185cb67fd9ec9b622d2321a6d4e5395576b9ab54b1725aac272c95ecb7",
     "license": "MIT"

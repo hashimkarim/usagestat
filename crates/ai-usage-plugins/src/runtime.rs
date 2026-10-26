@@ -122,8 +122,12 @@ fn probe_native(
     let cancellation = usagestat_core::process::current_cancellation();
     let deadline = std::time::Instant::now() + std::time::Duration::from_secs(90);
     rt.set_memory_limit(128 * 1024 * 1024);
-    rt.set_interrupt_handler(Some(Box::new(move || std::time::Instant::now() >= deadline
-        || cancellation.as_ref().is_some_and(|value| value.is_cancelled()))));
+    rt.set_interrupt_handler(Some(Box::new(move || {
+        std::time::Instant::now() >= deadline
+            || cancellation
+                .as_ref()
+                .is_some_and(|value| value.is_cancelled())
+    })));
     let Ok(ctx) = Context::full(&rt) else {
         return fallback();
     };
@@ -590,18 +594,36 @@ mod provider_sync_tests {
             assert!(message.contains("TypeError:") || message.contains("SyntaxError:"), "{message}");
             assert!(message.contains("runtime-test/plugin.js:1"), "{message}");
         }
-        let snapshot = probe_provider(&fixture("globalThis.__usagestat_plugin={probe(){throw 'Your session expired. Sign in again.';}}"), "auto", None);
-        assert_eq!(error_text(&snapshot), "Your session expired. Sign in again.");
+        let snapshot = probe_provider(
+            &fixture(
+                "globalThis.__usagestat_plugin={probe(){throw 'Your session expired. Sign in again.';}}",
+            ),
+            "auto",
+            None,
+        );
+        assert_eq!(
+            error_text(&snapshot),
+            "Your session expired. Sign in again."
+        );
     }
 
     #[test]
     fn native_and_async_error_wrappers_preserve_provider_states() {
         use usagestat_core::model::ProviderState;
         for (message, state) in [
-            ("unsupported: Select a persistent store", ProviderState::Unsupported),
+            (
+                "unsupported: Select a persistent store",
+                ProviderState::Unsupported,
+            ),
             ("missing-auth: Sign in first", ProviderState::MissingAuth),
-            ("credential-malformed: Invalid credential file", ProviderState::CredentialMalformed),
-            ("keychain read failed: credential-denied: Store locked", ProviderState::CredentialDenied),
+            (
+                "credential-malformed: Invalid credential file",
+                ProviderState::CredentialMalformed,
+            ),
+            (
+                "keychain read failed: credential-denied: Store locked",
+                ProviderState::CredentialDenied,
+            ),
             ("Probe timed out after 12 seconds", ProviderState::TimedOut),
         ] {
             for asynchronous in [false, true] {
@@ -685,8 +707,12 @@ mod provider_sync_tests {
             [settings]
             sessionRoots = ["/selected/profile/sessions"]
             flags = { partial = true, count = 2 }
-        "#).unwrap();
-        let provider = fixture("globalThis.__usagestat_plugin = {probe(ctx) { const s=ctx.provider.settings; if (!Array.isArray(s.sessionRoots) || !s.flags.partial || s.flags.count !== 2) throw 'Lost structured settings'; return {lines:[ctx.line.text({label:'Root',value:s.sessionRoots[0]})]}; }};");
+        "#,
+        )
+        .unwrap();
+        let provider = fixture(
+            "globalThis.__usagestat_plugin = {probe(ctx) { const s=ctx.provider.settings; if (!Array.isArray(s.sessionRoots) || !s.flags.partial || s.flags.count !== 2) throw 'Lost structured settings'; return {lines:[ctx.line.text({label:'Root',value:s.sessionRoots[0]})]}; }};",
+        );
         let result = probe_provider(&provider, "auto", Some(&config));
         assert!(matches!(&result.metrics[0], MetricLine::Text { value, .. } if value == "/selected/profile/sessions"), "{result:?}");
     }
@@ -706,6 +732,51 @@ mod provider_sync_tests {
         assert_eq!(snapshot.state, Some(usagestat_core::model::ProviderState::Ready), "{snapshot:?}");
         assert_eq!(snapshot.plan.as_deref(), Some("Pro"));
         assert!(matches!(&snapshot.metrics[0], MetricLine::Progress { used, .. } if *used == 25.0));
+    }
+
+    #[test]
+    fn new_api_fetchers_preserve_readback_values_in_native_quickjs() {
+        let fixtures: serde_json::Map<String, serde_json::Value> = serde_json::from_str(
+            include_str!("../../../tests/fixtures/bundled-api-readback.json"),
+        )
+        .unwrap();
+        for (id, data) in fixtures {
+            let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../../plugins")
+                .join(&id);
+            let mut provider = crate::loader::load_provider(&root).unwrap();
+            let setup = format!(
+                r#"
+                const fixture={data};
+                const host=__usagestat_ctx.host;
+                __usagestat_ctx.nowIso='2026-09-05T12:00:00Z';
+                host.http.request=req=>{{
+                    if(req.url.endsWith('/organization')) return {{status:503,headers:{{}},bodyText:'optional unavailable'}};
+                    if('{id}'==='futureagi' && req.headers['X-Secret-Key']!=='fixture-secondary') throw 'Missing secondary credential';
+                    return {{status:200,headers:{{}},bodyText:JSON.stringify(req.url.endsWith('/usage/monthly') ? fixture.monthly : fixture.body)}};
+                }};
+            "#
+            );
+            provider.entry_script = setup + &provider.entry_script;
+            let config: ProviderConfig = serde_json::from_value(serde_json::json!({
+                "id":id,"apiKey":"fixture-key","workspaceId":data.get("scope"),
+                "settings":data.get("settings").cloned().unwrap_or_else(||serde_json::json!({}))
+            }))
+            .unwrap();
+            let snapshot = probe_provider(&provider, "api", Some(&config));
+            assert_eq!(
+                snapshot.state,
+                Some(usagestat_core::model::ProviderState::Ready),
+                "{id}: {snapshot:?}"
+            );
+            let label = data["label"].as_str().unwrap();
+            if let Some(used) = data.get("used").and_then(serde_json::Value::as_f64) {
+                assert!(snapshot.metrics.iter().any(|line| matches!(line,MetricLine::Progress{label:actual,used:value,..} if actual==label && *value==used)),"{id}: {snapshot:?}");
+            } else {
+                let expected = data["value"].as_str().unwrap();
+                assert!(snapshot.metrics.iter().any(|line| matches!(line,MetricLine::Text{label:actual,value,..} if actual==label && value==expected)),"{id}: {snapshot:?}");
+            }
+        }
     }
 
     #[test]
@@ -736,7 +807,8 @@ mod provider_sync_tests {
                 if (!denied) throw 'Cookie session scope was not enforced';
             }
             return {lines:[ctx.line.text({label:'Scope',value:'Verified'})]};
-        }};"#);
+        }};"#,
+        );
         provider.manifest.id = "lithosai".into();
         let config: ProviderConfig = toml::from_str("id='lithosai'\ncookieHeader='__Host-console_session=fixture; __Host-console_csrf=fixture'").unwrap();
         let snapshot = probe_provider(&provider,"web",Some(&config));
@@ -746,8 +818,14 @@ mod provider_sync_tests {
     #[test]
     fn new_cookie_provider_parsers_run_with_native_quickjs_wrappers() {
         for (id, source) in [
-            ("lithosai",include_str!("../../../plugins/lithosai/plugin.js")),
-            ("workbuddy",include_str!("../../../plugins/workbuddy/plugin.js")),
+            (
+                "lithosai",
+                include_str!("../../../plugins/lithosai/plugin.js"),
+            ),
+            (
+                "workbuddy",
+                include_str!("../../../plugins/workbuddy/plugin.js"),
+            ),
         ] {
             let script = format!(r#"
                 __usagestat_ctx.host.http.requestCookieSession = req => {{
@@ -806,11 +884,21 @@ mod provider_sync_tests {
 
     #[test]
     fn rejected_async_probes_preserve_typed_errors_and_do_not_poison_retries() {
-        let provider = fixture("globalThis.__usagestat_plugin = {probe: async function() { await Promise.resolve(); throw {code:'missing-auth',message:'Sign in to the selected account.'}; }};");
+        let provider = fixture(
+            "globalThis.__usagestat_plugin = {probe: async function() { await Promise.resolve(); throw {code:'missing-auth',message:'Sign in to the selected account.'}; }};",
+        );
         let snapshot = probe_provider(&provider, "auto", None);
-        assert_eq!(snapshot.state, Some(usagestat_core::model::ProviderState::MissingAuth));
-        let good = fixture("globalThis.__usagestat_plugin = {probe: async function(ctx) { await Promise.resolve(); return {lines:[ctx.line.text({label:'Status',value:'Ready'})]}; }};");
-        assert_eq!(probe_provider(&good, "auto", None).state, Some(usagestat_core::model::ProviderState::Ready));
+        assert_eq!(
+            snapshot.state,
+            Some(usagestat_core::model::ProviderState::MissingAuth)
+        );
+        let good = fixture(
+            "globalThis.__usagestat_plugin = {probe: async function(ctx) { await Promise.resolve(); return {lines:[ctx.line.text({label:'Status',value:'Ready'})]}; }};",
+        );
+        assert_eq!(
+            probe_provider(&good, "auto", None).state,
+            Some(usagestat_core::model::ProviderState::Ready)
+        );
     }
 
     #[test]

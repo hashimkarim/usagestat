@@ -1,19 +1,25 @@
 {
   "schemaVersion": 1,
   "id": "gemini-apps",
-  "name": "Gemini Apps",
+  "name": "Gemini app",
   "version": "0.1.0",
   "entry": "plugin.js",
   "enabledByDefault": false,
-  "supportedModes": ["web"],
+  "supportedModes": [
+    "web"
+  ],
   "autoMode": "web",
-  "webUrl": "https://gemini.google.com",
   "usageDashboardUrl": "https://gemini.google.com/usage",
-  "envVars": ["GEMINI_COOKIE"],
+  "webUrl": "https://gemini.google.com",
+  "envVars": [
+    "GEMINI_COOKIE"
+  ],
+  "setupFields": [],
   "upstream": {
-    "repository": "https://github.com/barramee27/crossusage",
-    "revision": "2b90b00be84e06acbf71a7c5c8db22d1c4e83966",
-    "path": "plugins/gemini-apps/plugin.js",
+    "repository": "https://github.com/steipete/CodexBar",
+    "revision": "6070b29a1a5d51193a634dc1b0a14a67c39d0ccc",
+    "path": "Sources/CodexBarCore/Resources/Plugins/gemini-web.js",
+    "sha256": "7c71195603b2051ad74d85c0acc523546cf5ec62a600ae4900a1d7e54be7b02e",
     "license": "MIT"
   }
 }

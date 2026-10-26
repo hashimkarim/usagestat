@@ -82,12 +82,10 @@ NOTES['droid'] = 'Aliases Factory API/manual-web and legacy auth code; v2 encryp
 NOTES['kimi'] = 'Configured Code API key, read-only isolated CLI-home OAuth and optional web membership enrichment. Exhausted monthly quota is primary. Real CLI/Desktop schemas and account stores remain unverified.'
 NOTES['kiro'] = 'Native app-support/custom-root fixtures, included/overage credit parsing, and validated supported IDE API profile regions. CLI SQLite credential import and live app/account versions remain unverified.'
 
-SEPTEMBER_27_BUNDLED = {
-    'aixy', 'atlascloud', 'bifrost', 'devpass', 'gitkraken', 'helmcode',
-    'huggingface', 'hyper', 'llmman', 'muse', 'nous', 'raycast', 'replicate',
-    'typesafe', 'v0', 'vercel', 'xkiro',
-}
-BUNDLED = SEPTEMBER_27_BUNDLED | {'museai', 'lithosai', 'workbuddy'}
+# The manifests own the vendored catalog; avoid a second provider roster.
+BUNDLED = {json.loads(path.read_text(encoding='utf-8'))['id']
+           for path in (ROOT/'plugins').glob('*/plugin.json')
+           if json.loads(path.read_text(encoding='utf-8')).get('upstream', {}).get('repository') == 'https://github.com/steipete/CodexBar'}
 for ident in BUNDLED:
     FIXTURES.setdefault(ident, []).append('tests/bundled-providers.test.cjs')
     NOTES[ident] = ('Vendored CodexBar provider with a bounded native asynchronous host adapter and explicit credential/endpoint routing. '
@@ -103,7 +101,7 @@ for ident in ['claude', 'codex', 'deepseek', 'devin', 'clinepass', 'command-code
     FIXTURES.setdefault(ident, []).append('tests/inspo-sync-20260927.test.cjs')
 NOTES['pi'] = 'Bounded local Pi/OMP transcript collection, profile isolation and partial/unpriced history fixtures. Only explicitly recognized historical model prices are estimated; full model coverage and process discovery are pending.'
 NOTES['coderabbit'] = 'Bounded read-only coderabbit usage CLI helper and JSON fixtures. Installed CLI versions/authentication remain unverified.'
-NOTES['gemini-apps'] = 'Explicit web-session SAPISID hash authentication and HTTP/1 RPC fixtures. Browser-bound live sessions and current RPC schema remain unverified.'
+NOTES['gemini-apps'] = 'Manual instance-scoped opaque cookie session on the permitted Gemini GraphQL usage route. Stable provider identity and GEMINI_COOKIE alias preserved. Browser-bound live sessions remain unverified.'
 NOTES['deepseek'] = 'API balance plus explicitly selected Platform wallet and bounded daily/monthly detail collection. Non-USD spend is never stored as USD. Synthetic fixtures only; live Platform schemas remain unverified.'
 for ident in ['antigravity', 'antigravity-cli', 'antigravity-ide', 'mistral', 'zai']:
     FIXTURES.setdefault(ident, []).append('tests/inspo-sync-20260929.test.cjs')
@@ -114,7 +112,19 @@ for ident in ['antigravity', 'antigravity-cli']:
     NOTES[ident] += ' HTTP 403 quota permission denials remain distinct from expired authentication; fixtures preserve model fallback and one 401 refresh.'
 NOTES['mistral'] = 'Manual cookie billing fixtures match prices by event, metric, group, zone and tier; fine-tuning included. Missing rates produce an explicit partial spend total. Real account schemas remain unverified.'
 NOTES['zai'] = 'Configured API quota fixtures preserve recognized windows and explicitly flag unavailable/unknown plan quota shapes. Real account responses remain unverified.'
-NOTES['typesafe'] += ' Cookie billing may be blocked by Cloudflare; challenge fixtures distinguish failed access from expired authentication. Reviewed upstream has no working challenge transport or documented API billing alternative.'
+NOTES['typesafe'] += ' Cookie billing may be blocked by Cloudflare; challenge fixtures distinguish failed access from expired authentication. The upstream browser User-Agent is sent on billing requests, but fixtures cannot establish live challenge acceptance.'
+
+for ident in BUNDLED | {'qwencloud','claude','codex','cursor','cursor-nightly','ollama','opencode-go','antigravity','antigravity-cli','antigravity-ide','xai'}:
+    FIXTURES.setdefault(ident, []).append('tests/provider-inspo-20261026.test.cjs')
+for ident in {'claudeplatform','langdock','xapi','gemini-apps','qwencloud'}:
+    FIXTURES.setdefault(ident, []).append('crates/ai-usage-plugins/src/cookie_sessions.rs')
+    NOTES[ident] = NOTES.get(ident, '') + ' Manual cookie injection is native, instance-bound and restricted to reviewed HTTPS routes; automatic browser import and live acceptance are unverified.'
+for ident in ['cursor','cursor-nightly']:
+    FIXTURES[ident].append('crates/ai-usage-plugins/src/cursor_usage_export/events.rs')
+    NOTES[ident] += ' Event history accepts complete pages of billed charges, scopes private derived caches to account/profile/timezone, and falls back to CSV when evidence is incomplete.'
+NOTES['kimi'] += ' Current ratio pools and expiring gift credits are covered by tests/provider-inspo-20261026.test.cjs; exhausted monthly pools retain primary precedence.'
+NOTES['qwencloud'] += ' Individual subscription and explicit team Token Plan sources share the existing identity; empty team results do not fall back to another billing source.'
+NOTES['vercel'] += ' Explicit personal-budget mode requires its own access token and scopes results to the selected user/team; Gateway balance remains the default.'
 
 def inventory():
     records=[]
@@ -138,7 +148,7 @@ def inventory():
         if ident=='codex':methods.append('native Codex auth adapter')
         if ident in BUNDLED:methods.append('native bundled-provider adapter')
         if ident in {'museai','lithosai','workbuddy'}:methods.append('manual web credential')
-        if ident in {'lithosai','workbuddy'}:methods.append('native scoped cookie session')
+        if ident in {'lithosai','workbuddy','claudeplatform','langdock','xapi','gemini-apps','qwencloud'}:methods.append('native scoped cookie session')
         if not methods:methods.append('provider-specific settings/HTTPS')
         note=NOTES.get(ident,'Configured credentials and HTTP request code inspected; real credentials, API responses and provider/account behavior remain unverified on each OS.')
         states={os:('P' if ident in PARTIAL else 'I') for os in ['linux','macos','windows']}

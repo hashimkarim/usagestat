@@ -51,7 +51,7 @@ function providerHarness(id, options = {}) {
     ...options.host,
   };
   const ctx = {app: {platform, version: '1.0.3'}, nowIso: '2026-08-01T12:00:00Z', provider: {id, settings: options.settings || {}}, host};
-  const sandbox = vm.createContext({__usagestat_ctx: ctx, TextDecoder, TextEncoder, Uint8Array});
+  const sandbox = vm.createContext({__usagestat_ctx: ctx,__OPENUSAGE_PLUGIN_REGISTRATION_ID__:id, TextDecoder, TextEncoder, Uint8Array});
   vm.runInContext(utilityScript, sandbox, {timeout: 1000});
   const manifest = JSON.parse(fs.readFileSync(path.join(root, 'plugins', id, 'plugin.json'), 'utf8'));
   vm.runInContext(fs.readFileSync(path.resolve(root, 'plugins', id, manifest.entry), 'utf8'), sandbox, {timeout: 1000});

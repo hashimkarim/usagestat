@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "id": "sofya",
+  "name": "Sofya",
+  "version": "0.1.0",
+  "entry": "plugin.js",
+  "enabledByDefault": false,
+  "supportedModes": [
+    "api"
+  ],
+  "autoMode": "api",
+  "usageDashboardUrl": "https://sofya.co",
+  "envVars": [
+    "SOFYA_API_KEY"
+  ],
+  "setupFields": [],
+  "upstream": {
+    "repository": "https://github.com/steipete/CodexBar",
+    "revision": "6070b29a1a5d51193a634dc1b0a14a67c39d0ccc",
+    "path": "Sources/CodexBarCore/Resources/Plugins/sofya.js",
+    "sha256": "4190c42d42a1b70b6ed284821ef7803420564b4b020e939e60d79e4b0991c281",
+    "license": "MIT"
+  }
+}

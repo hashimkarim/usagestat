@@ -13,9 +13,17 @@
     "LLMMAN_API_KEY",
     "LLMMAN_HOST"
   ],
+  "setupFields": [
+    {
+      "key": "LLMMAN_HOST",
+      "title": "Base URL",
+      "type": "string",
+      "description": "Provider-specific account or source selection."
+    }
+  ],
   "upstream": {
     "repository": "https://github.com/steipete/CodexBar",
-    "revision": "6ba06fe9ec1522dd5c59e16810115bce28aa148f",
+    "revision": "6070b29a1a5d51193a634dc1b0a14a67c39d0ccc",
     "path": "Sources/CodexBarCore/Resources/Plugins/llmman.js",
     "sha256": "eb48d35bb101fda0e3bf122eea358c6e16ea937ac72376e6e4ede52e7828d209",
     "license": "MIT"

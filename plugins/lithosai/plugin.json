@@ -15,9 +15,10 @@
     "LITHOSAI_COOKIE"
   ],
   "setupHelp": "Use a Cookie header from console.lithosai.cloud containing both __Host-console_session and __Host-console_csrf from the same session. Prepaid balance is separate from measured spend.",
+  "setupFields": [],
   "upstream": {
     "repository": "https://github.com/steipete/CodexBar",
-    "revision": "6ba06fe9ec1522dd5c59e16810115bce28aa148f",
+    "revision": "6070b29a1a5d51193a634dc1b0a14a67c39d0ccc",
     "path": "Sources/CodexBarCore/Resources/Plugins/lithosai.js",
     "sha256": "11f83683e93728e8d35ae6d9852b854d6f8db9dee2b0b293e5899089216b01ff",
     "license": "MIT"

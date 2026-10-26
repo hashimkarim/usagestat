@@ -17,6 +17,24 @@
   "setupHelp": "Use a Cookie header from www.workbuddy.cn and the full User-Agent from the same browser. Set Browser User-Agent below. Desktop login files are not imported.",
   "setupFields": [
     {
+      "key": "webTimeoutSeconds",
+      "title": "Web timeout",
+      "type": "string",
+      "description": "Provider-specific account or source selection."
+    },
+    {
+      "key": "resetDeadlineMillis",
+      "title": "Reset lookup deadline",
+      "type": "string",
+      "description": "Provider-specific account or source selection."
+    },
+    {
+      "key": "chromeMajorVersion",
+      "title": "Chrome major version",
+      "type": "string",
+      "description": "Provider-specific account or source selection."
+    },
+    {
       "key": "browserUserAgent",
       "title": "Browser User-Agent",
       "type": "string",
@@ -25,9 +43,9 @@
   ],
   "upstream": {
     "repository": "https://github.com/steipete/CodexBar",
-    "revision": "6ba06fe9ec1522dd5c59e16810115bce28aa148f",
+    "revision": "6070b29a1a5d51193a634dc1b0a14a67c39d0ccc",
     "path": "Sources/CodexBarCore/Resources/Plugins/workbuddy.js",
-    "sha256": "d5dbd97ac32a7ceee75f0969415c7601e17402a6cad19a163735b4747e4d2e89",
+    "sha256": "9da73ec195a174e3ee96e3096a47db0b69295bc52dcfceb9fd9d1a2b8f74b08a",
     "license": "MIT"
   }
 }

@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "id": "fal",
+  "name": "fal",
+  "version": "0.1.0",
+  "entry": "plugin.js",
+  "enabledByDefault": false,
+  "supportedModes": [
+    "api"
+  ],
+  "autoMode": "api",
+  "usageDashboardUrl": "https://fal.ai/dashboard/billing",
+  "envVars": [
+    "FAL_KEY"
+  ],
+  "setupFields": [],
+  "upstream": {
+    "repository": "https://github.com/steipete/CodexBar",
+    "revision": "6070b29a1a5d51193a634dc1b0a14a67c39d0ccc",
+    "path": "Sources/CodexBarCore/Resources/Plugins/fal.js",
+    "sha256": "5c3607c74508d8fcabe8fd04fbf6ed5edfec5364c24454a7dc9e8ab0ccedd30c",
+    "license": "MIT"
+  }
+}

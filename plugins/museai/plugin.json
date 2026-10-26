@@ -15,9 +15,10 @@
     "MUSEAI_COOKIE"
   ],
   "setupHelp": "Use a session Cookie header from muse.ai. This provider is separate from Muse Code and does not use its CLI login.",
+  "setupFields": [],
   "upstream": {
     "repository": "https://github.com/steipete/CodexBar",
-    "revision": "6ba06fe9ec1522dd5c59e16810115bce28aa148f",
+    "revision": "6070b29a1a5d51193a634dc1b0a14a67c39d0ccc",
     "path": "Sources/CodexBarCore/Resources/Plugins/museai.js",
     "sha256": "ab325a1b6cff46bbe347d98340d9212cab732f6b48c0d2ae5c6d955824ac5019",
     "license": "MIT"

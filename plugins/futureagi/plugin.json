@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "id": "futureagi",
+  "name": "Future AGI",
+  "version": "0.1.0",
+  "entry": "plugin.js",
+  "enabledByDefault": false,
+  "supportedModes": [
+    "api"
+  ],
+  "autoMode": "api",
+  "usageDashboardUrl": "https://app.futureagi.com",
+  "envVars": [
+    "FI_API_KEY",
+    "FI_SECRET_KEY"
+  ],
+  "setupFields": [
+    {
+      "key": "FI_SECRET_KEY",
+      "title": "Secret key",
+      "type": "string",
+      "description": "Additional credential for this provider instance; stored privately."
+    }
+  ],
+  "upstream": {
+    "repository": "https://github.com/steipete/CodexBar",
+    "revision": "6070b29a1a5d51193a634dc1b0a14a67c39d0ccc",
+    "path": "Sources/CodexBarCore/Resources/Plugins/futureagi.js",
+    "sha256": "48c4e8b36e4556bc56dfe16f954e180aba0e11fb4111e382049fe015b4340c42",
+    "license": "MIT"
+  }
+}

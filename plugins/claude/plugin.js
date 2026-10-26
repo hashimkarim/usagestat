@@ -19,6 +19,7 @@
   // Rate-limit state persisted across probe() calls (module scope survives re-invocations).
   const MIN_USAGE_FETCH_INTERVAL_MS = 5 * 60 * 1000  // never poll more than once per 5 min
   const DEFAULT_RATE_LIMIT_BACKOFF_MS = 5 * 60 * 1000 // fallback when no Retry-After header
+  const RESET_GRANTS_CHECK_INTERVAL_MS = 60 * 60 * 1000
   const LIVE_USAGE_CACHE_FILE = "live-usage-cache.json"
   const LIVE_USAGE_CACHE_VERSION = 2
   const LIVE_USAGE_CACHE_MAX_AGE_MS = 24 * 60 * 60 * 1000
@@ -596,15 +597,19 @@
 
   function fetchUsage(ctx, accessToken) {
     const oauthConfig = getOauthConfig(ctx)
+    const cache = readLiveUsageCache(ctx)
+    const now = Date.parse(ctx.nowIso)
+    const checkedAt = Number(cache && cache.resetGrantsCheckedAtMs)
+    const checkGrants = !Number.isFinite(checkedAt) || checkedAt <= 0 || now < checkedAt || now - checkedAt >= RESET_GRANTS_CHECK_INTERVAL_MS
     let version = "2.1.0"
     try {
       const result = ctx.host.command.run({program: "claude", args: ["--version"], timeoutMs: 3000})
       const match = result.status === 0 && /^\s*(\d+\.\d+\.\d+)(?:\s|$)/.exec(result.stdout || "")
       if (match) version = match[1]
     } catch (_) { /* The OAuth source also works without a local CLI. */ }
-    return ctx.util.request({
+    const response = ctx.util.request({
       method: "GET",
-      url: oauthConfig.usageUrl + "?cedar_ember=1&skip_spend=1",
+      url: oauthConfig.usageUrl + (checkGrants ? "?cedar_ember=1&skip_spend=1" : ""),
       headers: {
         Authorization: "Bearer " + accessToken.trim(),
         Accept: "application/json",
@@ -614,6 +619,21 @@
       },
       timeoutMs: 10000,
     })
+    if (response.status >= 200 && response.status < 300) {
+      const data = ctx.util.tryParseJson(response.bodyText)
+      if (data && typeof data === "object" && !Array.isArray(data) && !data.error) {
+        const validLines=[]
+        addUsageWindowLines(ctx,data,validLines)
+        if (!validLines.length) return response
+        if (checkGrants || data.cedar_ember) {
+          writeLiveUsageCache(ctx, {resetGrantsCheckedAtMs:now,resetGrantsBlock: data.cedar_ember || null})
+        } else if (cache && cache.resetGrantsBlock) {
+          data.cedar_ember = cache.resetGrantsBlock
+          response.bodyText = JSON.stringify(data)
+        }
+      }
+    }
+    return response
   }
 
   function parseRetryAfterSeconds(headers) {
@@ -1518,6 +1538,23 @@
       }
       lines.push(ctx.line.text({label: "Rate Limit Resets", value: count + " available",
         subtitle: expiries.length ? "Expires " + expiries.sort().join(", ") : undefined}))
+    }
+
+    const cloud = data.iguana_necktie
+    if (cloud && typeof cloud === 'object' && !Array.isArray(cloud)) {
+      const limit = cloud.limit_dollars, used = cloud.used_dollars
+      const remaining = cloud.remaining_dollars != null ? cloud.remaining_dollars
+        : typeof used === 'number' ? limit - used : null
+      const validMoney = value => typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= limit
+      const expires = cloud.resets_at == null ? null : ctx.util.toIso(cloud.resets_at)
+      if (typeof limit === 'number' && Number.isFinite(limit) && limit > 0 && validMoney(remaining) &&
+          (used == null || validMoney(used)) && (cloud.resets_at == null || expires) &&
+          (cloud.locked_reason == null || typeof cloud.locked_reason === 'string')) {
+        const expired = expires && Date.parse(expires) <= Date.parse(ctx.nowIso)
+        const locked = typeof cloud.locked_reason === 'string' && cloud.locked_reason.trim()
+        lines.push(ctx.line.text({label:'Cloud credits',value:expired ? 'Expired' : locked ? 'Unavailable' : '$'+remaining.toFixed(2)+' remaining',
+          subtitle:expires ? (expired ? 'Expired ' : 'Expires ')+expires : undefined}))
+      }
     }
 
     if (data.extra_usage && data.extra_usage.is_enabled) {

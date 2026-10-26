@@ -10,7 +10,16 @@ pub(super) struct Session {
 
 impl Session {
     pub fn configured(provider: &str, config: Option<&ProviderConfig>) -> Option<Self> {
-        if !matches!(provider, "lithosai" | "workbuddy") {
+        if !matches!(
+            provider,
+            "lithosai"
+                | "workbuddy"
+                | "claudeplatform"
+                | "langdock"
+                | "xapi"
+                | "gemini-apps"
+                | "qwencloud"
+        ) {
             return None;
         }
         let scoped = config
@@ -25,9 +34,13 @@ impl Session {
         } else {
             match config.and_then(|c| c.cookie_header.as_ref()) {
                 Some(value) => Some(value.clone()),
-                None if !scoped => {
-                    std::env::var(format!("{}_COOKIE", provider.to_uppercase())).ok()
-                }
+                None if !scoped => match provider {
+                    "gemini-apps" => std::env::var("GEMINI_COOKIE").ok(),
+                    "qwencloud" => std::env::var("QWEN_CLOUD_COOKIE_HEADER")
+                        .ok()
+                        .or_else(|| std::env::var("QWEN_CLOUD_COOKIE").ok()),
+                    _ => std::env::var(format!("{}_COOKIE", provider.to_uppercase())).ok(),
+                },
                 None => None,
             }
             .filter(|value| !value.trim().is_empty())
@@ -86,6 +99,65 @@ impl Session {
                     )
                     && parsed.query().is_none()
             }
+            "claudeplatform" => {
+                let parts: Vec<_> = parsed.path().split('/').collect();
+                parsed.host_str() == Some("platform.claude.com")
+                    && method == "GET"
+                    && parsed.query().is_none()
+                    && (parsed.path() == "/api/organizations"
+                        || parts.len() >= 5
+                            && parts[1] == "api"
+                            && parts[2] == "organizations"
+                            && !parts[3].is_empty()
+                            && parts[3].len() <= 64
+                            && parts[3]
+                                .bytes()
+                                .all(|b| b.is_ascii_alphanumeric() || b == b'-')
+                            && (parts[4..] == ["prepaid", "credits"]
+                                || parts[4..] == ["current_spend"]))
+            }
+            "langdock" => {
+                parsed.host_str() == Some("app.langdock.com")
+                    && method == "GET"
+                    && parsed.path() == "/api/trpc/usageSettings.getPersonalUsage"
+            }
+            "xapi" => {
+                let parts: Vec<_> = parsed.path().split('/').collect();
+                parsed.host_str() == Some("console.x.com")
+                    && method == "GET"
+                    && parsed.query().is_none()
+                    && (parsed.path() == "/api/me"
+                        || parts.len() == 5
+                            && parts[1] == "api"
+                            && parts[2] == "accounts"
+                            && parts[4] == "credits"
+                            && !parts[3].is_empty()
+                            && parts[3].len() <= 128
+                            && parts[3]
+                                .bytes()
+                                .all(|b| b.is_ascii_alphanumeric() || b"_-".contains(&b)))
+            }
+            "gemini-apps" => {
+                parsed.host_str() == Some("gemini.google.com")
+                    && method == "GET"
+                    && parsed.path()
+                        == "/_/BardChatUi/graphql/schemas/GEMINI_WEB_GRAPHQL/executeQuery"
+            }
+            "qwencloud" => {
+                parsed.host_str() == Some("home.qwencloud.com")
+                    && (method == "GET"
+                        && parsed.path() == "/tool/user/info.json"
+                        && parsed.query().is_none()
+                        || method == "POST"
+                            && parsed.path() == "/data/api.json"
+                            && matches!(
+                                parsed.query(),
+                                Some(
+                                    "product=ea-service&action=LoadHumanInfo"
+                                        | "product=BssOpenAPI-V3&action=GetSeatSubscriptionSummary"
+                                )
+                            ))
+            }
             _ => false,
         };
         if !allowed {
@@ -94,7 +166,7 @@ impl Session {
         if headers.keys().any(|key| {
             matches!(
                 key.to_ascii_lowercase().as_str(),
-                "cookie" | "authorization" | "x-console-csrf"
+                "cookie" | "authorization" | "x-console-csrf" | "x-csrf-token"
             )
         }) {
             return Err("Cookie session headers must be supplied by the host");
@@ -129,6 +201,21 @@ impl Session {
             {
                 return Err("Configured cookie names are invalid or duplicated");
             }
+        }
+        let required: &[&str] = match self.provider.as_str() {
+            "claudeplatform" => &["sessionKey"],
+            "langdock" => &["auth_token"],
+            "xapi" => &["auth_token", "ct0"],
+            _ => &[],
+        };
+        if required
+            .iter()
+            .any(|key| !values.get(key).is_some_and(|value| !value.is_empty()))
+        {
+            return Err("The configured session is missing a required provider cookie");
+        }
+        if self.provider == "xapi" {
+            headers.insert("X-CSRF-Token".into(), values["ct0"].into());
         }
         if self.provider == "lithosai" {
             if !values
@@ -226,6 +313,74 @@ mod tests {
                 )
                 .unwrap_err();
             assert!(!error.contains("private"));
+        }
+    }
+    #[test]
+    fn new_sessions_inject_only_on_their_exact_readback_routes() {
+        for (provider, cookie, url) in [
+            (
+                "claudeplatform",
+                "sessionKey=fixture",
+                "https://platform.claude.com/api/organizations/org-fixture/prepaid/credits",
+            ),
+            (
+                "langdock",
+                "auth_token=fixture",
+                "https://app.langdock.com/api/trpc/usageSettings.getPersonalUsage?batch=1&input=fixture",
+            ),
+            (
+                "xapi",
+                "auth_token=fixture; ct0=fixture-csrf",
+                "https://console.x.com/api/accounts/account-fixture/credits",
+            ),
+        ] {
+            let s = session(provider, cookie);
+            let headers = s.headers(url, "GET", HashMap::new()).unwrap();
+            assert_eq!(headers["Cookie"], cookie);
+            assert_eq!(
+                headers.get("X-CSRF-Token").map(String::as_str),
+                (provider == "xapi").then_some("fixture-csrf")
+            );
+            assert!(s.headers(url, "POST", HashMap::new()).is_err());
+            assert!(
+                s.headers(&url.replace("https://", "http://"), "GET", HashMap::new())
+                    .is_err()
+            );
+            let parsed = reqwest::Url::parse(url).unwrap();
+            assert!(
+                s.headers(
+                    &format!("https://{}/unrelated", parsed.host_str().unwrap()),
+                    "GET",
+                    HashMap::new()
+                )
+                .is_err()
+            );
+            for key in ["Cookie", "Authorization", "X-CSRF-Token"] {
+                assert!(
+                    s.headers(url, "GET", HashMap::from([(key.into(), "foreign".into())]))
+                        .is_err()
+                );
+            }
+            let error = session(provider, "session=private")
+                .headers(url, "GET", HashMap::new())
+                .unwrap_err();
+            assert!(!error.contains("private"));
+            let config: ProviderConfig =
+                toml::from_str(&format!("id='{provider}'\ninstanceId='another-account'")).unwrap();
+            assert!(
+                !Session::configured(provider, Some(&config))
+                    .unwrap()
+                    .available()
+            );
+        }
+        let x = session("xapi", "auth_token=fixture; ct0=fixture-csrf");
+        for url in [
+            "https://console.x.com/api/me?extra=1",
+            "https://console.x.com/api/accounts/id/credits/extra",
+            "https://console.x.com:444/api/me",
+            "https://console.x.com.evil.test/api/me",
+        ] {
+            assert!(x.headers(url, "GET", HashMap::new()).is_err());
         }
     }
     #[test]

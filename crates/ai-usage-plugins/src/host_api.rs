@@ -13,6 +13,32 @@ use std::time::Duration;
 use usagestat_core::{paths, process};
 
 const ENV_ALLOWLIST: &[&str] = &[
+    "ABLITERATION_API_KEY",
+    "AEROSTACK_TOKEN",
+    "CHATBOX_LICENSE_KEY",
+    "CLAUDEPLATFORM_COOKIE",
+    "COSMIC_PROJECT_ID",
+    "COSMIC_TOKEN",
+    "EXA_API_KEY_ID",
+    "EXA_SERVICE_KEY",
+    "FAL_KEY",
+    "FI_API_KEY",
+    "FI_SECRET_KEY",
+    "FLORA_API_KEY",
+    "FLORA_WORKSPACE_ID",
+    "LANGDOCK_COOKIE",
+    "LINKUP_API_KEY",
+    "MUNITO_API_KEY",
+    "PARALLEL_COOKIE",
+    "SAIL_API_KEY",
+    "SOFYA_API_KEY",
+    "SONIOX_ORG_API_KEY",
+    "TAVILY_API_KEY",
+    "TINYAPI_COOKIE",
+    "TRAECN_COOKIE",
+    "XAPI_COOKIE",
+    "VERCEL_ACCESS_TOKEN",
+    "VERCEL_TEAM_ID",
     "USAGESTAT_PLUGIN_DIR",
     "AI_USAGE_PLUGIN_DIR",
     "ABACUS_COOKIE",
@@ -655,10 +681,16 @@ fn inject_claude_quota<'js>(ctx: &Ctx<'js>, host: &Object<'js>) -> rquickjs::Res
     let claude = Object::new(ctx.clone())?;
     claude.set(
         "readQuota",
-        Function::new(ctx.clone(), |token_hash: String, organization: Option<String>| {
-            serde_json::to_string(&crate::claude_quota::read(&token_hash, organization.as_deref()))
+        Function::new(
+            ctx.clone(),
+            |token_hash: String, organization: Option<String>| {
+                serde_json::to_string(&crate::claude_quota::read(
+                    &token_hash,
+                    organization.as_deref(),
+                ))
                 .unwrap_or_else(|_| "null".into())
-        })?,
+            },
+        )?,
     )?;
     claude.set(
         "probeQuota",
@@ -666,7 +698,9 @@ fn inject_claude_quota<'js>(ctx: &Ctx<'js>, host: &Object<'js>) -> rquickjs::Res
             ctx.clone(),
             |inner: Ctx<'_>, token_hash: String, organization: Option<String>| -> rquickjs::Result<String> {
                 let result = crate::claude_quota::probe(&token_hash, organization.as_deref())
-                    .map_err(|_| Exception::throw_message(&inner, "Claude CLI quota check unavailable"))?;
+                    .map_err(|_| {
+                        Exception::throw_message(&inner, "Claude CLI quota check unavailable")
+                    })?;
                 Ok(serde_json::to_string(&result).unwrap_or_else(|_| "null".into()))
             },
         )?,
@@ -1309,43 +1343,45 @@ fn inject_utils(ctx: &Ctx<'_>) -> rquickjs::Result<()> {
                 },
                 // Shared by Antigravity's IDE and OAuth quota-summary routes.
                 groupedQuotaLines: function(data) {
-                    if (!data || (data.code != null && !["0", "ok", "success"].includes(String(data.code).toLowerCase()))) return [];
-                    var summary = data.response || data.summary || data;
-                    if (!Array.isArray(summary.groups)) return [];
-                    var lines = [], known = false;
-                    var text = function(value) { return typeof value === "string" ? value.trim() : ""; };
-                    for (var group of summary.groups) {
-                        if (!group || !Array.isArray(group.buckets)) continue;
-                        var name = text(group.displayName || group.name) || "Quota";
-                        if (/gemini/i.test(name)) name = "Gemini";
-                        else if (/claude|gpt/i.test(name)) name = "Claude/GPT";
-                        for (var bucket of group.buckets) {
-                            if (!bucket || !text(bucket.bucketId || bucket.id)) continue;
-                            var title = text(bucket.displayName || bucket.name) || text(bucket.bucketId || bucket.id);
-                            // Explicit unknown cadence must not inherit a duration from its label.
-                            var explicit = text(bucket.window);
-                            var cadences = (explicit ? [explicit] : [title, bucket.bucketId || bucket.id]).map(function(value) {
-                                return text(value).toLowerCase().replace(/_/g, "-").replace(/ limit$/, "");
-                            });
-                            var matches = function(aliases) { return cadences.some(function(value) {
-                                return aliases.some(function(alias) { return value === alias || value.endsWith("-" + alias); });
-                            }); };
-                            var period = matches(["session", "5h", "5-hour", "five hour", "five-hour"]) ? 18000000 :
-                                matches(["weekly"]) ? 604800000 : undefined;
-                            var label = name + " " + (period === 604800000 ? "Weekly" : period === 18000000 ? "Session" : title);
-                            var remaining = bucket.remaining;
-                            var fraction = bucket.remainingFraction ?? (remaining && (remaining.remainingFraction ??
-                                (remaining.case === "remainingFraction" ? remaining.value : undefined)));
-                            if (bucket.disabled === true || typeof fraction !== "number" || !Number.isFinite(fraction)) {
-                                lines.push(ctx.line.text({label: label, value: "Unavailable"}));
-                                continue;
-                            }
-                            known = true;
-                            lines.push(ctx.line.progress({label: label, used: Math.max(0, Math.min(100, (1 - fraction) * 100)), limit: 100,
-                                format: {kind: "percent"}, periodDurationMs: period, resetsAt: ctx.util.toIso(bucket.resetTime) || undefined}));
-                        }
+                    var summaries = (Array.isArray(data) ? data : [data]).map(function(body) {
+                        if (!body || (body.code != null && !["0","ok","success"].includes(String(body.code).toLowerCase()))) return null;
+                        var summary=body.response || body.summary || body;
+                        return Array.isArray(summary.groups) ? summary.groups : null;
+                    }).filter(function(groups) {return groups!==null;});
+                    // A recognized empty summary is authoritative; null permits legacy fallback.
+                    if (!summaries.length) return null;
+                    var specs=[['gemini-5h','Gemini Session',18000000],['gemini-weekly','Gemini Weekly',604800000],
+                        ['3p-5h','Claude/GPT Session',18000000],['3p-weekly','Claude/GPT Weekly',604800000]];
+                    var fraction=function(bucket) {
+                        if (!bucket || bucket.disabled===true || (bucket.disabled!=null && typeof bucket.disabled!=='boolean')) return null;
+                        var value=bucket.remainingFraction ?? (bucket.remaining && (bucket.remaining.remainingFraction ??
+                            (bucket.remaining.case==='remainingFraction' ? bucket.remaining.value : undefined)));
+                        return typeof value==='number' && Number.isFinite(value) ? value : null;
+                    };
+                    var line=function(label,bucket,period) {
+                        var value=fraction(bucket);
+                        return value===null ? ctx.line.text({label:label,value:'Unavailable'}) :
+                            ctx.line.progress({label:label,used:Math.max(0,Math.min(100,(1-value)*100)),limit:100,
+                                format:{kind:'percent'},periodDurationMs:period,resetsAt:ctx.util.toIso(bucket.resetTime) || undefined});
+                    };
+                    var buckets=summaries.flat().filter(function(group) {return group && group.displayName!=='Gemini 4 Argon';})
+                        .flatMap(function(group) {return Array.isArray(group.buckets) ? group.buckets : [];});
+                    var lines=[];
+                    for(var spec of specs) {
+                        var candidates=buckets.filter(function(bucket) {return bucket && bucket.bucketId===spec[0];});
+                        if(candidates.length) lines.push(line(spec[1],candidates.find(function(bucket) {return fraction(bucket)!==null;}) || candidates[0],spec[2]));
                     }
-                    return known ? lines : [];
+                    for(var groups of summaries) {
+                        var argon=groups.filter(function(group) {return group && group.displayName==='Gemini 4 Argon';})
+                            .flatMap(function(group) {return Array.isArray(group.buckets) ? group.buckets : [];})
+                            .filter(function(bucket) {return bucket && bucket.window==='weekly';});
+                        if(argon.length!==1 || typeof argon[0].bucketId!=='string' || !argon[0].bucketId.trim() ||
+                            specs.some(function(spec) {return spec[0]===argon[0].bucketId;}) || fraction(argon[0])===null) continue;
+                        var index=lines.findIndex(function(item) {return item.label.startsWith('Claude/GPT');});
+                        lines.splice(index<0 ? lines.length : index,0,line('Gemini 4 Argon Weekly',argon[0],604800000));
+                        break;
+                    }
+                    return lines;
                 },
                 retryOnceOnAuth: function(opts) {
                     var first = opts.request(null);
@@ -2703,7 +2739,9 @@ fn execute_command_request(request: CommandRequest) -> Result<CommandResponse, S
     };
     let mut command = process::command(&program).map_err(|error| error.to_string())?;
     if coderabbit {
-        command.env("NO_COLOR", "1");
+        command
+            .env("NO_COLOR", "1")
+            .env("CODERABBIT_CLI_DISABLE_AUTO_UPDATE", "true");
     }
     command
         .args(&request.args)

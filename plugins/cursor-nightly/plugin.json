@@ -3,7 +3,7 @@
   "id": "cursor-nightly",
   "name": "Cursor Nightly",
   "version": "0.0.1",
-  "entry": "plugin.js",
+  "entry": "../cursor/plugin.js",
   "icon": "icon.png",
   "brandColor": "#E85D3A",
   "supportedModes": ["oauth", "local"],

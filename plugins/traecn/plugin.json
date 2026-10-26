@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "id": "traecn",
+  "name": "Trae CN",
+  "version": "0.1.0",
+  "entry": "plugin.js",
+  "enabledByDefault": false,
+  "supportedModes": [
+    "web"
+  ],
+  "autoMode": "web",
+  "usageDashboardUrl": "https://www.trae.cn",
+  "webUrl": "https://trae.cn",
+  "envVars": [
+    "TRAECN_COOKIE"
+  ],
+  "setupFields": [],
+  "upstream": {
+    "repository": "https://github.com/steipete/CodexBar",
+    "revision": "6070b29a1a5d51193a634dc1b0a14a67c39d0ccc",
+    "path": "Sources/CodexBarCore/Resources/Plugins/traecn.js",
+    "sha256": "045bf8cbba44d779fc69a1ddbd14598a1d1178f265be875336b36b261af5604a",
+    "license": "MIT"
+  }
+}

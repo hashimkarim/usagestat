@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "id": "xapi",
+  "name": "X API",
+  "version": "0.1.0",
+  "entry": "plugin.js",
+  "enabledByDefault": false,
+  "supportedModes": [
+    "web"
+  ],
+  "autoMode": "web",
+  "usageDashboardUrl": "https://console.x.com",
+  "webUrl": "https://x.com",
+  "envVars": [
+    "XAPI_COOKIE"
+  ],
+  "setupFields": [],
+  "upstream": {
+    "repository": "https://github.com/steipete/CodexBar",
+    "revision": "6070b29a1a5d51193a634dc1b0a14a67c39d0ccc",
+    "path": "Sources/CodexBarCore/Resources/Plugins/xapi.js",
+    "sha256": "c8aff7628f2a67a8726486d847747dd8121123da6526b2793b4b7b36ec37930f",
+    "license": "MIT"
+  }
+}

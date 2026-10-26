@@ -124,29 +124,33 @@ test('Claude reset grants are read-only, exclude expired grants and preserve pau
 });
 
 function gemini(options = {}) {
-  const rpc = (id, value) => ")]}'\n" + JSON.stringify([['wrb.fr', id, JSON.stringify(value), null]]);
-  return load('gemini-apps', {provider: {cookieHeader: '__Secure-1PSID=fixture; SAPISID=fixture'}, request: req => {
-    assert.match(req.headers.Authorization, /^SAPISIDHASH \d+_[a-f0-9]{40}$/);
-    if (req.method === 'GET') return response('<script>{"SNlM0e":"csrf","cfb2h":"build","FdrFJe":"session"}</script>');
-    if (req.url.includes('rpcids=jSf9Qc')) return response(rpc('jSf9Qc', [2, [[1, options.current ?? 0.13, 1, [[1790500000]]], [2, 0.2656, 2, [[1790800000]]]]]));
-    return response(rpc('sJBwce', ['Pro']));
+  return load('gemini-apps', {provider: {cookieHeader: '__Secure-1PSID=fixture; SAPISID=fixture'},cookieSessionAvailable:true,cookieSessionRequest:req => {
+    assert.equal(req.headers.Authorization,undefined);
+    assert.equal(req.cookieSession,'configured');
+    assert.ok(req.url.includes('/GEMINI_WEB_GRAPHQL/executeQuery?'));
+    return response([{data:{viewer:{rpcs:{getUsageInfo:{subscriptionTier:'TIER1',pools:[
+      {poolType:'GXU_FIVE_HOURLY',percentageUsed:options.current ?? 0.13},
+      {poolType:'GXU_WEEKLY',percentageUsed:0.2656},
+    ]}}}}}]);
   }});
 }
 
-test('Gemini Apps web usage stays distinct from Gemini CLI and Antigravity allowances', () => {
+test('Gemini Apps web usage stays distinct from Gemini CLI and Antigravity allowances', async () => {
   const app = gemini();
-  const result = app.probe();
+  const result = await app.probe();
   assert.equal(metric(result, 'Current').used, 13);
-  assert.equal(metric(result, 'Weekly').used, 27);
+  assert.equal(metric(result, 'Weekly').used, 26.56);
   assert.equal(result.plan, 'Pro');
   assert.equal(result.source, 'web');
   assert.ok(app.requests.every(req => new URL(req.url).hostname === 'gemini.google.com'));
 });
 
-test('Gemini Apps rejects malformed quota values and does not inherit another account cookie', () => {
-  assert.throws(gemini({current: false}).probe, /parse/);
+test('Gemini Apps omits malformed pools and does not inherit another account cookie', async () => {
+  const partial=await gemini({current:false}).probe();
+  assert.equal(metric(partial,'Current'),undefined);
+  assert.equal(metric(partial,'Weekly').used,26.56);
   const app = load('gemini-apps', {provider: {instanceId: 'other'}, env: {GEMINI_COOKIE: '__Secure-1PSID=ambient; SAPISID=ambient'}});
-  assert.throws(app.probe, /auth missing/);
+  await assert.rejects(app.probe);
   assert.equal(app.requests.length, 0);
 });
 

@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "id": "cosmic",
+  "name": "Cosmic AI",
+  "version": "0.1.0",
+  "entry": "plugin.js",
+  "enabledByDefault": false,
+  "supportedModes": [
+    "api"
+  ],
+  "autoMode": "api",
+  "usageDashboardUrl": "https://app.cosmicjs.com",
+  "envVars": [
+    "COSMIC_TOKEN",
+    "COSMIC_PROJECT_ID"
+  ],
+  "setupFields": [
+    {
+      "key": "COSMIC_PROJECT_ID",
+      "title": "Project ID",
+      "type": "string",
+      "description": "Provider-specific account or source selection."
+    }
+  ],
+  "upstream": {
+    "repository": "https://github.com/steipete/CodexBar",
+    "revision": "6070b29a1a5d51193a634dc1b0a14a67c39d0ccc",
+    "path": "Sources/CodexBarCore/Resources/Plugins/cosmic.js",
+    "sha256": "eb869360f719b3b3b96311617c173e624efa05b91c0f7d31ce985f0a3a77d7a6",
+    "license": "MIT"
+  }
+}

@@ -13,9 +13,10 @@
   "envVars": [
     "XKIRO_API_KEY"
   ],
+  "setupFields": [],
   "upstream": {
     "repository": "https://github.com/steipete/CodexBar",
-    "revision": "6ba06fe9ec1522dd5c59e16810115bce28aa148f",
+    "revision": "6070b29a1a5d51193a634dc1b0a14a67c39d0ccc",
     "path": "Sources/CodexBarCore/Resources/Plugins/xkiro.js",
     "sha256": "03bfcb8e518577ee18dd335e4e1e1f7d629d3e5abdf2216b187b1cba8b683853",
     "license": "MIT"

@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "id": "parallel",
+  "name": "Parallel",
+  "version": "0.1.0",
+  "entry": "plugin.js",
+  "enabledByDefault": false,
+  "supportedModes": [
+    "web"
+  ],
+  "autoMode": "web",
+  "usageDashboardUrl": "https://platform.parallel.ai",
+  "webUrl": "https://platform.parallel.ai",
+  "envVars": [
+    "PARALLEL_COOKIE"
+  ],
+  "setupFields": [],
+  "upstream": {
+    "repository": "https://github.com/steipete/CodexBar",
+    "revision": "6070b29a1a5d51193a634dc1b0a14a67c39d0ccc",
+    "path": "Sources/CodexBarCore/Resources/Plugins/parallel.js",
+    "sha256": "854d5faa2b6c01b96cf009295fabe85cbdc28d07911d7c7e1da970c8cc77e5e8",
+    "license": "MIT"
+  }
+}
