@@ -114,13 +114,13 @@ function sqliteFixture(t,sql){
   t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
   const run=(script,args=[])=>{const result=spawnSync(process.platform==='win32'?'python':'python3',['-c',script,...args],{encoding:'utf8'});assert.equal(result.status,0,result.stderr);return result.stdout;};
   run('import sqlite3,sys; c=sqlite3.connect(sys.argv[1]); c.executescript(sys.argv[2]); c.close()',[db,sql]);
-  return{db,read:(selected,query)=>{assert.equal(selected,db);return run('import sqlite3,json,sys; c=sqlite3.connect("file:"+sys.argv[1]+"?mode=ro",uri=True); c.row_factory=sqlite3.Row; print(json.dumps([dict(r) for r in c.execute(sys.argv[2])]))',[db,query]);}};
+  return{db,dataDir:dir,authPath:dir+'/auth.json',read:(selected,query)=>{assert.equal(selected,db);return run('import sqlite3,json,sys; c=sqlite3.connect("file:"+sys.argv[1]+"?mode=ro",uri=True); c.row_factory=sqlite3.Row; print(json.dumps([dict(r) for r in c.execute(sys.argv[2])]))',[db,query]);}};
 }
 test('OpenCode v1 credential tables do not shadow the live auth file before import',t=>{
   for(const migration of ['', 'CREATE TABLE migration(id TEXT PRIMARY KEY,time_completed INTEGER);']){
     const db=sqliteFixture(t,'CREATE TABLE credential(id TEXT,integration_id TEXT,active INTEGER,time_updated INTEGER,time_created INTEGER,value TEXT);'+migration);
-    const app=load('opencode-go',{platform,source:'api',provider:{settings:{databasePath:db.db}},
-      files:{[db.db]:'exists','/test/home/.local/share/opencode/auth.json':'{"opencode-go":{"key":"v1-live-fixture"}}'},sqlite:db.read,
+    const app=load('opencode-go',{platform,source:'api',provider:{settings:{databasePath:db.db,dataDir:db.dataDir}},
+      files:{[db.db]:'exists',[db.authPath]:'{"opencode-go":{"key":"v1-live-fixture"}}'},sqlite:db.read,
       request:req=>{assert.equal(req.headers.Authorization,'Bearer v1-live-fixture');return response({usage:{rolling:{percent:20}}});}});
     assert.equal(metric(app.probe(),'Session').used,20);
   }
@@ -136,7 +136,7 @@ test('OpenCode 2 selected channel reads current credentials and deduplicates mig
     INSERT INTO message VALUES('migrated',1788580800000,'${old}');INSERT INTO session_message VALUES('migrated',1788580800000,'assistant','${data}');
     INSERT INTO session_message VALUES('pending',1788580800000,'compaction','${data}');
     INSERT INTO session_message VALUES('completed',1788580800000,'compaction','${data.slice(0,-1)},"status":"completed"}');`);
-  const app=load('opencode-go',{platform,provider:{settings:{databasePath:db.db}},files:{[db.db]:'exists'},sqlite:db.read,request:req=>{
+  const app=load('opencode-go',{platform,provider:{settings:{databasePath:db.db,dataDir:db.dataDir}},files:{[db.db]:'exists'},sqlite:db.read,request:req=>{
     assert.equal(req.headers.Authorization,'Bearer active-fixture');return response({usage:{rolling:{percent:20}}});
   }});
   assert.equal(metric(app.probe(),'Session').used,20);assert.equal(app.ingested[0].daily[0].costUsd,2.5);
@@ -144,9 +144,9 @@ test('OpenCode 2 selected channel reads current credentials and deduplicates mig
 });
 test('OpenCode 2 logout and unreadable storage cannot revive the stale auth import',t=>{
   const db=sqliteFixture(t,"CREATE TABLE migration(id TEXT PRIMARY KEY,time_completed INTEGER);INSERT INTO migration VALUES('20260805200742_import_legacy_credentials',1);CREATE TABLE credential(id TEXT,integration_id TEXT,active INTEGER,time_updated INTEGER,time_created INTEGER,value TEXT);");
-  const files={[db.db]:'exists','/test/home/.local/share/opencode/auth.json':'{"opencode-go":{"key":"stale-private"}}'};
-  const app=load('opencode-go',{platform,source:'api',provider:{settings:{databasePath:db.db}},files,sqlite:db.read});
+  const files={[db.db]:'exists',[db.authPath]:'{"opencode-go":{"key":"stale-private"}}'};
+  const app=load('opencode-go',{platform,source:'api',provider:{settings:{databasePath:db.db,dataDir:db.dataDir}},files,sqlite:db.read});
   assert.throws(app.probe,/API key missing/);assert.equal(app.requests.length,0);
-  const blocked=load('opencode-go',{platform,source:'api',provider:{settings:{databasePath:db.db}},files,sqlite:()=>{throw Error('private sqlite failure');}});
+  const blocked=load('opencode-go',{platform,source:'api',provider:{settings:{databasePath:db.db,dataDir:db.dataDir}},files,sqlite:()=>{throw Error('private sqlite failure');}});
   assert.throws(blocked.probe,error=>error.code==='credential-unavailable'&&!error.message.includes('private'));assert.equal(blocked.requests.length,0);
 });
