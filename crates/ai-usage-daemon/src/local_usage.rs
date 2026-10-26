@@ -394,7 +394,11 @@ mod claude_tests {
     use serde_json::json;
 
     fn scan_rows(rows: Vec<JsonValue>) -> Vec<LocalUsageEvent> {
-        let path = std::env::temp_dir().join(format!("usagestat-claude-dedupe-{}-{}.jsonl", std::process::id(), Utc::now().timestamp_nanos_opt().unwrap()));
+        use std::sync::atomic::{AtomicU64, Ordering};
+        // The OS clock can repeat across parallel fixtures, especially on Windows.
+        static NEXT: AtomicU64 = AtomicU64::new(0);
+        let path = std::env::temp_dir().join(format!("usagestat-claude-dedupe-{}-{}.jsonl",
+            std::process::id(), NEXT.fetch_add(1, Ordering::Relaxed)));
         let text = rows.iter().map(JsonValue::to_string).collect::<Vec<_>>().join("\n");
         std::fs::write(&path, text).unwrap();
         let mut events = Vec::new();
