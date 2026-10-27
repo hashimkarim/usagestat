@@ -86,8 +86,9 @@
   },
   "releaseWorkflow": {
     "url": "https://github.com/hashimkarim/usagestat/actions/runs/40382375220",
-    "attempt": 3,
-    "tagImmutable": true
+    "attempt": 4,
+    "tagImmutable": true,
+    "conclusion": "success"
   },
   "npm": {
     "packages": [
