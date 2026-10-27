@@ -104,9 +104,8 @@ The package includes both binaries and `/usr/share/usagestat/plugins`.
 ## Ubuntu / PPA
 
 The [PPA](https://launchpad.net/~hashimkarim/+archive/ubuntu/usagestat) currently
-publishes **Ubuntu 24.04 LTS (Noble), amd64**. The `2.1.0-1ppa1` build is awaiting Launchpad upload/publication.
-The previously verified package is `2.0.2-1ppa1`; use GitHub or npm for 2.1.0
-until the new package appears in the signed APT index.
+publishes **Ubuntu 24.04 LTS (Noble), amd64** with package `2.1.0-1ppa1`.
+The signed APT index and package checksum have been verified.
 The suffix is a Debian packaging revision; the program reports the upstream
 version. See the [v2.1.0 release record](releases/v2.1.0-publication.md) for
 publication and verification evidence.

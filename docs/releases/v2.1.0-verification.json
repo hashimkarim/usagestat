@@ -150,10 +150,16 @@
     },
     "ppa": {
       "buildId": 33874513,
-      "status": "uploading-awaiting-apt-publication",
+      "status": "published",
       "version": "2.1.0-1ppa1",
       "buildUrl": "https://launchpad.net/~hashimkarim/+archive/ubuntu/usagestat/+build/33874513",
-      "signedAptAvailability": "not-yet-advertised"
+      "signedAptAvailability": "verified",
+      "signedAptIndexVerified": true,
+      "repositoryChecksumVerified": true,
+      "sha256": "d89a8514dcb8a267be49c18d7a3bded68ff264b3d56b76d6fbd6e16b92f7ede2",
+      "size": 9452080,
+      "debVersion": "2.1.0-1ppa1",
+      "verifiedOn": "2026-10-27"
     }
   },
   "previousStableAndAlphaUnchanged": true,
