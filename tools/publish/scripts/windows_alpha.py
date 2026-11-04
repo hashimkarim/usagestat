@@ -105,13 +105,16 @@ def gh_api(endpoint, method="GET", payload=None, token=None):
 
 
 def yaml(value, indent=0):
-    """Small YAML emitter for JSON-compatible recipe objects, quoting all scalars."""
+    """Small YAML emitter for JSON-compatible recipe objects."""
     prefix = " " * indent
     if isinstance(value, dict):
         lines = []
         for k, v in value.items():
             if isinstance(v, (dict, list)):
                 lines.append(f"{prefix}{k}:\n{yaml(v, indent + 2)}")
+            elif k == "ManifestVersion" and v == WINGET_MANIFEST_VERSION:
+                # WinGet moderation automation misreads quoted manifest versions.
+                lines.append(f"{prefix}{k}: {v}")
             else:
                 lines.append(f"{prefix}{k}: {json.dumps(v, ensure_ascii=True)}")
         return "\n".join(lines)
