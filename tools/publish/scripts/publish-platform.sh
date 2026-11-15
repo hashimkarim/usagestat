@@ -35,9 +35,10 @@ assert_latest() {
     return
   fi
   python3 - "$RELEASE_TAG" <<'PYLATEST'
-import json, sys, urllib.request
-with urllib.request.urlopen('https://api.github.com/repos/hashimkarim/usagestat/releases/latest', timeout=30) as response:
-    latest = json.load(response)['tag_name']
+import json, subprocess, sys
+latest = json.loads(subprocess.check_output(
+    ['gh', 'api', 'repos/hashimkarim/usagestat/releases/latest'], timeout=30
+))['tag_name']
 if latest != sys.argv[1]:
     raise SystemExit(f'Refusing to publish {sys.argv[1]}: latest stable release is now {latest}')
 PYLATEST
@@ -105,10 +106,10 @@ case "$platform" in
       chmod 600 "$ssh_dir/key"
       # GitHub publishes its SSH host keys through its authenticated HTTPS API.
       python3 - <<'PYKEYS' > "$ssh_dir/known_hosts"
-import json, urllib.request
-with urllib.request.urlopen('https://api.github.com/meta', timeout=30) as response:
-    for key in json.load(response)['ssh_keys']:
-        print('github.com ' + key)
+import json, subprocess
+metadata = json.loads(subprocess.check_output(['gh', 'api', 'meta'], timeout=30))
+for key in metadata['ssh_keys']:
+    print('github.com ' + key)
 PYKEYS
       export GIT_SSH_COMMAND="ssh -i $ssh_dir/key -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=$ssh_dir/known_hosts"
       git clone "git@github.com:${HOMEBREW_TAP_REPOSITORY}.git" "$package_dir/tap"

@@ -101,6 +101,7 @@ jobs:
       RELEASE_TAG: ${{ inputs.tag }}
       DRY_RUN: ${{ inputs.dry_run && 'true' || 'false' }}
       PACKAGE_CHANNEL: ${{ inputs.channel || 'stable' }}
+      GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v4
         with:
