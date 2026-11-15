@@ -382,6 +382,11 @@
     return ctx.fmt.planLabel(rawPlan) || null
   }
 
+  function reportedPeriod(window, fallback) {
+    const seconds = window && window.limit_window_seconds
+    return typeof seconds === "number" && Number.isFinite(seconds) && seconds > 0 ? seconds * 1000 : fallback
+  }
+
   function getResetsAtIso(ctx, nowSec, window) {
     if (!window) return null
     if (typeof window.reset_at === "number") {
@@ -780,12 +785,12 @@
 
       if (headerPrimary !== null) {
         lines.push(ctx.line.progress({
-          label: "Session",
+          label: reportedPeriod(primaryWindow, PERIOD_SESSION_MS) === 30*86400000 ? "Monthly" : "Session",
           used: headerPrimary,
           limit: 100,
           format: { kind: "percent" },
           resetsAt: getResetsAtIso(ctx, nowSec, primaryWindow),
-          periodDurationMs: PERIOD_SESSION_MS
+          periodDurationMs: reportedPeriod(primaryWindow, PERIOD_SESSION_MS)
         }))
       }
       if (headerSecondary !== null) {
@@ -795,19 +800,19 @@
           limit: 100,
           format: { kind: "percent" },
           resetsAt: getResetsAtIso(ctx, nowSec, secondaryWindow),
-          periodDurationMs: PERIOD_WEEKLY_MS
+          periodDurationMs: reportedPeriod(secondaryWindow, PERIOD_WEEKLY_MS)
         }))
       }
 
       if (lines.length === 0 && data.rate_limit) {
         if (data.rate_limit.primary_window && typeof data.rate_limit.primary_window.used_percent === "number") {
           lines.push(ctx.line.progress({
-            label: "Session",
+            label: reportedPeriod(primaryWindow, PERIOD_SESSION_MS) === 30*86400000 ? "Monthly" : "Session",
             used: data.rate_limit.primary_window.used_percent,
             limit: 100,
             format: { kind: "percent" },
             resetsAt: getResetsAtIso(ctx, nowSec, primaryWindow),
-            periodDurationMs: PERIOD_SESSION_MS
+            periodDurationMs: reportedPeriod(primaryWindow, PERIOD_SESSION_MS)
           }))
         }
         if (data.rate_limit.secondary_window && typeof data.rate_limit.secondary_window.used_percent === "number") {
@@ -817,7 +822,7 @@
             limit: 100,
             format: { kind: "percent" },
             resetsAt: getResetsAtIso(ctx, nowSec, secondaryWindow),
-            periodDurationMs: PERIOD_WEEKLY_MS
+            periodDurationMs: reportedPeriod(secondaryWindow, PERIOD_WEEKLY_MS)
           }))
         }
       }

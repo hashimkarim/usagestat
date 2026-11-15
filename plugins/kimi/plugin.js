@@ -104,6 +104,14 @@
     })
   }
 
+  function monthlyBreakdown(ctx, lines, total, code) {
+    for (let i=lines.length-1;i>=0;i--) if (["Monthly Kimi Code","Monthly other features"].includes(lines[i].label)) lines.splice(i,1)
+    if (!Number.isFinite(total) || total < 0 || !Number.isFinite(code) || code < 0) return
+    const percent = value => value > 0 && value < .01 ? "<1% used" : Math.round(Math.min(1,value)*100)+"% used"
+    lines.push(ctx.line.text({label:"Monthly Kimi Code",value:percent(code)}),
+      ctx.line.text({label:"Monthly other features",value:percent(Math.max(0,total-code))}))
+  }
+
   function enrichMembership(ctx, result, token) {
     if (!token || ctx.provider.settings && ctx.provider.settings.cookieSource === "off") return result
     try {
@@ -122,7 +130,11 @@
         if (ratio >= 1) {
           if (existing >= 0) result.lines.splice(existing,1)
           result.lines.unshift(monthly)
-        } else if (existing < 0) result.lines.push(monthly)
+          monthlyBreakdown(ctx,result.lines,ratio,readNumber(pool.kimiCodeUsedRatio))
+        } else if (existing < 0) {
+          result.lines.push(monthly)
+          monthlyBreakdown(ctx,result.lines,ratio,readNumber(pool.kimiCodeUsedRatio))
+        }
       }
       const weekly = data.ratelimitCode7d
       const weeklyRatio = weekly && readNumber(weekly.ratio)
@@ -354,6 +366,9 @@
         lines.unshift(line)
       } else if (previous >= 0) lines[previous] = line
       else lines.push(line)
+    }
+    if (lines.some(line => line.label === "Monthly")) {
+      monthlyBreakdown(ctx,lines,readNumber(data.usages?.limit_month_total?.used_ratio),readNumber(data.usages?.limit_month_code?.used_ratio))
     }
     const result = enrichMembership(ctx, {source,plan:parsePlanLabel(data),lines}, token)
     if (result.lines.length === 0) throw "Kimi usage response did not contain measurable quota counters."

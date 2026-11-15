@@ -15,8 +15,9 @@
   const TABLES_SQL = "SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('message','session_message','credential','migration')";
   const CREDENTIALS_IMPORTED_SQL = "SELECT 1 AS imported FROM migration WHERE id = '20260805200742_import_legacy_credentials' LIMIT 1";
   const CREDENTIAL_SQL = `SELECT value FROM credential
-    WHERE integration_id = 'opencode-go' AND (active IS NULL OR active = 1)
-    ORDER BY active DESC, time_updated DESC, id DESC LIMIT 1`;
+    WHERE (integration_id = 'opencode-go' AND (active IS NULL OR active = 1))
+       OR (integration_id = 'opencode' AND active = 1)
+    ORDER BY CASE integration_id WHEN 'opencode-go' THEN 0 ELSE 1 END, active DESC, time_updated DESC, id DESC LIMIT 1`;
   function historySQL(tables) {
     const sources = [];
     if (tables.includes('session_message')) sources.push(`SELECT id, time_created, data FROM session_message
@@ -367,7 +368,7 @@
         if (inline) throw {code: "credential-malformed", message: "OPENCODE_AUTH_CONTENT must contain an auth JSON object."};
         throw {code:'credential-malformed',message:'OpenCode auth file is not valid JSON.'};
       }
-      const entry = parsed[PROVIDER_ID];
+      const entry = parsed[PROVIDER_ID] || parsed.opencode;
       if (!entry || typeof entry !== "object") return null;
       const key = typeof entry.key === "string" ? entry.key.trim() : "";
       return key || null;

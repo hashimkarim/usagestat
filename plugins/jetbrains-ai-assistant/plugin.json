@@ -6,11 +6,34 @@
   "entry": "plugin.js",
   "icon": "icon.svg",
   "brandColor": "#7d5fe6",
-  "supportedModes": ["local"],
+  "supportedModes": [
+    "local"
+  ],
   "autoMode": "local",
   "lines": [
-    { "type": "progress", "label": "Quota", "scope": "overview", "primaryOrder": 1 },
-    { "type": "text", "label": "Used", "scope": "detail" },
-    { "type": "text", "label": "Remaining", "scope": "detail" }
+    {
+      "type": "progress",
+      "label": "Quota",
+      "scope": "overview",
+      "primaryOrder": 1
+    },
+    {
+      "type": "text",
+      "label": "Used",
+      "scope": "detail"
+    },
+    {
+      "type": "text",
+      "label": "Remaining",
+      "scope": "detail"
+    }
+  ],
+  "setupFields": [
+    {
+      "key": "liveQuota",
+      "type": "boolean",
+      "title": "Read local Junie observations",
+      "description": "Read running IDE quotas, Junie session observations and IDE logs for the default account. Disabled when configDir selects one IDE; no cloud token refresh."
+    }
   ]
 }

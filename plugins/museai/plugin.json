@@ -18,9 +18,9 @@
   "setupFields": [],
   "upstream": {
     "repository": "https://github.com/steipete/CodexBar",
-    "revision": "6070b29a1a5d51193a634dc1b0a14a67c39d0ccc",
+    "revision": "1f6da9bec44455288ddee5ef6f3617a803d8eb2a",
     "path": "Sources/CodexBarCore/Resources/Plugins/museai.js",
-    "sha256": "ab325a1b6cff46bbe347d98340d9212cab732f6b48c0d2ae5c6d955824ac5019",
+    "sha256": "fa82f1936a5b59e16aab91d42e3c3591d3f6b50d65017557a341924095234f1d",
     "license": "MIT"
   }
 }

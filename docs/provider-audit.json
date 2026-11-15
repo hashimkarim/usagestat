@@ -787,7 +787,7 @@
       "id": "codex",
       "manifest": "plugins/codex/plugin.json",
       "entry": "plugins/codex/plugin.js",
-      "entrySha256": "db6bf17d94ba9605816be3646a190f67bd1fd145178218f98697556536da84e4",
+      "entrySha256": "28c2eb0c4b3657498b0c4808dd5e1f139dc0951d9eb62ca46406179192e61ce9",
       "declaredModes": [
         "oauth",
         "local",
@@ -994,7 +994,7 @@
       "id": "cursor",
       "manifest": "plugins/cursor/plugin.json",
       "entry": "plugins/cursor/plugin.js",
-      "entrySha256": "9e39019c36684978421398749e77cdbdd9203a4d3bc2b855717c0e5f07a1caaf",
+      "entrySha256": "677864a8d027e2c141c897ab43803328eef55e1f9288e81124ccedc55268abc1",
       "declaredModes": [
         "oauth",
         "local"
@@ -1017,6 +1017,7 @@
         "credentials.get",
         "credentials.update",
         "cursorLogs.queryDaily",
+        "cursorPaths.readCliAuth",
         "cursorPaths.resolveStateDb",
         "cursorPaths.sharedCredentialsAllowed",
         "cursorUsageExport.queryDaily",
@@ -1044,7 +1045,7 @@
       "id": "cursor-nightly",
       "manifest": "plugins/cursor-nightly/plugin.json",
       "entry": "plugins/cursor/plugin.js",
-      "entrySha256": "9e39019c36684978421398749e77cdbdd9203a4d3bc2b855717c0e5f07a1caaf",
+      "entrySha256": "677864a8d027e2c141c897ab43803328eef55e1f9288e81124ccedc55268abc1",
       "declaredModes": [
         "oauth",
         "local"
@@ -1067,6 +1068,7 @@
         "credentials.get",
         "credentials.update",
         "cursorLogs.queryDaily",
+        "cursorPaths.readCliAuth",
         "cursorPaths.resolveStateDb",
         "cursorPaths.sharedCredentialsAllowed",
         "cursorUsageExport.queryDaily",
@@ -1639,6 +1641,33 @@
       "auditNote": "Vendored CodexBar provider with a bounded native asynchronous host adapter and explicit credential/endpoint routing. Disabled by default. Adapter fixtures do not qualify real credentials, browser import, or every optional upstream workflow; cache TTL is not persisted."
     },
     {
+      "id": "googledeveloper",
+      "manifest": "plugins/googledeveloper/plugin.json",
+      "entry": "plugins/googledeveloper/plugin.js",
+      "entrySha256": "ab473b43f174bc02575549f878a86a9a96715be254776132e926dbf6df40c2b7",
+      "declaredModes": [
+        "web"
+      ],
+      "autoMode": "web",
+      "osStatus": {
+        "linux": "I",
+        "macos": "I",
+        "windows": "I"
+      },
+      "liveCredentialQualification": "unverified",
+      "methods": [
+        "native bundled-provider adapter"
+      ],
+      "hostCalls": [],
+      "literalPathEvidence": [],
+      "branchesOnSourceMode": false,
+      "fixtures": [
+        "tests/bundled-providers.test.cjs",
+        "tests/provider-inspo-20261026.test.cjs"
+      ],
+      "auditNote": "Vendored CodexBar provider with a bounded native asynchronous host adapter and explicit credential/endpoint routing. Disabled by default. Adapter fixtures do not qualify real credentials, browser import, or every optional upstream workflow; cache TTL is not persisted."
+    },
+    {
       "id": "grok",
       "manifest": "plugins/grok/plugin.json",
       "entry": "plugins/grok/plugin.js",
@@ -1704,7 +1733,7 @@
       "id": "helmcode",
       "manifest": "plugins/helmcode/plugin.json",
       "entry": "plugins/helmcode/plugin.js",
-      "entrySha256": "818d04c3e9f73f619c738e8c1ea3094fdef76206aafc610d2ddb7983840bcaad",
+      "entrySha256": "bda851b882bbeaeba7896b8c158a38dd65fb706cff8391e78e1ba4b402af1b58",
       "declaredModes": [
         "web"
       ],
@@ -1819,7 +1848,7 @@
       "id": "jetbrains-ai-assistant",
       "manifest": "plugins/jetbrains-ai-assistant/plugin.json",
       "entry": "plugins/jetbrains-ai-assistant/plugin.js",
-      "entrySha256": "a1561799a880f864211f40446bca5e08630756a5d701164a14bd259c279a99fa",
+      "entrySha256": "6cb6a19bc93718bde30628f8292ca2cb2859159aaad80c412ee0eed6586a7822",
       "declaredModes": [
         "local"
       ],
@@ -1835,11 +1864,18 @@
       ],
       "hostCalls": [
         "fs.appSupportPath",
+        "fs.cacheDir",
         "fs.exists",
+        "fs.homeDir",
         "fs.listDir",
-        "fs.readText"
+        "fs.localAppDataPath",
+        "fs.readTextLimited",
+        "http.request"
       ],
-      "literalPathEvidence": [],
+      "literalPathEvidence": [
+        "~/.junie/instances",
+        "~/.junie/sessions"
+      ],
       "branchesOnSourceMode": false,
       "fixtures": [
         "tests/provider-paths.test.cjs"
@@ -1882,7 +1918,7 @@
       "id": "kimi",
       "manifest": "plugins/kimi/plugin.json",
       "entry": "plugins/kimi/plugin.js",
-      "entrySha256": "9f27a362c7552dce3da9f1bc8c37b5f5125ca7aaa82f6da9803a725435268f96",
+      "entrySha256": "cc6b40301c312e47a8b8fdbd3a345e5e2437d3a87674d77875152bfc3bcad86d",
       "declaredModes": [
         "api",
         "oauth",
@@ -2387,7 +2423,7 @@
       "id": "museai",
       "manifest": "plugins/museai/plugin.json",
       "entry": "plugins/museai/plugin.js",
-      "entrySha256": "6960a341047970237d34b079b346b211adf040f36bb9f694a406eec1b1f26167",
+      "entrySha256": "886c9f991450fd97d76f0a1838267ffd32a5bdf70ed481daf73ae50419f7ca3d",
       "declaredModes": [
         "web"
       ],
@@ -2613,7 +2649,7 @@
       "id": "opencode-go",
       "manifest": "plugins/opencode-go/plugin.json",
       "entry": "plugins/opencode-go/plugin.js",
-      "entrySha256": "d4e291cae8b3998fdd8e03161b87200cea6d885108681db8aa9199dc51d4c6b6",
+      "entrySha256": "362ac12458f73421d94f8052468fcb5f80bb3fb2fd7a6c14b15dcdaf233628d9",
       "declaredModes": [
         "api",
         "local",
@@ -2651,6 +2687,33 @@
         "tests/provider-inspo-20261026.test.cjs"
       ],
       "auditNote": "Upstream XDG roots, explicit channel/database selection, v2 current credential/logout authority, assistant/completed-compaction history and migrated-ID deduplication covered by fixtures. Real app/account/API versions remain unverified."
+    },
+    {
+      "id": "opendesign",
+      "manifest": "plugins/opendesign/plugin.json",
+      "entry": "plugins/opendesign/plugin.js",
+      "entrySha256": "20da7b7df1ba9c0772168bf8d4e4dfca9d490a3961a0536cbdc09441683c4291",
+      "declaredModes": [
+        "web"
+      ],
+      "autoMode": "web",
+      "osStatus": {
+        "linux": "I",
+        "macos": "I",
+        "windows": "I"
+      },
+      "liveCredentialQualification": "unverified",
+      "methods": [
+        "native bundled-provider adapter"
+      ],
+      "hostCalls": [],
+      "literalPathEvidence": [],
+      "branchesOnSourceMode": false,
+      "fixtures": [
+        "tests/bundled-providers.test.cjs",
+        "tests/provider-inspo-20261026.test.cjs"
+      ],
+      "auditNote": "Vendored CodexBar provider with a bounded native asynchronous host adapter and explicit credential/endpoint routing. Disabled by default. Adapter fixtures do not qualify real credentials, browser import, or every optional upstream workflow; cache TTL is not persisted."
     },
     {
       "id": "openrouter",
@@ -2717,7 +2780,7 @@
       "id": "perplexity",
       "manifest": "plugins/perplexity/plugin.json",
       "entry": "plugins/perplexity/plugin.js",
-      "entrySha256": "bddaf3f7e222b33f6e61bbcad42949f24219294bb55f0373a38dfca011c75bf6",
+      "entrySha256": "51180e8fa2cab60518f1bc978f74d135c4bd37d32a5a951b2c9d14628a2ffd31",
       "declaredModes": [
         "oauth",
         "local",
@@ -2736,6 +2799,8 @@
       ],
       "hostCalls": [
         "fs.exists",
+        "http.cookieSessionAvailable",
+        "http.requestCookieSession",
         "sqlite.query"
       ],
       "literalPathEvidence": [
@@ -2746,7 +2811,7 @@
       "fixtures": [
         "tests/provider-remaining-paths.test.cjs"
       ],
-      "auditNote": "Entry always uses legacy macOS CFNetwork cache, including declared web/oauth modes. Linux/Windows cache method explicitly unsupported; manual web-cookie implementation is absent."
+      "auditNote": "Manual scoped web-cookie readback supports native hosts; legacy macOS CFNetwork bearer fallback remains available. Live session behavior remains unverified."
     },
     {
       "id": "pi",
@@ -2987,6 +3052,34 @@
       "auditNote": "Configured credentials and HTTP request code inspected; real credentials, API responses and provider/account behavior remain unverified on each OS."
     },
     {
+      "id": "siliconflow",
+      "manifest": "plugins/siliconflow/plugin.json",
+      "entry": "plugins/siliconflow/plugin.js",
+      "entrySha256": "80efcc9fff409d8013d838f95aa7e43c234435dadc056974de05cf7c0c50f892",
+      "declaredModes": [
+        "api"
+      ],
+      "autoMode": "api",
+      "osStatus": {
+        "linux": "I",
+        "macos": "I",
+        "windows": "I"
+      },
+      "liveCredentialQualification": "unverified",
+      "methods": [
+        "configured token/key",
+        "native bundled-provider adapter"
+      ],
+      "hostCalls": [],
+      "literalPathEvidence": [],
+      "branchesOnSourceMode": false,
+      "fixtures": [
+        "tests/bundled-providers.test.cjs",
+        "tests/provider-inspo-20261026.test.cjs"
+      ],
+      "auditNote": "Vendored CodexBar provider with a bounded native asynchronous host adapter and explicit credential/endpoint routing. Disabled by default. Adapter fixtures do not qualify real credentials, browser import, or every optional upstream workflow; cache TTL is not persisted."
+    },
+    {
       "id": "sofya",
       "manifest": "plugins/sofya/plugin.json",
       "entry": "plugins/sofya/plugin.js",
@@ -3105,7 +3198,7 @@
       "id": "synthetic",
       "manifest": "plugins/synthetic/plugin.json",
       "entry": "plugins/synthetic/plugin.js",
-      "entrySha256": "102063f06b8b5551b8ef810291b0a47191c49c8a69055f4083775d1c58cd3f22",
+      "entrySha256": "a099bbb28ef1b41ec417b85f5425e9b89fe923f50badd5eca45ce7973b5d2c71",
       "declaredModes": [
         "api",
         "local"
@@ -3223,7 +3316,7 @@
       "id": "traecn",
       "manifest": "plugins/traecn/plugin.json",
       "entry": "plugins/traecn/plugin.js",
-      "entrySha256": "564fc0a0bd855678a9fe530fe43cbfc524e106aae80a2aeb7872128ba1df9047",
+      "entrySha256": "7d9af30e47eabb164a257334cb1e2b81fd52ddac7e73e6b41014d8109c51fc65",
       "declaredModes": [
         "web"
       ],
@@ -3247,10 +3340,38 @@
       "auditNote": "Vendored CodexBar provider with a bounded native asynchronous host adapter and explicit credential/endpoint routing. Disabled by default. Adapter fixtures do not qualify real credentials, browser import, or every optional upstream workflow; cache TTL is not persisted."
     },
     {
+      "id": "tripo",
+      "manifest": "plugins/tripo/plugin.json",
+      "entry": "plugins/tripo/plugin.js",
+      "entrySha256": "49740ce7e85cac456a5cffcf28310b9843aeb0c7a9b2759fea8823b6bdd35756",
+      "declaredModes": [
+        "api"
+      ],
+      "autoMode": "api",
+      "osStatus": {
+        "linux": "I",
+        "macos": "I",
+        "windows": "I"
+      },
+      "liveCredentialQualification": "unverified",
+      "methods": [
+        "configured token/key",
+        "native bundled-provider adapter"
+      ],
+      "hostCalls": [],
+      "literalPathEvidence": [],
+      "branchesOnSourceMode": false,
+      "fixtures": [
+        "tests/bundled-providers.test.cjs",
+        "tests/provider-inspo-20261026.test.cjs"
+      ],
+      "auditNote": "Vendored CodexBar provider with a bounded native asynchronous host adapter and explicit credential/endpoint routing. Disabled by default. Adapter fixtures do not qualify real credentials, browser import, or every optional upstream workflow; cache TTL is not persisted."
+    },
+    {
       "id": "typesafe",
       "manifest": "plugins/typesafe/plugin.json",
       "entry": "plugins/typesafe/plugin.js",
-      "entrySha256": "0ab5ed9664a2d53957f04650a1180e63f6ec37d385195913e090da6509aa71fe",
+      "entrySha256": "321cd1febcb7aba75912cad3c617cb0c8362deba85284e22b794658ca253d4e8",
       "declaredModes": [
         "web"
       ],
@@ -3489,7 +3610,7 @@
       "id": "workbuddy",
       "manifest": "plugins/workbuddy/plugin.json",
       "entry": "plugins/workbuddy/plugin.js",
-      "entrySha256": "2d749a0535ed6c406f9ca86ff6ec98f800540bbffd25fff6a8df4122ae993bbb",
+      "entrySha256": "c62d65970007ca5c086b228263d64ab3c52ce12dad90b249e010b25e2f46f23a",
       "declaredModes": [
         "web"
       ],

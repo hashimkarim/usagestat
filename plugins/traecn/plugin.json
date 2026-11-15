@@ -17,9 +17,9 @@
   "setupFields": [],
   "upstream": {
     "repository": "https://github.com/steipete/CodexBar",
-    "revision": "6070b29a1a5d51193a634dc1b0a14a67c39d0ccc",
+    "revision": "1f6da9bec44455288ddee5ef6f3617a803d8eb2a",
     "path": "Sources/CodexBarCore/Resources/Plugins/traecn.js",
-    "sha256": "045bf8cbba44d779fc69a1ddbd14598a1d1178f265be875336b36b261af5604a",
+    "sha256": "a41123c0e7220f6c5577abd64c7ce3c2854d59ffdd4a7e92a439099dc7068042",
     "license": "MIT"
   }
 }

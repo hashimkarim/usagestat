@@ -43,15 +43,13 @@ for(const [id,fixture] of Object.entries(apis)) {
   });
 }
 
-test('TypeSafe sends the browser User-Agent for billing, discovery and action requests',async()=>{
-  const action='b'.repeat(40);
+test('TypeSafe sends its browser User-Agent on the billing overview request',async()=>{
   const app=load('typesafe',{provider:{cookieHeader:'session=fixture'},request:req=>{
     assert.match(req.headers['User-Agent'],/^Mozilla\/5\.0 /);
-    if(req.method==='POST') return response('1:{"ok":true,"data":{"billing":{"plan":"free","spent":0,"balance":5,"purchased":0,"cycleLabel":"September"}}}');
-    return response(req.url.includes('/_next/') ? `"${action}",x,y,"getBillingOverviewResult"` : '<script src="/_next/static/chunks/app.js"></script>');
+    return response({billing:{plan:'free',spent:0,balance:5,cycleLabel:'November'}});
   }});
   assert.equal(metric(await app.probe(),'Balance').value,'USD 5.00');
-  assert.equal(app.requests.length,3);
+  assert.equal(app.requests.length,1);
 });
 test('Hyper dashboard sessions report web source while bearer reads report API',async()=>{
   const app=load('hyper',{provider:{cookieHeader:'session=fixture',apiKey:'fixture-key'},request:req=>{

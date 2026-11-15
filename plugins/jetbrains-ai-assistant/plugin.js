@@ -1,8 +1,29 @@
+// Adapted from barramee27/crossusage at 78b243b798abce1270d6fed775c79e65825b2c33; see LICENSE.
 (function () {
   var QUOTA_FILENAME = "AIAssistantQuotaManager2.xml"
+  var JUNIE_INSTANCES_DIR = "~/.junie/instances"
+  var JUNIE_SESSIONS_DIR = "~/.junie/sessions"
 
   // JetBrains stores AI quota in 1e-5 credit units; divide by this to get credits.
   var CREDIT_UNIT_SCALE = 100000
+
+  // Included credits on current JetBrains plans. The Aug 2025 currency model used
+  // 10 (Pro) and 35 (Ultimate); those caps clamp a live balance that is still
+  // inside the real tariff, and top-ups can sit above either number.
+  var AI_PRO_CREDITS = 20
+  var AI_ULTIMATE_CREDITS = 70
+  var UNKNOWN_PLAN_CREDIT_FLOOR = 10
+  // An undated IDE quota file has no mtime. Sessions older than this do not
+  // outrank it; a dated idea.log is compared by its own timestamp instead.
+  var SESSION_UNDATED_LIVE_MAX_AGE_MS = 48 * 60 * 60 * 1000
+
+  var LICENSE_NAMES = {
+    AIP: "JetBrains AI Pro",
+    AIPU: "JetBrains AI Ultimate",
+    AIF: "JetBrains AI Free",
+    TRIAL: "JetBrains AI Trial",
+    JUNP: "Junie EAP",
+  }
 
   var PRODUCT_PREFIXES = [
     "Aqua",
@@ -28,6 +49,12 @@
     var root = ctx.host.fs.appSupportPath("JetBrains")
     if (!root) throw {code: "failed", message: "JetBrains configuration directory unavailable. Set settings.configDir to the IDE configuration directory."}
     return [root]
+  }
+
+  function platformLogDirs(ctx) {
+    if (ctx.app.platform === "macos" || ctx.app.platform === "darwin") return [ctx.host.fs.homeDir+"/Library/Logs/JetBrains"]
+    if (ctx.app.platform === "windows") return [ctx.host.fs.localAppDataPath("JetBrains")].filter(Boolean)
+    return ctx.host.fs.cacheDir ? [ctx.host.fs.cacheDir+"/JetBrains"] : []
   }
 
   function isLikelyIdeDirName(name) {
@@ -56,7 +83,7 @@
 
     try {
       var entries = ctx.host.fs.listDir(path)
-      return Array.isArray(entries) ? entries : []
+      return Array.isArray(entries) ? entries.slice().sort().reverse().slice(0,64) : []
     } catch (e) {
       ctx.host.log.warn("listDir failed for " + path + ": " + String(e))
       return []
@@ -89,6 +116,33 @@
     return paths
   }
 
+  function buildIdeaLogPaths(ctx) {
+    var bases = platformLogDirs(ctx)
+    var paths = []
+    var seen = Object.create(null)
+    for (var b = 0; b < bases.length; b += 1) {
+      var base = bases[b]
+      var entries = safeListDir(ctx, base)
+      for (var i = 0; i < entries.length; i += 1) {
+        var dirName = entries[i]
+        if (!isLikelyIdeDirName(dirName)) continue
+        var candidates = [
+          base + "/" + dirName + "/log/idea.log",
+          base + "/" + dirName + "/idea.log",
+        ]
+        for (var c = 0; c < candidates.length; c += 1) {
+          var logPath = candidates[c]
+          if (!ctx.host.fs.exists(logPath)) continue
+          if (!seen[logPath]) {
+            seen[logPath] = true
+            paths.push(logPath)
+          }
+        }
+      }
+    }
+    return paths
+  }
+
   function decodeXmlEntities(text) {
     if (!text) return ""
     return String(text)
@@ -110,6 +164,7 @@
   }
 
   function toNumber(value) {
+    if (value === null || value === undefined || value === "") return null
     var n = Number(value)
     return Number.isFinite(n) ? n : null
   }
@@ -120,12 +175,30 @@
     return value
   }
 
+  function resolvePlanLabel(licenseName, licenseType) {
+    if (typeof licenseName === "string" && licenseName.trim()) {
+      return licenseName.trim()
+    }
+    if (typeof licenseType === "string" && licenseType.trim()) {
+      var code = licenseType.trim()
+      if (LICENSE_NAMES[code]) return LICENSE_NAMES[code]
+      return code
+    }
+    return null
+  }
+
   function normalizeQuota(quotaInfo) {
     if (!quotaInfo || typeof quotaInfo !== "object") return null
 
     var maximum = toNumber(quotaInfo.maximum)
+    if (maximum === null) maximum = toNumber(quotaInfo.creditsMaximum)
+
     var used = toNumber(quotaInfo.current)
+    if (used === null) used = toNumber(quotaInfo.creditsUsed)
+
     var remaining = toNumber(quotaInfo.available)
+    if (remaining === null) remaining = toNumber(quotaInfo.creditsAvailable)
+    if (remaining === null) remaining = toNumber(quotaInfo.balanceLeft)
 
     var tariff = quotaInfo.tariffQuota && typeof quotaInfo.tariffQuota === "object"
       ? quotaInfo.tariffQuota
@@ -158,6 +231,10 @@
       }
     }
 
+    if (used === null && maximum !== null && remaining !== null) {
+      used = maximum - remaining
+    }
+
     if (remaining === null && maximum !== null && used !== null) {
       remaining = maximum - used
     }
@@ -167,31 +244,304 @@
     used = clamp(used, 0, maximum)
     if (remaining !== null) remaining = clamp(remaining, 0, maximum)
 
+    var until = quotaInfo.until || null
+    if (!until && quotaInfo.nextRefillMillis) {
+      var refillMs = toNumber(quotaInfo.nextRefillMillis)
+      if (refillMs !== null && refillMs > 0) {
+        until = new Date(refillMs).toISOString()
+      }
+    }
+
     return {
       used: used,
       maximum: maximum,
       remaining: remaining,
-      until: quotaInfo.until || null,
+      until: until,
+      plan: resolvePlanLabel(quotaInfo.licenseName, quotaInfo.licenseType),
     }
   }
 
   function readQuotaState(ctx, path) {
     if (!ctx.host.fs.exists(path)) return null
     try {
-      var xml = ctx.host.fs.readText(path)
+      var xml = ctx.host.fs.readTextLimited(path, 2097152)
       var quotaInfo = parseOptionJson(ctx, xml, "quotaInfo")
       var nextRefill = parseOptionJson(ctx, xml, "nextRefill")
       var quota = normalizeQuota(quotaInfo)
       if (!quota) return null
-      return { path: path, quota: quota, nextRefill: nextRefill }
+      return { path: path, quota: quota, nextRefill: nextRefill, tier: 5 }
     } catch (e) {
       ctx.host.log.warn("failed reading quota state " + path + ": " + String(e))
       return null
     }
   }
 
-  // Handles only simple single-component durations (PTnH, PnD, PnW).
-  // JetBrains currently uses values like PT720H or P30D.
+  // Tier 1: Live JetBrains IDE Local JSON-RPC Bridge (~/.junie/instances/*.json)
+  function probeLiveIdeRpc(ctx) {
+    if (!ctx.host.http || typeof ctx.host.http.request !== "function") return []
+    var entries = safeListDir(ctx, JUNIE_INSTANCES_DIR)
+    var states = []
+
+    for (var i = 0; i < entries.length; i += 1) {
+      var fileName = entries[i]
+      if (typeof fileName !== "string" || !/\.json$/i.test(fileName)) continue
+      var instancePath = JUNIE_INSTANCES_DIR + "/" + fileName
+      try {
+        var raw = ctx.host.fs.readTextLimited(instancePath, 2097152)
+        var instance = ctx.util.tryParseJson(raw)
+        if (!instance || typeof instance !== "object") continue
+        var port = toNumber(instance.port)
+        var rpcToken = typeof instance.rpc_token === "string" ? instance.rpc_token.trim() : ""
+        if (!port || port <= 0 || port > 65535 || !rpcToken) continue
+
+        var resp = ctx.host.http.request({
+          method: "POST",
+          url: "http://127.0.0.1:" + String(port) + "/rpc",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: rpcToken,
+          },
+          bodyText: JSON.stringify({
+            jsonrpc: "2.0",
+            id: 1,
+            method: "JunieSystemService.getQuotaInfo",
+            params: {},
+          }),
+          timeoutMs: 1500,
+        })
+
+        if (!resp || resp.status < 200 || resp.status >= 300 || !resp.bodyText) continue
+        var payload = ctx.util.tryParseJson(resp.bodyText)
+        if (!payload || !payload.result || payload.result.error) continue
+
+        var quota = normalizeQuota(payload.result)
+        if (!quota) continue
+
+        var nextRefill = null
+        if (payload.result.nextRefillMillis) {
+          var refillMs = toNumber(payload.result.nextRefillMillis)
+          if (refillMs !== null && refillMs > 0) {
+            nextRefill = { next: new Date(refillMs).toISOString() }
+          }
+        }
+
+        states.push({
+          path: "rpc://127.0.0.1:" + String(port) + " (" + fileName + ")",
+          quota: quota,
+          nextRefill: nextRefill,
+          tier: 1,
+        })
+      } catch (e) {
+        ctx.host.log.warn("IDE RPC probe skipped for " + instancePath + ": " + String(e))
+      }
+    }
+
+    return states
+  }
+
+  function coerceEpochMs(ctx, value) {
+    var n = toNumber(value)
+    if (n !== null) {
+      if (n <= 0) return null
+      return n < 1000000000000 ? n * 1000 : n
+    }
+    if (typeof value === "string" && value.trim()) {
+      return ctx.util.parseDateMs(value.trim())
+    }
+    return null
+  }
+
+  function readObservedAtMs(ctx, value) {
+    if (!value || typeof value !== "object") return null
+    var keys = ["timestampMs", "timestamp", "timeMs", "createdAt", "updatedAt"]
+    for (var i = 0; i < keys.length; i += 1) {
+      var ms = coerceEpochMs(ctx, value[keys[i]])
+      if (ms !== null) return ms
+    }
+    return null
+  }
+
+  function eventObservedAtMs(ctx, parsed) {
+    var direct = readObservedAtMs(ctx, parsed)
+    if (direct !== null) return direct
+    if (!parsed || typeof parsed !== "object") return null
+    var fromEvent = readObservedAtMs(ctx, parsed.event)
+    if (fromEvent !== null) return fromEvent
+    return readObservedAtMs(ctx, parsed.completion)
+  }
+
+  function sessionIdObservedAtMs(sessionId) {
+    if (typeof sessionId !== "string") return null
+    var match = sessionId.match(/^session-(\d{2})(\d{2})(\d{2})-(\d{2})(\d{2})(\d{2})(?:-|$)/)
+    if (!match) return null
+    var ms = Date.parse(
+      "20" +
+        match[1] +
+        "-" +
+        match[2] +
+        "-" +
+        match[3] +
+        "T" +
+        match[4] +
+        ":" +
+        match[5] +
+        ":" +
+        match[6] +
+        "Z"
+    )
+    return Number.isFinite(ms) ? ms : null
+  }
+
+  function readJunieSessionIndexTimes(ctx) {
+    var times = Object.create(null)
+    var indexPath = JUNIE_SESSIONS_DIR + "/index.jsonl"
+    if (!ctx.host.fs.exists(indexPath)) return times
+    try {
+      var text = ctx.host.fs.readTextLimited(indexPath, 2097152)
+      if (!text) return times
+      var lines = text.split(/\r?\n/)
+      for (var i = 0; i < lines.length; i += 1) {
+        var line = lines[i].trim()
+        if (!line) continue
+        var row = ctx.util.tryParseJson(line)
+        if (!row || typeof row.sessionId !== "string") continue
+        var at = coerceEpochMs(ctx, row.updatedAt)
+        if (at === null) at = coerceEpochMs(ctx, row.createdAt)
+        if (at !== null) times[row.sessionId] = at
+      }
+    } catch (e) {
+      ctx.host.log.warn("failed reading junie session index: " + String(e))
+    }
+    return times
+  }
+
+  function logLineObservedAtMs(line) {
+    if (typeof line !== "string") return null
+    var match = line.match(/^(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2}:\d{2})(?:,(\d{1,3}))?/)
+    if (!match) return null
+    var frac = match[3] || "000"
+    if (frac.length > 3) frac = frac.slice(0, 3)
+    while (frac.length < 3) frac = frac + "0"
+    // idea.log stamps are local wall time (ZoneId.systemDefault) and carry no offset.
+    // Date.parse treats a date-time without Z as local. Appending Z would read that
+    // wall clock as UTC and mis-rank it against real Unix session timestamps.
+    var ms = Date.parse(match[1] + "T" + match[2] + "." + frac)
+    return Number.isFinite(ms) ? ms : null
+  }
+
+  // Tier 3: Junie CLI Session Logs (~/.junie/sessions/*/events.jsonl)
+  // Each session keeps the observation time of its newest quota event so a
+  // leftover folder cannot outrank a later idea.log or XML snapshot.
+  function probeJunieSessions(ctx) {
+    var sessionDirs = safeListDir(ctx, JUNIE_SESSIONS_DIR)
+    var indexTimes = readJunieSessionIndexTimes(ctx)
+    var states = []
+
+    for (var i = 0; i < sessionDirs.length; i += 1) {
+      var sessionId = sessionDirs[i]
+      var eventsPath = JUNIE_SESSIONS_DIR + "/" + sessionId + "/events.jsonl"
+      if (!ctx.host.fs.exists(eventsPath)) continue
+      try {
+        var text = ctx.host.fs.readTextLimited(eventsPath, 2097152)
+        if (!text) continue
+        var lines = text.split(/\r?\n/)
+        for (var l = lines.length - 1; l >= 0; l -= 1) {
+          var line = lines[l].trim()
+          if (!line || line.indexOf("quota") === -1) continue
+          var parsed = ctx.util.tryParseJson(line)
+          if (!parsed || typeof parsed !== "object") continue
+          var candidate =
+            (parsed.completion && parsed.completion.quota) ||
+            parsed.quotaInfo ||
+            parsed.quota ||
+            null
+          if (!candidate) continue
+          var quota = normalizeQuota(candidate)
+          if (quota) {
+            var observedAt = eventObservedAtMs(ctx, parsed)
+            if (observedAt === null && typeof indexTimes[sessionId] === "number") {
+              observedAt = indexTimes[sessionId]
+            }
+            if (observedAt === null) observedAt = sessionIdObservedAtMs(sessionId)
+            states.push({
+              path: eventsPath,
+              quota: quota,
+              nextRefill: candidate.nextRefill || null,
+              tier: 3,
+              observedAtMs: observedAt,
+            })
+            break
+          }
+        }
+      } catch (e) {
+        ctx.host.log.warn("failed reading junie session " + eventsPath + ": " + String(e))
+      }
+    }
+
+    return states
+  }
+
+  // Tier 4: IDE Application Logs (idea.log -> QuotaManager2Impl)
+  function extractLastLogQuotaState(ctx, logPath) {
+    try {
+      var text = ctx.host.fs.readTextLimited(logPath, 2097152)
+      if (!text || text.indexOf("QuotaManager2") === -1) return null
+      var lines = text.split(/\r?\n/)
+      var latestQuota = null
+      var latestRefill = null
+      var latestObservedAt = null
+
+      for (var i = lines.length - 1; i >= 0; i -= 1) {
+        var line = lines[i]
+        if (!latestQuota && line.indexOf("New quota info") !== -1) {
+          var braceIdx = line.indexOf("{")
+          if (braceIdx !== -1) {
+            var jsonCandidate = line.slice(braceIdx).trim()
+            var parsed = ctx.util.tryParseJson(jsonCandidate)
+            if (parsed) {
+              latestQuota = normalizeQuota(parsed)
+              if (latestQuota) latestObservedAt = logLineObservedAtMs(line)
+            }
+          }
+        }
+        if (!latestRefill && line.indexOf("New next refill") !== -1) {
+          var refillBraceIdx = line.indexOf("{")
+          if (refillBraceIdx !== -1) {
+            latestRefill = ctx.util.tryParseJson(line.slice(refillBraceIdx).trim())
+          }
+        }
+        if (latestQuota && latestRefill) break
+      }
+
+      if (!latestQuota) return null
+      return {
+        path: logPath,
+        quota: latestQuota,
+        nextRefill: latestRefill,
+        tier: 4,
+        observedAtMs: latestObservedAt,
+      }
+    } catch (e) {
+      ctx.host.log.warn("failed reading idea.log " + logPath + ": " + String(e))
+      return null
+    }
+  }
+
+  function probeIdeaLogs(ctx) {
+    var logPaths = buildIdeaLogPaths(ctx)
+    var states = []
+    for (var i = 0; i < logPaths.length; i += 1) {
+      var state = extractLastLogQuotaState(ctx, logPaths[i])
+      if (state) states.push(state)
+    }
+    return states
+  }
+
+  // Tier 2: Junie Cloud API (~/.junie/secure_credentials.json or OS keychain -> Ingrazzio /auth/test)
+  function probeNowMs(ctx) {
+    return Date.parse(ctx.nowIso) || Date.now()
+  }
+
   function parseIsoDurationMs(value) {
     if (typeof value !== "string" || !value) return null
 
@@ -205,6 +555,100 @@
     if (w) return Number(w[1]) * 7 * 24 * 60 * 60 * 1000
 
     return null
+  }
+
+  function filterSessionStates(ctx, sessionStates, liveStates) {
+    if (!liveStates || liveStates.length === 0) return sessionStates
+    var newestLiveAt = null
+    for (var i = 0; i < liveStates.length; i += 1) {
+      var liveAt = liveStates[i].observedAtMs
+      if (typeof liveAt === "number" && (newestLiveAt === null || liveAt > newestLiveAt)) {
+        newestLiveAt = liveAt
+      }
+    }
+    var nowMs = ctx.nowIso ? ctx.util.parseDateMs(ctx.nowIso) : null
+    if (nowMs === null) nowMs = Date.now()
+    var kept = []
+    for (var s = 0; s < sessionStates.length; s += 1) {
+      var session = sessionStates[s]
+      var sessionAt = session.observedAtMs
+      if (typeof sessionAt !== "number") continue
+      if (newestLiveAt !== null) {
+        if (sessionAt >= newestLiveAt) kept.push(session)
+        continue
+      }
+      if (nowMs - sessionAt <= SESSION_UNDATED_LIVE_MAX_AGE_MS) kept.push(session)
+    }
+    return kept
+  }
+
+  function localSourceRank(tier) {
+    var rank = tier || 5
+    // Session logs share `until` with idea.log and XML. That timestamp is the
+    // billing-window end, so a lower tier number must not win the tie.
+    if (rank === 3) return 6
+    return rank
+  }
+
+  function pickBestState(ctx, states) {
+    var best = null
+    var bestMs = -Infinity
+
+    for (var i = 0; i < states.length; i += 1) {
+      var state = states[i]
+      var untilMs = null
+
+      if (state.quota.until) {
+        untilMs = ctx.util.parseDateMs(state.quota.until)
+      }
+      if (untilMs === null && state.nextRefill && state.nextRefill.next) {
+        untilMs = ctx.util.parseDateMs(state.nextRefill.next)
+      }
+      if (untilMs === null) untilMs = -Infinity
+
+      if (!best || untilMs > bestMs) {
+        best = state
+        bestMs = untilMs
+        continue
+      }
+
+      if (untilMs === bestMs) {
+        var stateAt = typeof state.observedAtMs === "number" ? state.observedAtMs : null
+        var bestAt = typeof best.observedAtMs === "number" ? best.observedAtMs : null
+        if (stateAt !== null && bestAt !== null && stateAt !== bestAt) {
+          if (stateAt > bestAt) {
+            best = state
+            continue
+          }
+          continue
+        }
+
+        var stateRank = localSourceRank(state.tier)
+        var bestRank = localSourceRank(best.tier)
+        if (stateRank < bestRank) {
+          best = state
+          continue
+        }
+        if (stateRank > bestRank) {
+          continue
+        }
+
+        var currentRatio =
+          state.quota.maximum > 0 ? state.quota.used / state.quota.maximum : 0
+        var bestRatio =
+          best.quota.maximum > 0 ? best.quota.used / best.quota.maximum : 0
+        if (currentRatio > bestRatio) {
+          best = state
+          continue
+        }
+        if (currentRatio === bestRatio && state.quota.used > best.quota.used) {
+          best = state
+          continue
+        }
+      }
+    }
+
+    return best
   }
 
   function formatDecimal(value, places) {
@@ -233,24 +677,64 @@
   }
 
   function probe(ctx) {
-    var paths = buildQuotaPaths(ctx)
-    var states = []
+    if (ctx.provider?.instanceId && ctx.provider.instanceId !== "jetbrains-ai-assistant")
+      throw "JetBrains local observations are available only for the default account."
 
+    // 1. Check live running JetBrains IDEs via Junie local JSON-RPC bridge first
+    var settings = ctx.provider?.settings || {}
+    var paths = buildQuotaPaths(ctx)
+    if (paths.length > 1 && !settings.configDir)
+      throw {code:"failed",message:"Multiple JetBrains IDE quota profiles found. Select settings.configDir to choose one installation."}
+    // Junie observations may span IDEs. Require an explicit opt-in, and never
+    // borrow them when an individual configuration directory was selected.
+    var live = settings.liveQuota === true && !settings.configDir
+    var rpcStates = live ? probeLiveIdeRpc(ctx) : []
+
+    // 2. Gather local XML, session, and idea.log states
+    var xmlStates = []
     for (var i = 0; i < paths.length; i += 1) {
-      var state = readQuotaState(ctx, paths[i])
-      if (state) states.push(state)
+      var xmlState = readQuotaState(ctx, paths[i])
+      if (xmlState) xmlStates.push(xmlState)
     }
 
-    if (states.length === 0) {
+    var sessionStates = live ? probeJunieSessions(ctx) : []
+    var logStates = live ? probeIdeaLogs(ctx) : []
+    var liveStates = logStates.concat(xmlStates)
+    // Drop session snapshots that are older than the live IDE files. A shared
+    // billing-window `until` would otherwise let a leftover events.jsonl win,
+    var sessionCandidates = filterSessionStates(ctx, sessionStates, liveStates)
+
+    var localFallbackBest = pickBestState(ctx, sessionCandidates.concat(liveStates))
+
+    var chosen = null
+    if (rpcStates.length > 0) {
+      chosen = pickBestState(ctx, rpcStates)
+      // Preserve tariff duration metadata from XML if RPC response only has nextRefillMillis
+      if (
+        chosen &&
+        localFallbackBest &&
+        localFallbackBest.nextRefill &&
+        localFallbackBest.nextRefill.tariff &&
+        (!chosen.nextRefill || !chosen.nextRefill.tariff)
+      ) {
+        chosen.nextRefill = {
+          next:
+            (chosen.nextRefill && chosen.nextRefill.next) ||
+            localFallbackBest.nextRefill.next ||
+            null,
+          tariff: localFallbackBest.nextRefill.tariff,
+        }
+      }
+    } else {
+      chosen = localFallbackBest
+    }
+
+    if (!chosen) {
       throw paths.length > 0
         ? "JetBrains AI Assistant quota data unavailable. Open AI Assistant once and try again."
         : "JetBrains AI Assistant not detected. Open a JetBrains IDE with AI Assistant enabled."
     }
 
-    if (states.length > 1) {
-      throw {code: "failed", message: "Multiple JetBrains IDE quota profiles found. Select settings.configDir to choose one installation."}
-    }
-    var chosen = states[0]
     var quota = chosen.quota
     var scale = detectDisplayScale(quota, chosen.nextRefill)
     var usedPercent = (quota.used / quota.maximum) * 100
@@ -306,7 +790,9 @@
 
     ctx.host.log.info("quota loaded from " + chosen.path)
 
-    return { lines: lines }
+    var result = { lines: lines }
+    if (quota.plan) result.plan = quota.plan
+    return result
   }
 
   globalThis.__openusage_plugin = { id: "jetbrains-ai-assistant", probe: probe }

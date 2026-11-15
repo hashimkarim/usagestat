@@ -24,7 +24,7 @@
   ],
   "upstream": {
     "repository": "https://github.com/steipete/CodexBar",
-    "revision": "6070b29a1a5d51193a634dc1b0a14a67c39d0ccc",
+    "revision": "1f6da9bec44455288ddee5ef6f3617a803d8eb2a",
     "path": "Sources/CodexBarCore/Resources/Plugins/futureagi.js",
     "sha256": "48c4e8b36e4556bc56dfe16f954e180aba0e11fb4111e382049fe015b4340c42",
     "license": "MIT"

@@ -17,7 +17,7 @@
   "setupFields": [],
   "upstream": {
     "repository": "https://github.com/steipete/CodexBar",
-    "revision": "6070b29a1a5d51193a634dc1b0a14a67c39d0ccc",
+    "revision": "1f6da9bec44455288ddee5ef6f3617a803d8eb2a",
     "path": "Sources/CodexBarCore/Resources/Plugins/replicate.js",
     "sha256": "d240c36fa142ee91ce90ae52a2c6814613d2d5533a00c8a4c7ecec2f9386006c",
     "license": "MIT"

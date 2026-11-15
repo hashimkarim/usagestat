@@ -31,6 +31,22 @@ Gemini Apps uses its GraphQL usage endpoint and retains its existing provider
 identity and `GEMINI_COOKIE` alias. X API and xAI are separate products with
 separate billing sources. Keep their credentials in their own entries.
 
+## Local application observations
+
+Cursor safe-storage values are ciphertext, so they are never sent as access tokens.
+The default stable profile may use the Cursor CLI login from `agent login`; Nightly,
+explicit database profiles and named accounts do not borrow that login. CLI-owned
+credentials are read without modifying the CLI file.
+
+JetBrains keeps explicit IDE selection authoritative. Optional **Read local Junie
+observations** can consult running IDE quotas and bounded local logs for the default
+account; it is disabled when a specific configuration directory is selected. It
+neither refreshes JetBrains cloud tokens nor changes stored credentials.
+
+Kimi monthly detail divides one measured monthly pool into Code and other-feature
+shares only when both figures come from that same source. Codex quotas retain the
+reported window duration, including the fixed 30-day Free window.
+
 ## Retained accounting
 
 Cursor’s event collector accepts reported charges only after all requested pages

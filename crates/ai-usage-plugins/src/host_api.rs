@@ -33,6 +33,12 @@ const ENV_ALLOWLIST: &[&str] = &[
     "SAIL_API_KEY",
     "SOFYA_API_KEY",
     "SONIOX_ORG_API_KEY",
+    "SILICONFLOW_API_KEY",
+    "SILICONFLOW_BASE_URL",
+    "TRIPO_API_KEY",
+    "PERPLEXITY_COOKIE",
+    "OPENDESIGN_COOKIE",
+    "GOOGLEDEVELOPER_COOKIE",
     "TAVILY_API_KEY",
     "TINYAPI_COOKIE",
     "TRAECN_COOKIE",
@@ -411,6 +417,13 @@ pub fn inject<'js>(
         plugin_id == "cursor"
             && std::env::var_os("CURSOR_STATE_DB").is_none_or(|value| value.is_empty()),
     )?;
+    let cursor_plugin = plugin_id.to_owned();
+    cursor_paths.set(
+        "readCliAuth",
+        Function::new(ctx.clone(), move || {
+            crate::cursor_paths::cli_auth_json(&cursor_plugin)
+        })?,
+    )?;
     host.set("cursorPaths", cursor_paths)?;
     inject_keychain(ctx, &host, plugin_id)?;
     inject_ls(ctx, &host)?;
@@ -659,6 +672,11 @@ fn inject_fs<'js>(ctx: &Ctx<'js>, host: &Object<'js>) -> rquickjs::Result<()> {
     )?;
 
     fs_obj.set(
+        "cacheDir",
+        dirs::cache_dir().map(|p| p.to_string_lossy().into_owned()),
+    )?;
+
+    fs_obj.set(
         "localAppDataPath",
         Function::new(ctx.clone(), move |relative: String| -> Option<String> {
             usagestat_core::provider_paths::local_app_data_path(&relative)
@@ -696,7 +714,10 @@ fn inject_claude_quota<'js>(ctx: &Ctx<'js>, host: &Object<'js>) -> rquickjs::Res
         "probeQuota",
         Function::new(
             ctx.clone(),
-            |inner: Ctx<'_>, token_hash: String, organization: Option<String>| -> rquickjs::Result<String> {
+            |inner: Ctx<'_>,
+             token_hash: String,
+             organization: Option<String>|
+             -> rquickjs::Result<String> {
                 let result = crate::claude_quota::probe(&token_hash, organization.as_deref())
                     .map_err(|_| {
                         Exception::throw_message(&inner, "Claude CLI quota check unavailable")

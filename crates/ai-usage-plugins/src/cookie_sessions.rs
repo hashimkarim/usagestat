@@ -19,6 +19,9 @@ impl Session {
                 | "xapi"
                 | "gemini-apps"
                 | "qwencloud"
+                | "perplexity"
+                | "opendesign"
+                | "googledeveloper"
         ) {
             return None;
         }
@@ -80,6 +83,49 @@ impl Session {
             return Err(SCOPE);
         }
         let allowed = match self.provider.as_str() {
+            "perplexity" => {
+                parsed.host_str() == Some("www.perplexity.ai")
+                    && method == "GET"
+                    && matches!(
+                        parsed.path(),
+                        "/api/auth/session"
+                            | "/rest/rate-limit/status"
+                            | "/rest/billing/credits"
+                            | "/rest/billing/credits/computer-submit-gate"
+                    )
+                    && parsed.query() == Some("version=2.18&source=default")
+            }
+            "opendesign" => {
+                let parts: Vec<_> = parsed.path().split('/').collect();
+                parsed.host_str() == Some("amr-api.open-design.ai")
+                    && method == "GET"
+                    && parsed.query().is_none()
+                    && (parsed.path() == "/api/v1/workspaces/current"
+                        || parts.len() == 7
+                            && parts[1..4] == ["api", "v1", "workspaces"]
+                            && !parts[4].is_empty()
+                            && parts[4].len() <= 128
+                            && parts[4]
+                                .bytes()
+                                .all(|b| b.is_ascii_alphanumeric() || b"_-".contains(&b))
+                            && parts[5..] == ["billing", "coding-plan-usage"])
+            }
+            "googledeveloper" => {
+                let query: HashMap<_, _> = parsed.query_pairs().collect();
+                let account = query.get("authuser").is_some_and(|v| {
+                    matches!(v.as_ref(), "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7")
+                });
+                parsed.host_str() == Some("me.developers.google.com")
+                    && account
+                    && (method == "GET" && parsed.path() == "/benefits" && query.len() == 1
+                        || method == "POST"
+                            && parsed.path() == "/_/GoogleDeveloperProfile/data/batchexecute"
+                            && query.len() == 5
+                            && query.get("rpcids").is_some_and(|v| v == "Ro0AYc")
+                            && query.get("source-path").is_some_and(|v| v == "/benefits")
+                            && query.get("hl").is_some_and(|v| v == "en")
+                            && query.get("rt").is_some_and(|v| v == "c"))
+            }
             "lithosai" => {
                 parsed.host_str() == Some("console.lithosai.cloud")
                     && method == "GET"
@@ -256,6 +302,22 @@ mod tests {
     }
     const COOKIE: &str = "__Host-console_session=fixture-session; __Host-console_csrf=fixture-csrf";
     #[test]
+    fn new_manual_sessions_allow_only_their_exact_read_routes() {
+        for (provider, method, url) in [
+            ("perplexity", "GET", "https://www.perplexity.ai/rest/rate-limit/status?version=2.18&source=default"),
+            ("opendesign", "GET", "https://amr-api.open-design.ai/api/v1/workspaces/fixture/billing/coding-plan-usage"),
+            ("googledeveloper", "GET", "https://me.developers.google.com/benefits?authuser=0"),
+            ("googledeveloper", "POST", "https://me.developers.google.com/_/GoogleDeveloperProfile/data/batchexecute?rpcids=Ro0AYc&source-path=%2Fbenefits&hl=en&authuser=0&rt=c"),
+        ] {
+            let selected = session(provider, "session=fixture");
+            assert_eq!(selected.headers(url, method, HashMap::new()).unwrap()["Cookie"], "session=fixture");
+            assert!(selected.headers(&url.replace("https://", "http://"), method, HashMap::new()).is_err());
+            assert!(selected.headers("https://evil.test/benefits?authuser=0", method, HashMap::new()).is_err());
+            assert!(selected.headers("https://me.developers.google.com/benefits?authuser=8", method, HashMap::new()).is_err());
+        }
+    }
+
+    #[test]
     fn csrf_is_injected_only_on_the_exact_provider_routes() {
         let s = session("lithosai", COOKIE);
         let headers = s
@@ -278,23 +340,21 @@ mod tests {
         ] {
             assert!(s.headers(url, "GET", HashMap::new()).is_err());
         }
-        assert!(
-            s.headers(
+        assert!(s
+            .headers(
                 "https://console.lithosai.cloud/api/me",
                 "POST",
                 HashMap::new()
             )
-            .is_err()
-        );
+            .is_err());
         for name in ["Cookie", "cookie", "Authorization", "X-CONSOLE-CSRF"] {
-            assert!(
-                s.headers(
+            assert!(s
+                .headers(
                     "https://console.lithosai.cloud/api/me",
                     "GET",
                     HashMap::from([(name.into(), "foreign".into())])
                 )
-                .is_err()
-            );
+                .is_err());
         }
     }
     #[test]
@@ -399,29 +459,24 @@ mod tests {
         assert!(!headers.contains_key("X-Console-Csrf"));
         assert!(s.headers(url, "GET", HashMap::new()).is_err());
         s.user_agent = None;
-        assert!(
-            s.headers(url, "POST", HashMap::new())
-                .unwrap_err()
-                .contains("browserUserAgent")
-        );
+        assert!(s
+            .headers(url, "POST", HashMap::new())
+            .unwrap_err()
+            .contains("browserUserAgent"));
     }
     #[test]
     fn additional_instances_and_disabled_cookie_access_never_use_ambient_credentials() {
         let config: ProviderConfig =
             toml::from_str("id = 'lithosai'\ninstanceId = 'other-account'").unwrap();
-        assert!(
-            !Session::configured("lithosai", Some(&config))
-                .unwrap()
-                .available()
-        );
+        assert!(!Session::configured("lithosai", Some(&config))
+            .unwrap()
+            .available());
         let config: ProviderConfig = toml::from_str(
             "id = 'lithosai'\ncookieHeader = 'private'\n[settings]\ncookies = 'off'",
         )
         .unwrap();
-        assert!(
-            !Session::configured("lithosai", Some(&config))
-                .unwrap()
-                .available()
-        );
+        assert!(!Session::configured("lithosai", Some(&config))
+            .unwrap()
+            .available());
     }
 }

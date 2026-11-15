@@ -1,3 +1,4 @@
+// Adapted from barramee27/crossusage at 78b243b798abce1270d6fed775c79e65825b2c33; see LICENSE.
 (function () {
   const LOCAL_USER_ENDPOINT = "https://www.perplexity.ai/api/user"
   const REST_API_BASE = "https://www.perplexity.ai/rest/pplx-api/v2"
@@ -380,7 +381,128 @@
     return { groupId: groupId, group: group, usageAnalytics: usageAnalytics, rateLimits: rateLimits }
   }
 
+  // --- Web-session (cookie) auth -------------------------------------------
+  // The Bearer flow above only exists on macOS: it scrapes the CFURL cache of
+  // the native app. On Windows/Linux there is no Bearer token anywhere — the
+  // Electron app and the website both authenticate with next-auth cookies.
+  // So accept a pasted session cookie and talk to the same REST API the web
+  // client uses.
+  const WEB_ORIGIN = "https://www.perplexity.ai"
+  const WEB_QS = "?version=2.18&source=default"
+  const WEB_UA =
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36"
+
+  const WEB_MODE_CATEGORIES = [
+    { key: "pro_search", label: "Queries" },
+    { key: "research", label: "Deep Research" },
+    { key: "labs", label: "Labs" },
+    { key: "agentic_research", label: "Agentic Research" },
+  ]
+
+  function fetchWebJson(ctx, path) {
+    let resp
+    try {
+      resp = ctx.host.http.requestCookieSession({
+        method: "GET",
+        url: WEB_ORIGIN + path + WEB_QS,
+        headers: {
+          Accept: "application/json",
+          "User-Agent": WEB_UA,
+          Origin: WEB_ORIGIN,
+          Referer: WEB_ORIGIN + "/account/usage",
+        },
+        timeoutMs: 10000,
+        cookieSession: "configured",
+      })
+    } catch (e) {
+      ctx.host.log.warn("web request failed (" + path + "): " + String(e))
+      return null
+    }
+    if (typeof resp.bodyText === "string" && resp.bodyText.indexOf("Just a moment") !== -1) {
+      ctx.host.log.warn("cloudflare challenge on " + path + " — paste the full cookie string incl. cf_clearance")
+      return null
+    }
+    if (ctx.util.isAuthStatus(resp.status)) {
+      ctx.host.log.warn("web request unauthorized (" + path + "): status=" + String(resp.status))
+      return null
+    }
+    if (resp.status < 200 || resp.status >= 300) {
+      ctx.host.log.warn("web request status " + String(resp.status) + " (" + path + ")")
+      return null
+    }
+    const parsed = ctx.util.tryParseJson(resp.bodyText)
+    if (!parsed || typeof parsed !== "object") {
+      ctx.host.log.warn("web request returned invalid JSON (" + path + ")")
+      return null
+    }
+    return parsed
+  }
+
+  function describeModeAvailability(mode) {
+    if (!mode || typeof mode !== "object") return null
+    const detail = mode.remaining_detail || mode.remainingDetail
+    if (detail && detail.kind === "exact") {
+      const n = Number(detail.remaining)
+      if (Number.isFinite(n)) return String(Math.max(0, Math.floor(n))) + " remaining"
+    }
+    if (mode.available === true) return "available"
+    if (mode.available === false) return "not available"
+    return null
+  }
+
+  function probeViaCookie(ctx) {
+    ctx.host.log.info("session loaded from provider account (web cookie)")
+
+    const status = fetchWebJson(ctx, "/rest/rate-limit/status")
+    const authSession = fetchWebJson(ctx, "/api/auth/session")
+    const credits =
+      fetchWebJson(ctx, "/rest/billing/credits") ||
+      fetchWebJson(ctx, "/rest/billing/credits/computer-submit-gate")
+
+    if (!status && !authSession && !credits) {
+      throw "Session cookie rejected. Re-copy it from a logged-in perplexity.ai tab."
+    }
+
+    const lines = []
+
+    const balanceCents = credits ? readNumberField(credits, ["balance_cents", "balanceCents"]) : null
+    if (balanceCents !== null && Number.isFinite(balanceCents)) {
+      lines.push(ctx.line.text({
+        label: "API credits",
+        value: "$" + (balanceCents / 100).toFixed(2),
+      }))
+    }
+
+    const modes = status && (status.modes || status.Modes)
+    if (modes && typeof modes === "object") {
+      for (let i = 0; i < WEB_MODE_CATEGORIES.length; i += 1) {
+        const cat = WEB_MODE_CATEGORIES[i]
+        const text = describeModeAvailability(modes[cat.key])
+        if (text) lines.push(ctx.line.text({ label: cat.label, value: text }))
+      }
+    }
+
+    if (lines.length === 0) throw "Usage data unavailable. Try again later."
+
+    const user = authSession && authSession.user
+    const tier = user && (user.subscription_tier || user.subscriptionTier)
+    const plan =
+      typeof tier === "string" && tier
+        ? tier
+            .split("_")
+            .filter(Boolean)
+            .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+            .join(" ")
+        : null
+
+    return plan ? { plan: plan, lines: lines } : { lines: lines }
+  }
+
   function probe(ctx) {
+    if (ctx.provider?.settings?.cookies !== "off" && ctx.host.http.cookieSessionAvailable === true) {
+      return probeViaCookie(ctx)
+    }
+
     const session = loadLocalSession(ctx)
     if (!session) throw "Not logged in. Sign in via Perplexity app."
     if (session.sourcePath) ctx.host.log.info("using cache db: " + session.sourcePath)

@@ -16,7 +16,7 @@
   "setupFields": [],
   "upstream": {
     "repository": "https://github.com/steipete/CodexBar",
-    "revision": "6070b29a1a5d51193a634dc1b0a14a67c39d0ccc",
+    "revision": "1f6da9bec44455288ddee5ef6f3617a803d8eb2a",
     "path": "Sources/CodexBarCore/Resources/Plugins/devpass.js",
     "sha256": "6fdfab17f543fc88f28b90f76fbe6edc6db3f4d3c7fa657a899c573d363a0886",
     "license": "MIT"

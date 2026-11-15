@@ -7,7 +7,7 @@ const {createHash} = require('node:crypto');
 const {execFileSync} = require('node:child_process');
 const root = path.resolve(__dirname, '..');
 const upstream = path.join(root, 'inspo/CodexBar');
-const revision = '6070b29a1a5d51193a634dc1b0a14a67c39d0ccc';
+const revision = '1f6da9bec44455288ddee5ef6f3617a803d8eb2a';
 const catalog = {
   aixy: ['Budget', 'Secondary budget', 'https://dash.aixy-gateway.com', {AIXY_BASE_URL: 'https://api.aixy-gateway.com'}],
   atlascloud: ['Balance', 'Balance', 'https://www.atlascloud.ai/console'],
@@ -48,6 +48,10 @@ const catalog = {
   tavily: ['Account plan', 'API key', 'https://app.tavily.com'],
   tinyapi: ['Credits', 'Additional', 'https://tinyapi.rest'],
   traecn: ['Credits', 'Additional', 'https://www.trae.cn'],
+  siliconflow: ['Balance', 'Additional', 'https://cloud.siliconflow.com', {SILICONFLOW_BASE_URL:'https://api.siliconflow.com'}],
+  tripo: ['Credits', 'Reserved', 'https://platform.tripo3d.ai'],
+  opendesign: ['Session', 'Weekly', 'https://open-design.ai'],
+  googledeveloper: ['Credits', 'Additional', 'https://me.developers.google.com/benefits'],
   xapi: ['Balance', 'Additional', 'https://console.x.com'],
   'gemini-apps': ['Current', 'Weekly', 'https://gemini.google.com/usage'],
 };
@@ -86,7 +90,7 @@ for (const [id, [primary, secondary, dashboard, defaults = {}]] of Object.entrie
   const webOnly = !definition.auth && !!definition.cookieDomains?.length && id !== 'hyper' && id !== 'muse';
   const options = {labels: [primary, secondary, 'Additional'], defaults, autoMode: webOnly ? 'web' : 'api',
     ...(id === 'gemini-apps' ? {providerId:id,displayName:'Gemini Apps',cookieEnv:'GEMINI_COOKIE'} : {}),
-    ...(id === 'museai' ? {maxRequests:160} : {}), ...(['lithosai','xapi','parallel','claudeplatform'].includes(id) ? {balanceOnly:true} : {})};
+    ...(id === 'museai' ? {maxRequests:160} : {}), ...(['lithosai','xapi','parallel','claudeplatform','googledeveloper'].includes(id) ? {balanceOnly:true} : {})};
   const modes = webOnly ? ['web'] : id === 'hyper' ? ['api', 'web'] : ['api'];
   const envVars = definition.settings.map(setting => setting.key).filter(key => /^[A-Z][A-Z0-9_]+$/.test(key) && !['CLIENT_VERSION', 'SOURCE_MODE', 'TENANT', 'MESSAGES'].includes(key));
   if (definition.cookieDomains?.length) envVars.push(options.cookieEnv || `${id.toUpperCase()}_COOKIE`);

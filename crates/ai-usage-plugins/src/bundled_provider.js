@@ -179,6 +179,7 @@
           return next;
         },
       },
+      html: {matchFirst: (text, pattern) => new RegExp(pattern).exec(text)?.[1] || null},
       format: {
         number, usd: value => '$' + number(value, {minimumFractionDigits: 2, maximumFractionDigits: 2}),
         currency: (value, currency) => currency + ' ' + number(value, {minimumFractionDigits: 2, maximumFractionDigits: 2}),

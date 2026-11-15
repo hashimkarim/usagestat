@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "id": "siliconflow",
+  "name": "SiliconFlow",
+  "version": "0.1.0",
+  "entry": "plugin.js",
+  "enabledByDefault": false,
+  "supportedModes": [
+    "api"
+  ],
+  "autoMode": "api",
+  "usageDashboardUrl": "https://cloud.siliconflow.com",
+  "envVars": [
+    "SILICONFLOW_API_KEY",
+    "SILICONFLOW_BASE_URL"
+  ],
+  "setupFields": [
+    {
+      "key": "SILICONFLOW_BASE_URL",
+      "title": "API URL",
+      "type": "string",
+      "description": "Provider-specific account or source selection."
+    }
+  ],
+  "upstream": {
+    "repository": "https://github.com/steipete/CodexBar",
+    "revision": "1f6da9bec44455288ddee5ef6f3617a803d8eb2a",
+    "path": "Sources/CodexBarCore/Resources/Plugins/siliconflow.js",
+    "sha256": "8525a5a8f02749119930b9d814e987ccdab308827de016355c8ae34136325a86",
+    "license": "MIT"
+  }
+}

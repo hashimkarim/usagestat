@@ -6,14 +6,43 @@
   "entry": "plugin.js",
   "icon": "icon.svg",
   "brandColor": "#20808D",
-  "supportedModes": ["oauth", "local", "web"],
+  "supportedModes": [
+    "oauth",
+    "local",
+    "web"
+  ],
   "autoMode": "web",
   "webUrl": "https://www.perplexity.ai",
   "lines": [
-    { "type": "progress", "label": "API credits", "scope": "overview", "primaryOrder": 1 },
-    { "type": "text", "label": "Queries", "scope": "overview" },
-    { "type": "text", "label": "Deep Research", "scope": "overview" },
-    { "type": "text", "label": "Labs", "scope": "detail" },
-    { "type": "text", "label": "Agentic Research", "scope": "detail" }
-  ]
+    {
+      "type": "progress",
+      "label": "API credits",
+      "scope": "overview",
+      "primaryOrder": 1
+    },
+    {
+      "type": "text",
+      "label": "Queries",
+      "scope": "overview"
+    },
+    {
+      "type": "text",
+      "label": "Deep Research",
+      "scope": "overview"
+    },
+    {
+      "type": "text",
+      "label": "Labs",
+      "scope": "detail"
+    },
+    {
+      "type": "text",
+      "label": "Agentic Research",
+      "scope": "detail"
+    }
+  ],
+  "envVars": [
+    "PERPLEXITY_COOKIE"
+  ],
+  "setupHelp": "Paste a Cookie header from your own perplexity.ai session for web usage. The scoped cookie is sent only to approved Perplexity read routes."
 }

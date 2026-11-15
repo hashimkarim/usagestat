@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "id": "googledeveloper",
+  "name": "Google Developer Program",
+  "version": "0.1.0",
+  "entry": "plugin.js",
+  "enabledByDefault": false,
+  "supportedModes": [
+    "web"
+  ],
+  "autoMode": "web",
+  "usageDashboardUrl": "https://me.developers.google.com/benefits",
+  "webUrl": "https://me.developers.google.com",
+  "envVars": [
+    "GOOGLEDEVELOPER_COOKIE"
+  ],
+  "setupFields": [],
+  "upstream": {
+    "repository": "https://github.com/steipete/CodexBar",
+    "revision": "1f6da9bec44455288ddee5ef6f3617a803d8eb2a",
+    "path": "Sources/CodexBarCore/Resources/Plugins/googledeveloper.js",
+    "sha256": "16f97c5fa06d7f4b4255f1e0413af01fa9a0ee7af03243701a40b0f6294564c0",
+    "license": "MIT"
+  }
+}

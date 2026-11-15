@@ -139,8 +139,9 @@ session to its last active day.
 
 Local `costSource: "api-rate-estimate"` values use standard API rates verified on
 2026-09-27, with Sonnet 5.5 added from its published rates on 2026-09-29.
-The table is dated 2026-09-29. Local-cache version 6 reparses unchanged logs to
-include this new model; retained billing and ccusage rows are unaffected.
+GPT-6.1 Sol was added from its official model page on 2026-11-15.
+The table is dated 2026-11-15. Local-cache version 8 reparses unchanged logs to
+include this model; retained billing and ccusage rows are unaffected.
 The dated current rate schedule is applied to local logs, including
 historical events; it does not reconstruct past price changes. Saved billing and
 ccusage costs are retained. These estimates represent API-equivalent usage, not subscription charges or an
@@ -155,6 +156,7 @@ Prices are matched to explicit model IDs (with optional snapshot-date suffixes).
 Unknown aliases remain unpriced. Sources:
 
 - [OpenAI pricing](https://developers.openai.com/api/docs/pricing)
+- [GPT-6.1 Sol](https://developers.openai.com/api/docs/models/gpt-6.1-sol)
 - [GPT-6 Astra](https://developers.openai.com/api/docs/models/gpt-6-astra)
 - [GPT-5.6 Sol](https://developers.openai.com/api/docs/models/gpt-5.6-sol)
 - [GPT-5.6 Terra](https://developers.openai.com/api/docs/models/gpt-5.6-terra)

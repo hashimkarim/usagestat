@@ -207,6 +207,18 @@
 
     json = unwrapQuotasJson(json);
 
+    var weekly = json.planWeeklyLimit
+    if (weekly && typeof weekly === "object") {
+      var remaining = toFiniteNumber(weekly.percentRemaining)
+      var used = toFiniteNumber(weekly.percentUsed)
+      if (used === null && remaining !== null) used = 100 - remaining
+      if (used === null || used < 0 || used > 100) throw "Synthetic weekly usage is invalid."
+      var line = {label:"Weekly plan limit",used,limit:100,format:{kind:"percent"},periodDurationMs:7*86400000}
+      var reset = ctx.util.toIso(weekly.resetsAt || weekly.renewsAt || weekly.resetAt)
+      if (reset) line.resetsAt = reset
+      return {lines:[ctx.line.progress(line)]}
+    }
+
     var rfl = pickRollingFiveHour(json);
     var wtl = pickWeeklyToken(json);
 

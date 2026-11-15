@@ -34,7 +34,7 @@ NOTES = {
     'kimi': 'Home credential-file reader/refresh carried; current CLI schema and store behavior unverified.',
     'kiro': 'Native app-support/custom-root fixtures for carried cached usage layouts; current Kiro auth/usage schema and app version unverified.',
     'opencode-go': 'Upstream XDG roots, explicit channel/database selection, v2 current credential/logout authority, assistant/completed-compaction history and migrated-ID deduplication covered by fixtures. Real app/account/API versions remain unverified.',
-    'perplexity': 'Entry always uses legacy macOS CFNetwork cache, including declared web/oauth modes. Linux/Windows cache method explicitly unsupported; manual web-cookie implementation is absent.',
+    'perplexity': 'Manual scoped web-cookie readback supports native hosts; legacy macOS CFNetwork bearer fallback remains available. Live session behavior remains unverified.',
     'synthetic': 'Configured API credentials plus several CLI fallback files; account ambiguity and upstream data roots/overrides need audit.',
     't3chat': 'Manual cookies/full-cURL capture fixtures on all OS conventions. Challenge preserves credentials and gives full-cURL guidance. Real browser/device-bound sessions unverified.',
     'vertex-ai': 'Bounded gcloud helper and explicit/application credentials; actual native SDK installs and account selection unverified.',

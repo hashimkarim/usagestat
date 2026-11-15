@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "id": "opendesign",
+  "name": "OpenDesign",
+  "version": "0.1.0",
+  "entry": "plugin.js",
+  "enabledByDefault": false,
+  "supportedModes": [
+    "web"
+  ],
+  "autoMode": "web",
+  "usageDashboardUrl": "https://open-design.ai",
+  "webUrl": "https://amr-api.open-design.ai",
+  "envVars": [
+    "OPENDESIGN_COOKIE"
+  ],
+  "setupFields": [],
+  "upstream": {
+    "repository": "https://github.com/steipete/CodexBar",
+    "revision": "1f6da9bec44455288ddee5ef6f3617a803d8eb2a",
+    "path": "Sources/CodexBarCore/Resources/Plugins/opendesign.js",
+    "sha256": "9eb64161b779de122e6343eb166ee6ebca6d3e828dc7e40df7a1af695f6a79d4",
+    "license": "MIT"
+  }
+}

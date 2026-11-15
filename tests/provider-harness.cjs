@@ -32,10 +32,12 @@ function providerHarness(id, options = {}) {
     env: {get: name => env[name] || null},
     fs: {
       homeDir: home,
+      cacheDir: options.cacheDir || home + "/.cache",
       localAppDataPath: relative => paths.join(options.localAppData || (platform === 'windows' ? 'E:\\Redirected Local 使用' : home + '/.local/share'), relative),
       appSupportPath: relative => options.appSupportUnavailable ? null : paths.join(appSupport, relative),
       exists,
       readText(name) { const key = normalize(name); calls.files.push(key); if (!files.has(key)) throw new Error('fixture file missing'); return files.get(key); },
+      readTextLimited(name, limit) { const text = this.readText(name); if (Buffer.byteLength(text) > limit) throw new Error('fixture file too large'); return text; },
       writeText(name, value) { const key = normalize(name); calls.writes.push(key); files.set(key, value); },
       listDir(name) {
         const key = normalize(name); calls.files.push(key);

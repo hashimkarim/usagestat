@@ -594,8 +594,10 @@ fn refresh_access_token(refresh_token: &str, db_path: &PathBuf) -> Result<Option
 }
 
 fn resolve_cursor_access_token(db_path: &PathBuf) -> Result<String> {
-    let mut access = read_sqlite_value(db_path, ACCESS_KEY)?;
-    let refresh = read_sqlite_value(db_path, REFRESH_KEY)?;
+    let mut access =
+        read_sqlite_value(db_path, ACCESS_KEY)?.filter(|v| !v.starts_with("cursor-safe-storage:"));
+    let refresh =
+        read_sqlite_value(db_path, REFRESH_KEY)?.filter(|v| !v.starts_with("cursor-safe-storage:"));
 
     if access.is_none() && refresh.is_none() {
         bail!(
@@ -626,7 +628,30 @@ impl CursorSession {
         use sha2::{Digest, Sha256};
         let db = resolve_state_db_for_plugin(plugin_id)
             .context("Selected Cursor state.vscdb is unavailable")?;
-        let access = resolve_cursor_access_token(&db)?;
+        let access = match resolve_cursor_access_token(&db) {
+            Ok(access) => access,
+            Err(error) => {
+                let has_plaintext = [ACCESS_KEY, REFRESH_KEY].iter().any(|key| {
+                    read_sqlite_value(&db, key)
+                        .ok()
+                        .flatten()
+                        .is_some_and(|v| !v.is_empty() && !v.starts_with("cursor-safe-storage:"))
+                });
+                if has_plaintext {
+                    return Err(error);
+                }
+                let cli = crate::cursor_paths::cli_auth_json(plugin_id)
+                    .and_then(|s| serde_json::from_str::<serde_json::Value>(&s).ok());
+                match cli
+                    .as_ref()
+                    .and_then(|v| v["accessToken"].as_str())
+                    .filter(|v| !needs_refresh(Some(v)))
+                {
+                    Some(access) => access.to_owned(),
+                    None => return Err(error),
+                }
+            }
+        };
         let payload = decode_jwt_payload(&access).context("Invalid Cursor access token")?;
         let subject = payload
             .sub

@@ -1,10 +1,10 @@
 //! Standard API-equivalent estimates, not subscription invoices. Table updated
-//! 2026-09-29 using the model pages and pricing tables linked in
+//! 2026-11-15 (GPT-6.1 Sol added) using the model pages and pricing tables linked in
 //! docs/history-accounting.md. Unknown model IDs never inherit a family's price.
 use super::local_usage::LocalUsageEvent;
 use usagestat_core::usage_daily::UsageCostComponents;
 
-pub(super) const AS_OF: &str = "2026-09-29";
+pub(super) const AS_OF: &str = "2026-11-15";
 
 #[derive(Clone, Copy)]
 struct Rates {
@@ -30,6 +30,8 @@ fn rates(model: &str) -> Option<Rates> {
     };
     let (input, output, write, read, long_context) = if matches("gpt-6-astra") {
         (10.0, 50.0, 12.5, 1.0, true)
+    } else if matches("gpt-6.1-sol") {
+        (2.0, 10.0, 2.5, 0.1, true)
     } else if matches("gpt-6-sol") {
         (2.0, 10.0, 2.5, 0.2, true)
     } else if matches("gpt-6-luna") {
@@ -131,6 +133,38 @@ pub(super) fn apply(event: &mut LocalUsageEvent) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn sol_61_prices_requests_and_preserves_previous_sol_cache_rates() {
+        for model in ["gpt-6.1-sol", "gpt-6.1-sol-20260929"] {
+            let mut event = LocalUsageEvent {
+                model: model.into(),
+                input_tokens: 170_000,
+                cache_read_tokens: 100_000,
+                cache_creation_tokens: 2_000,
+                output_tokens: 1_000,
+                reasoning_output_tokens: 500,
+                ..Default::default()
+            };
+            apply(&mut event);
+            assert!(event.cost_known);
+            assert!((event.cost_usd - 0.365).abs() < 1e-9);
+            assert_eq!(event.cost_components.cache_read_cost_usd, Some(0.01));
+            assert_eq!(event.cost_components.cache_write_cost_usd, Some(0.005));
+            assert_eq!(event.cost_components.output_cost_usd, Some(0.01));
+            event.input_tokens += 1;
+            apply(&mut event);
+            assert!((event.cost_usd - 0.725004).abs() < 1e-9);
+            assert_eq!(event.cost_components.cache_read_cost_usd, Some(0.02));
+            assert_eq!(event.cost_components.output_cost_usd, Some(0.015));
+            event.model = "gpt-6-sol".into();
+            apply(&mut event);
+            assert_eq!(event.cost_components.cache_read_cost_usd, Some(0.04));
+            event.model = "gpt-6.1-sol-future".into();
+            apply(&mut event);
+            assert!(!event.cost_known);
+        }
+    }
 
     #[test]
     fn sonnet_55_has_explicit_rates_without_pricing_unknown_variants() {

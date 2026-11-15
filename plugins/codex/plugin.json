@@ -16,7 +16,11 @@
       "url": "https://chatgpt.com/settings/usage?tab=overview"
     }
   ],
-  "supportedModes": ["oauth", "local", "web"],
+  "supportedModes": [
+    "oauth",
+    "local",
+    "web"
+  ],
   "autoMode": "oauth",
   "webUrl": "https://chatgpt.com",
   "lines": [
@@ -77,6 +81,11 @@
       "type": "barChart",
       "label": "Usage Trend",
       "scope": "detail"
+    },
+    {
+      "type": "progress",
+      "label": "Monthly",
+      "scope": "overview"
     }
   ]
 }

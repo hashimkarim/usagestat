@@ -70,9 +70,69 @@ pub fn resolve_cursor_state_db_for_plugin_id(plugin_id: &str) -> Option<PathBuf>
     CursorInstall::from_plugin_id(plugin_id).and_then(resolve_cursor_state_db_for)
 }
 
+/// The stable CLI owns this file. Explicit profiles and Nightly never borrow it.
+pub fn cli_auth_json(plugin_id: &str) -> Option<String> {
+    if plugin_id != "cursor" || std::env::var_os("CURSOR_STATE_DB").is_some_and(|v| !v.is_empty()) {
+        return None;
+    }
+    let path =
+        usagestat_core::provider_paths::app_support_dir()?.join(if cfg!(target_os = "linux") {
+            "cursor/auth.json"
+        } else {
+            "Cursor/auth.json"
+        });
+    cli_auth_from_path(&path)
+}
+
+fn cli_auth_from_path(path: &std::path::Path) -> Option<String> {
+    use std::io::Read;
+    let mut text = String::new();
+    std::fs::File::open(path)
+        .ok()?
+        .take(65_537)
+        .read_to_string(&mut text)
+        .ok()?;
+    if text.len() > 65_536 {
+        return None;
+    }
+    let data: serde_json::Value = serde_json::from_str(&text).ok()?;
+    let token = |key| {
+        data.get(key)
+            .and_then(serde_json::Value::as_str)
+            .map(str::trim)
+            .filter(|v| !v.is_empty() && !v.starts_with("cursor-safe-storage:"))
+    };
+    let access = token("accessToken");
+    let refresh = token("refreshToken");
+    if access.is_none() && refresh.is_none() {
+        return None;
+    }
+    Some(serde_json::json!({"accessToken":access,"refreshToken":refresh}).to_string())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn cli_auth_reads_only_plain_tokens_and_bounds_the_file() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("auth.json");
+        std::fs::write(&path, r#"{"accessToken":"cursor-safe-storage:v1:ciphertext","refreshToken":"fixture-refresh","privateOtherField":"not exported"}"#).unwrap();
+        let auth: serde_json::Value =
+            serde_json::from_str(&cli_auth_from_path(&path).unwrap()).unwrap();
+        assert!(auth["accessToken"].is_null());
+        assert_eq!(auth["refreshToken"], "fixture-refresh");
+        assert!(auth.get("privateOtherField").is_none());
+        std::fs::write(
+            &path,
+            r#"{"accessToken":"cursor-safe-storage:v1:ciphertext"}"#,
+        )
+        .unwrap();
+        assert!(cli_auth_from_path(&path).is_none());
+        std::fs::write(&path, " ".repeat(65_537)).unwrap();
+        assert!(cli_auth_from_path(&path).is_none());
+    }
 
     #[test]
     fn native_redirected_roots_keep_stable_and_nightly_separate() {

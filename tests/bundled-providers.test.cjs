@@ -146,10 +146,10 @@ test('adapter blocks off-origin requests before attaching provider credentials',
   assert.equal(app.requests.length, 0);
 });
 
-test('Helmcode separates monthly and premium windows and keeps optional credit failure non-fatal',async()=>{
+test('Helmcode uses legacy quotas only when the credit plan is absent',async()=>{
   const app=load('helmcode',{provider:{cookieHeader:'session=fixture'},request:req=>{
     if(req.url.endsWith('/api/billing'))return response({subscription:{premium:true}});
-    if(req.url.endsWith('/credits'))return response({},503);
+    if(req.url.endsWith('/credits'))return response({},404);
     return response({periodStart:'2026-09-01',models:[{model:'Alpha',cap:100,tokensUsed:25},{model:'Beta',cap:50,tokensUsed:30,windowHours:5}]});
   }});
   const result=await app.probe();
@@ -204,18 +204,16 @@ test('Replicate uses the selected billing identity and preserves invoice spend',
   assert.ok(result.lines.every(line=>line.type!=='progress'));
 });
 
-test('TypeSafe discovers its billing action and posts structured JSON',async()=>{
-  const action='b'.repeat(40);
+test('TypeSafe reads the same-origin billing overview JSON',async()=>{
   const app=load('typesafe',{provider:{cookieHeader:'session=fixture'},request:req=>{
-    if(req.method==='POST'){
-      assert.equal(req.headers['Next-Action'],action);
-      assert.equal(req.bodyText,'[]');
-      return response('0:{"a":"$@1"}\n1:{"ok":true,"data":{"billing":{"plan":"free_plan","spent":0.01,"freeCreditsRemaining":4.98,"balance":4.98,"purchased":0,"cycleLabel":"September 2026","credits":[]}}}');
-    }
-    if(req.url.includes('/_next/'))return response('"'+action+'",c.callServer,void 0,c.findSourceMapURL,"getBillingOverviewResult"');
-    return response('<script src="/_next/static/chunks/app.js"></script>');
+    assert.equal(req.method,'GET');
+    assert.equal(req.url,'https://console.typesafe.ai/api/billing/overview');
+    assert.equal(req.headers.Origin,'https://console.typesafe.ai');
+    assert.equal(req.headers['Sec-Fetch-Site'],'same-origin');
+    return response({billing:{plan:'free_plan',spent:0.01,balance:4.98,cycleLabel:'November'}});
   }});
   assert.equal(metric(await app.probe(),'Balance').value,'USD 4.98');
+  assert.equal(app.requests.length,1);
 });
 
 test('TypeSafe distinguishes Cloudflare protection from expired login without exposing response contents', async () => {
@@ -235,22 +233,19 @@ test('TypeSafe distinguishes Cloudflare protection from expired login without ex
     });
     assert.equal(app.requests.length, 1, 'Do not retry a blocked request');
   }
-  for (const status of [401, 403, 302]) {
+  for (const status of [401, 403]) {
     const app = load('typesafe', {provider: {cookieHeader: 'session=fixture'},
       request: () => ({...response('', status), headers: {server: 'cloudflare'}})});
     await assert.rejects(app.probe, error => error.code === 'missing-auth');
   }
 });
 
-test('TypeSafe detects protection on the billing POST after successful action discovery', async () => {
-  const action = 'b'.repeat(40);
-  const app = load('typesafe', {provider: {cookieHeader: 'session=fixture'}, request: req => {
-    if (req.method === 'POST') return {...response('', 403), headers: {'cf-mitigated': 'challenge'}};
-    if (req.url.includes('/_next/')) return response(`"${action}",c.callServer,void 0,c.findSourceMapURL,"getBillingOverviewResult"`);
-    return response('<script src="/_next/static/chunks/app.js"></script>');
-  }});
-  await assert.rejects(app.probe, error => error.code === 'failed' && /Cloudflare/.test(error.message));
-  assert.equal(app.requests.length, 3);
+test('TypeSafe route redirects and cross-origin refusals do not discard credentials', async () => {
+  for (const result of [{...response('',302),headers:{location:'/settings/billing'}},response('cross-origin request refused',403)]) {
+    const app=load('typesafe',{provider:{cookieHeader:'session=fixture'},request:()=>result});
+    await assert.rejects(app.probe,error=>error.code==='failed');
+    assert.equal(app.requests.length,1);
+  }
 });
 
 test('v0 keeps billing and rate limits independent',async()=>{

@@ -10,8 +10,8 @@ use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{Duration, Instant, SystemTime};
 use usagestat_core::{paths, provider_paths, usage_daily};
 
-// v7 retains Codex request identities and reconciles ledger/legacy mirrors.
-const VERSION: u32 = 7;
+// v8 reparses unchanged transcripts with GPT-6.1 Sol pricing.
+const VERSION: u32 = 8;
 const TTL: Duration = Duration::from_secs(30);
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

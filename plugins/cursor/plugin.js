@@ -197,15 +197,16 @@
     const injected = readInjectedCredential(ctx)
     if (injected) return injected
 
-    const sqliteAccessToken = readStateValue(ctx, "cursorAuth/accessToken")
-    const sqliteRefreshToken = readStateValue(ctx, "cursorAuth/refreshToken")
+    const usable = value => typeof value === "string" && value.trim() && !value.trim().startsWith("cursor-safe-storage:") ? value.trim() : null
+    const sqliteAccessToken = usable(readStateValue(ctx, "cursorAuth/accessToken"))
+    const sqliteRefreshToken = usable(readStateValue(ctx, "cursorAuth/refreshToken"))
     if (sqliteAccessToken || sqliteRefreshToken) {
       return { accessToken: sqliteAccessToken, refreshToken: sqliteRefreshToken, source: "sqlite" }
     }
     // Generic CLI keychain targets are shared, not tied to an IDE variant.
     // They cannot represent Nightly or an explicitly selected database profile.
-    const keychainAccessToken = sharedCredentialsAllowed(ctx) ? readKeychainValue(ctx, KEYCHAIN_ACCESS_TOKEN_SERVICE) : null
-    const keychainRefreshToken = sharedCredentialsAllowed(ctx) ? readKeychainValue(ctx, KEYCHAIN_REFRESH_TOKEN_SERVICE) : null
+    const keychainAccessToken = sharedCredentialsAllowed(ctx) ? usable(readKeychainValue(ctx, KEYCHAIN_ACCESS_TOKEN_SERVICE)) : null
+    const keychainRefreshToken = sharedCredentialsAllowed(ctx) ? usable(readKeychainValue(ctx, KEYCHAIN_REFRESH_TOKEN_SERVICE)) : null
 
     if (keychainAccessToken || keychainRefreshToken) {
       return {
@@ -215,6 +216,13 @@
       }
     }
 
+    if (sharedCredentialsAllowed(ctx) && (!ctx.provider?.instanceId || ctx.provider.instanceId === "cursor") && ctx.host.cursorPaths?.readCliAuth) {
+      try {
+        const cli = ctx.util.tryParseJson(ctx.host.cursorPaths.readCliAuth())
+        if (cli && (usable(cli.accessToken) || usable(cli.refreshToken)))
+          return {accessToken:usable(cli.accessToken),refreshToken:usable(cli.refreshToken),source:"cli-file"}
+      } catch (_) {}
+    }
     return {
       accessToken: null,
       refreshToken: null,
@@ -231,6 +239,8 @@
       if (!credential) return null
       const accessToken = String(credential.accessToken || credential.sessionKey || "").trim()
       const refreshToken = String(credential.refreshToken || "").trim()
+      if (accessToken.startsWith("cursor-safe-storage:") || refreshToken.startsWith("cursor-safe-storage:"))
+        throw {code:"credential-malformed",message:"Cursor safe-storage values are encrypted, not provider access tokens."}
       if (!accessToken && !refreshToken) return null
       return {
         accessToken: accessToken || null,
@@ -238,6 +248,7 @@
         source: "provider-account",
       }
     } catch (e) {
+      if (e && e.code) throw e
       ctx.host.log.warn("provider account credential read failed: " + String(e))
       return null
     }
@@ -312,6 +323,7 @@
   }
 
   function persistAccessToken(ctx, source, accessToken) {
+    if (source === "cli-file") return false // The Cursor CLI owns its credential file.
     if (source === "provider-account") {
       try {
         if (ctx.host.credentials && typeof ctx.host.credentials.update === "function") {
@@ -1180,7 +1192,7 @@
 
     if (!accessToken && !refreshTokenValue) {
       ctx.host.log.error("probe failed: no access or refresh token in sqlite/keychain")
-      throw "Not logged in. " + LOGIN_HINT
+      throw "Not logged in. Cursor encrypted sign-ins require `agent login` for the stable CLI, or explicit provider credentials. " + LOGIN_HINT
     }
 
     ctx.host.log.info("tokens loaded from " + authSource + ": accessToken=" + (accessToken ? "yes" : "no") + " refreshToken=" + (refreshTokenValue ? "yes" : "no"))
@@ -1202,7 +1214,7 @@
         accessToken = refreshed
       } else if (!accessToken) {
         ctx.host.log.error("refresh failed and no access token available")
-        throw "Not logged in. " + LOGIN_HINT
+        throw "Not logged in. Cursor encrypted sign-ins require `agent login` for the stable CLI, or explicit provider credentials. " + LOGIN_HINT
       }
     }
 
