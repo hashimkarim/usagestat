@@ -1,0 +1,129 @@
+{
+  "schemaVersion": 1,
+  "releaseTag": "v2.2.0",
+  "sourceCommit": "6fe3847018570be185d43add57cde07aaa78166e",
+  "publishedAt": "2026-11-15T18:32:31Z",
+  "verifiedAt": "2026-11-15T19:11:32.694541+00:00",
+  "github": {
+    "verifiedAssets": [
+      {
+        "name": "usagestat-artifacts.json",
+        "size": 217332,
+        "sha256": "0030031c8d293b4915cca56051ef5321b9283ba29f5a21c29bf0df6d20e4f06f"
+      },
+      {
+        "name": "usagestat-artifacts.json.sha256",
+        "size": 91,
+        "sha256": "f85fbef82e435207288ead0d9f3dd7e565e0d59b4055eab8c809c4a1be4378bc"
+      },
+      {
+        "name": "usagestat-linux-aarch64",
+        "size": 15297536,
+        "sha256": "88195158f7a506b5dc6d178e3098b3400c7fbc3ecca91121917aa86709116cca"
+      },
+      {
+        "name": "usagestat-linux-aarch64.manifest.json",
+        "size": 96205,
+        "sha256": "a0836b80fd47e3781abd113bb0af08111e8fa95ebc530de3cb04eedbecc0cac0"
+      },
+      {
+        "name": "usagestat-linux-aarch64.manifest.json.sha256",
+        "size": 104,
+        "sha256": "3ed20fb222be08dfb810d9257e008702a4a7f99cf64cddce34b9a0e456f69c9c"
+      },
+      {
+        "name": "usagestat-linux-aarch64.sha256",
+        "size": 90,
+        "sha256": "af7577013a9812dd2764d226f30e92f48fd9dcc68b56b7a5f7c4dcc36820e14a"
+      },
+      {
+        "name": "usagestat-linux-aarch64.tar.gz",
+        "size": 13039442,
+        "sha256": "88134238880114873420fa8cddbf4e541ff3e58a7cd0e454969c49ae1c802ba0"
+      },
+      {
+        "name": "usagestat-linux-aarch64.tar.gz.sha256",
+        "size": 97,
+        "sha256": "93b274aa8a974c70bd1b69523613b3b1ca8cb4b590b21626f35f6454a692857f"
+      },
+      {
+        "name": "usagestat-linux-x86_64",
+        "size": 15556064,
+        "sha256": "df289ee387a22f8c9a3c08084b2afa35ef3a5071419dc0a6b88d3916b4804b3a"
+      },
+      {
+        "name": "usagestat-linux-x86_64.manifest.json",
+        "size": 96197,
+        "sha256": "7d6d71c19feadd7a2a193cff0365e178962fc04f4d0d20e2a8a1d1b9efa8470a"
+      },
+      {
+        "name": "usagestat-linux-x86_64.manifest.json.sha256",
+        "size": 103,
+        "sha256": "5443d129a70c5397c13999df96466dfaa3d54b93637775c051aba464a5046de0"
+      },
+      {
+        "name": "usagestat-linux-x86_64.sha256",
+        "size": 89,
+        "sha256": "2e836b81f97748ce06b7867da6bc983174be8ec45633b3ae59f469b877ac399c"
+      },
+      {
+        "name": "usagestat-linux-x86_64.tar.gz",
+        "size": 13406155,
+        "sha256": "41ec2497e97aa297fcaee21dbcfbca4631317acb401f917547eba41e79d5a02e"
+      },
+      {
+        "name": "usagestat-linux-x86_64.tar.gz.sha256",
+        "size": 96,
+        "sha256": "330ee9d94b187a582b42058a3287c6ea1d69bdd652d166de45af83b2bcbf791f"
+      }
+    ]
+  },
+  "npm": [
+    {
+      "name": "@hashimkarim/usagestat-linux-x64-gnu",
+      "version": "2.2.0",
+      "sha256": "5a486bd2891154e490ce210830e4f509da9c4f86c58c009474e0fbf8a3655436",
+      "integrity": "sha512-vn6vOjJ2k/sFOrbTqH3rBEA4/qiHQLsq2SecQmV8M6qR69YCmhlf2hHHk11/bjYYyYWdUKeQ1XBv/zaSUHdMag==",
+      "publicTarballMatches": true
+    },
+    {
+      "name": "@hashimkarim/usagestat-linux-arm64-gnu",
+      "version": "2.2.0",
+      "sha256": "c899563eb9b160a7ea1ffad7c683f8200f8bca0b77c7ae02fc04ad2b5c1481b2",
+      "integrity": "sha512-5ZjSXqkkZ3/3dakca92OjlFFH+MCWrE/RQd/13KtLTegM8J3KtVNVNrQ6qp445xnqs2qRHTiTSWEvYv19dlp+w==",
+      "publicTarballMatches": true
+    },
+    {
+      "name": "@hashimkarim/usagestat",
+      "version": "2.2.0",
+      "sha256": "dac62d16daf9fcff4eb0dd6f8d5ee73af64b2aa297e509e0bb38474baa00c3ae",
+      "integrity": "sha512-ryyz9qaXgSNHBqI1YqDZ2aZJjfJZdaa7ZZsE7wfF+gPe9JEscTQmJ/mTPLvNIqyXmqNgQ2VZy/XIMCtBvB05jA==",
+      "publicTarballMatches": true
+    }
+  ],
+  "aur": {
+    "version": "2.2.0-1",
+    "commit": "000fb2888914989efa108c5708539b9b7ec6c6eb"
+  },
+  "homebrew": {
+    "version": "2.2.0",
+    "run": 43748226298,
+    "archiveDigestsMatch": true
+  },
+  "ppa": {
+    "version": "2.2.0-1ppa1",
+    "run": 43748229157,
+    "publicationState": "done",
+    "builds": [
+      {
+        "buildUrl": "https://launchpad.net/~hashimkarim/+archive/ubuntu/usagestat/+build/33973163",
+        "state": "Successfully built",
+        "architecture": "amd64"
+      }
+    ]
+  },
+  "copr": {
+    "state": "blocked",
+    "reason": "Expired API credential; owner must renew COPR_CONFIG"
+  }
+}
