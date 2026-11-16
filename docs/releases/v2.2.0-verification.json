@@ -123,7 +123,38 @@
     ]
   },
   "copr": {
-    "state": "blocked",
-    "reason": "Expired API credential; owner must renew COPR_CONFIG"
+    "state": "published",
+    "buildId": 11334804,
+    "run": 43862063450,
+    "version": "2.2.0-1",
+    "verifiedAt": "2026-11-16T12:15:00.612780+00:00",
+    "repositories": [
+      {
+        "chroot": "fedora-rawhide-x86_64",
+        "state": "succeeded",
+        "rpmUrl": "https://download.copr.fedorainfracloud.org/results/hashimkarim/usagestat/fedora-rawhide-x86_64/Packages/u/usagestat-2.2.0-1.fc46.x86_64.rpm",
+        "sha256": "1c007b7d591b1f988154a326d60eb85f814e29937c99a5fddc1d88b32baa66e9"
+      },
+      {
+        "chroot": "fedora-43-x86_64",
+        "state": "succeeded",
+        "rpmUrl": "https://download.copr.fedorainfracloud.org/results/hashimkarim/usagestat/fedora-43-x86_64/Packages/u/usagestat-2.2.0-1.fc43.x86_64.rpm",
+        "sha256": "c3bf421e3f5a972eecdd7645f76b73e3417ae22d1d4389c9773165cfc66de4b1"
+      },
+      {
+        "chroot": "fedora-44-x86_64",
+        "state": "succeeded",
+        "rpmUrl": "https://download.copr.fedorainfracloud.org/results/hashimkarim/usagestat/fedora-44-x86_64/Packages/u/usagestat-2.2.0-1.fc44.x86_64.rpm",
+        "sha256": "b8c593a2b59e997498d6dd922b6ff0b9016c683c9812549d9ab9712e8fba4c37",
+        "downloadVerified": true
+      },
+      {
+        "chroot": "fedora-45-x86_64",
+        "state": "succeeded",
+        "rpmUrl": "https://download.copr.fedorainfracloud.org/results/hashimkarim/usagestat/fedora-45-x86_64/Packages/u/usagestat-2.2.0-1.fc45.x86_64.rpm",
+        "sha256": "5c586fd750cc1ee0f4db0f88d0b725b1b12513941ab73cd8226ff778e34b5019"
+      }
+    ],
+    "localInstallationTest": false
   }
 }
