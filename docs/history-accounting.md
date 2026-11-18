@@ -180,9 +180,8 @@ Unknown aliases remain unpriced. Sources:
 - [Claude Sonnet 5.5](https://platform.claude.com/docs/en/models/sonnet-5-5/overview)
 - [Claude Haiku 5.5](https://platform.claude.com/docs/en/models/haiku-5-5/overview)
 
-Gemini models have no local rate yet. Their published prices have prompt-length
-tiers and cache-storage charges that the local rate table does not model, so
-Gemini CLI rows stay unpriced. The log formats follow the Gemini CLI
+No Gemini rates have been verified and added yet, so Gemini CLI rows stay
+unpriced. The log formats follow the Gemini CLI
 [chat recorder](https://github.com/google-gemini/gemini-cli/blob/main/packages/core/src/services/chatRecordingService.ts),
 with [ccusage](https://github.com/ryoppippi/ccusage/tree/main/rust/adapters) and
 [tokscale](https://github.com/junhoyeo/tokscale/tree/main/crates/tokscale-core/src/sessions)
@@ -256,7 +255,9 @@ timestamp and tokens, with cache read/write classes from the message when the
 ledger omits them. Unpaired messages and ledger events are separate inferences.
 Ledger `input` is uncached input. Records without their own timestamp use the
 thread creation time. Amp credits are not dollar costs and are not used. Each
-thread is one session, and the project is unknown.
+thread is one session, and the project is unknown. Current Amp versions may
+keep threads server-side, leaving the default directory empty. `AMP_DATA_DIR`
+can point at any directory with the same `threads/*.json` layout.
 
 Both sources de-duplicate per file only. Gemini models are unpriced. Amp model
 IDs that exactly match the price table get API-equivalent estimates; other IDs

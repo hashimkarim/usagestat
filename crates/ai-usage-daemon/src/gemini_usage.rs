@@ -7,7 +7,6 @@ use anyhow::Result;
 use serde::Deserialize;
 use serde_json::Value as JsonValue;
 use std::collections::{BTreeSet, HashMap};
-use std::io::BufRead;
 use std::path::{Path, PathBuf};
 
 /// Session files under each project's `chats` directory, including nested
@@ -92,11 +91,11 @@ pub(super) fn scan_file(path: &Path, events: &mut Vec<LocalUsageEvent>) -> Resul
         .to_string();
     let mut records = Vec::new();
     if path.extension().and_then(|s| s.to_str()) == Some("jsonl") {
-        let reader = std::io::BufReader::new(std::fs::File::open(path)?);
-        for line in reader.lines() {
-            let line = line?;
+        // Split bytes, not UTF-8 lines: a record cut mid-character (a failed
+        // append is never retried) must not hide the rest of the file.
+        for line in std::fs::read(path)?.split(|byte| *byte == b'\n') {
             // Malformed or truncated (still being written) lines are skipped.
-            let Ok(record) = serde_json::from_str::<Record>(&line) else {
+            let Ok(record) = serde_json::from_slice::<Record>(line) else {
                 continue;
             };
             if let Some(id) = text(record.session_id.as_ref())
@@ -363,6 +362,28 @@ mod tests {
         );
         std::fs::write(chats.join("broken.json"), "{not json").unwrap();
         assert!(scan(&chats.join("broken.json")).is_empty());
+    }
+
+    #[test]
+    fn invalid_utf8_lines_and_cut_multibyte_tails_do_not_hide_other_records() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("p/chats/session-bytes.jsonl");
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        let tokens = json!({"input":4,"output":1,"cached":0,"total":5});
+        let mut bytes = message("a", "2026-05-17T11:07:32Z", Some(tokens.clone()))
+            .to_string()
+            .into_bytes();
+        bytes.extend_from_slice(b"\n{\"id\":\"bad\",\"content\":\"\xff\xfe\"}\n");
+        bytes.extend(
+            message("b", "2026-05-17T11:08:32Z", Some(tokens))
+                .to_string()
+                .into_bytes(),
+        );
+        bytes.extend_from_slice(b"\n{\"id\":\"x\",\"content\":\"\xe6\x97");
+        std::fs::write(&path, bytes).unwrap();
+        let events = scan(&path);
+        assert_eq!(events.len(), 2);
+        assert_eq!(events[1].ts.to_rfc3339(), "2026-05-17T11:08:32+00:00");
     }
 
     #[test]

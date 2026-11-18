@@ -18,7 +18,8 @@ Gemini CLI's collector reads `<tmp>/<project>/chats/**` session files, where
 `<tmp>` is each comma-separated `GEMINI_DATA_DIR` entry (the ccusage convention),
 else `GEMINI_CLI_HOME/.gemini/tmp`, else the native home's `.gemini/tmp`. Amp's
 collector reads `threads/**/*.json` beneath each `AMP_DATA_DIR` entry, else an
-absolute `XDG_DATA_HOME/amp`, else `~/.local/share/amp`. An explicit override
+absolute `XDG_DATA_HOME/amp`, else `~/.local/share/amp`. That default may be
+empty on current Amp versions, which can keep threads server-side. An explicit override
 replaces the defaults, including when it contains no data. Startup at login does
 not yet capture these overrides.
 
