@@ -152,7 +152,9 @@ pub(super) fn scan_claude_file(path: &Path, events: &mut Vec<LocalUsageEvent>) -
         // content records. Only suppress an identical accounting payload with
         // a proven identity; missing IDs must not collapse unrelated requests.
         let id = |value: Option<&JsonValue>| {
-            value.and_then(JsonValue::as_str).filter(|id| !id.is_empty())
+            value
+                .and_then(JsonValue::as_str)
+                .filter(|id| !id.is_empty())
                 .map(str::to_owned)
         };
         let identity = match (id(v.pointer("/message/id")), id(v.get("requestId"))) {
@@ -160,7 +162,12 @@ pub(super) fn scan_claude_file(path: &Path, events: &mut Vec<LocalUsageEvent>) -
             _ => id(v.get("uuid")).map(|uuid| ("uuid", uuid, String::new())),
         };
         if let Some(identity) = identity {
-            let key = (session_id.clone(), identity, model.clone(), [input, output, cache_read, cache_creation]);
+            let key = (
+                session_id.clone(),
+                identity,
+                model.clone(),
+                [input, output, cache_read, cache_creation],
+            );
             if !seen.insert(key) {
                 continue;
             }
@@ -397,9 +404,16 @@ mod claude_tests {
         use std::sync::atomic::{AtomicU64, Ordering};
         // The OS clock can repeat across parallel fixtures, especially on Windows.
         static NEXT: AtomicU64 = AtomicU64::new(0);
-        let path = std::env::temp_dir().join(format!("usagestat-claude-dedupe-{}-{}.jsonl",
-            std::process::id(), NEXT.fetch_add(1, Ordering::Relaxed)));
-        let text = rows.iter().map(JsonValue::to_string).collect::<Vec<_>>().join("\n");
+        let path = std::env::temp_dir().join(format!(
+            "usagestat-claude-dedupe-{}-{}.jsonl",
+            std::process::id(),
+            NEXT.fetch_add(1, Ordering::Relaxed)
+        ));
+        let text = rows
+            .iter()
+            .map(JsonValue::to_string)
+            .collect::<Vec<_>>()
+            .join("\n");
         std::fs::write(&path, text).unwrap();
         let mut events = Vec::new();
         let result = scan_claude_file(&path, &mut events);
@@ -438,12 +452,19 @@ mod claude_tests {
         anonymous.as_object_mut().unwrap().remove("requestId");
         anonymous.as_object_mut().unwrap().remove("uuid");
         anonymous["message"].as_object_mut().unwrap().remove("id");
-        assert_eq!(scan_rows(vec![anonymous.clone(), anonymous.clone()]).len(), 2);
+        assert_eq!(
+            scan_rows(vec![anonymous.clone(), anonymous.clone()]).len(),
+            2
+        );
         anonymous["uuid"] = json!("known-record");
         assert_eq!(scan_rows(vec![anonymous.clone(), anonymous]).len(), 1);
         let first = row();
         let mut changed = first.clone();
         changed["message"]["usage"]["output_tokens"] = json!(11);
-        assert_eq!(scan_rows(vec![first, changed]).len(), 2, "different usage is not a proven duplicate");
+        assert_eq!(
+            scan_rows(vec![first, changed]).len(),
+            2,
+            "different usage is not a proven duplicate"
+        );
     }
 }

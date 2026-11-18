@@ -96,10 +96,7 @@ fn for_platform(
             "daemon.authenticatedShutdown",
             Feature::new(native, "native-fixtures"),
         ),
-        (
-            "daemon.unregister",
-            Feature::new(native, "native-fixtures"),
-        ),
+        ("daemon.unregister", Feature::new(native, "native-fixtures")),
         (
             "daemon.independentControls",
             Feature::new(native, "native-fixtures"),
@@ -145,7 +142,10 @@ fn for_platform(
         ),
         (
             "browser.appBoundImport",
-            Feature { reason_code: Some("browser-app-bound-unsupported"), ..Feature::new(false, "unsupported-format") },
+            Feature {
+                reason_code: Some("browser-app-bound-unsupported"),
+                ..Feature::new(false, "unsupported-format")
+            },
         ),
         (
             "browser.manualCredentials",
@@ -239,11 +239,23 @@ mod tests {
                 os == "macos"
             );
             assert!(value.features["browser.automaticImport"].implemented);
-            assert_eq!(value.features["browser.automaticImport"].runtime, "not-checked");
-            assert_eq!(value.features["browser.windowsDpapiImport"].implemented, os == "windows");
-            assert_eq!(value.features["browser.chromiumCbcImport"].implemented, os != "windows");
+            assert_eq!(
+                value.features["browser.automaticImport"].runtime,
+                "not-checked"
+            );
+            assert_eq!(
+                value.features["browser.windowsDpapiImport"].implemented,
+                os == "windows"
+            );
+            assert_eq!(
+                value.features["browser.chromiumCbcImport"].implemented,
+                os != "windows"
+            );
             assert!(!value.features["browser.appBoundImport"].implemented);
-            assert_eq!(value.features["browser.appBoundImport"].reason_code, Some("browser-app-bound-unsupported"));
+            assert_eq!(
+                value.features["browser.appBoundImport"].reason_code,
+                Some("browser-app-bound-unsupported")
+            );
             assert_eq!(value.profile, "usagestat-dev");
         }
         assert!(

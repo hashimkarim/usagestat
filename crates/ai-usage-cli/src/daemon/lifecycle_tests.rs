@@ -163,8 +163,15 @@ fn unregister_retains_owner_custom_key_paths_t3_intent_and_provider_data() {
     let install = installation(root);
     fs::write(&install.management_key_file, "synthetic retained key").unwrap();
     fs::write(&install.config, "synthetic retained configuration").unwrap();
-    let settings = DaemonSettings { t3_mode: SavedT3Mode::Auto, installation: Some(install.clone()) };
-    let mut manager = FakeManager {state: Registration::default(), calls: RefCell::new(Vec::new()), reject: true};
+    let settings = DaemonSettings {
+        t3_mode: SavedT3Mode::Auto,
+        installation: Some(install.clone()),
+    };
+    let mut manager = FakeManager {
+        state: Registration::default(),
+        calls: RefCell::new(Vec::new()),
+        reject: true,
+    };
     assert!(unregister(&settings, &stored, &manager).is_err());
     assert!(!stored.exists());
     assert_eq!(*manager.calls.borrow(), ["validate"]);
@@ -173,8 +180,14 @@ fn unregister_retains_owner_custom_key_paths_t3_intent_and_provider_data() {
     unregister(&settings, &stored, &manager).unwrap();
     assert_eq!(*manager.calls.borrow(), ["validate", "unregister"]);
     assert_eq!(DaemonSettings::load(&stored).unwrap(), Some(settings));
-    assert_eq!(fs::read_to_string(&install.management_key_file).unwrap(), "synthetic retained key");
-    assert_eq!(fs::read_to_string(&install.config).unwrap(), "synthetic retained configuration");
+    assert_eq!(
+        fs::read_to_string(&install.management_key_file).unwrap(),
+        "synthetic retained key"
+    );
+    assert_eq!(
+        fs::read_to_string(&install.config).unwrap(),
+        "synthetic retained configuration"
+    );
 }
 
 // Used by the real, uniquely named native service fixtures on every platform.

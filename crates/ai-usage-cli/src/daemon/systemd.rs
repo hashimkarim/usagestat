@@ -323,7 +323,10 @@ impl ServiceManager for Systemd {
     }
     fn set_autostart(&self, enabled: bool) -> Result<()> {
         self.validate()?;
-        systemctl(&[if enabled { "enable" } else { "disable" }, self.name.as_str()])?;
+        systemctl(&[
+            if enabled { "enable" } else { "disable" },
+            self.name.as_str(),
+        ])?;
         Ok(())
     }
 }
@@ -625,7 +628,10 @@ mod live_tests {
         wait_for_installation(settings.installation.as_ref().unwrap()).unwrap();
         let state = manager.query().unwrap();
         assert!(state.registered && state.running && state.enabled);
-        super::lifecycle_tests::independent_controls(&manager, settings.installation.as_ref().unwrap());
+        super::lifecycle_tests::independent_controls(
+            &manager,
+            settings.installation.as_ref().unwrap(),
+        );
         manager.disable().unwrap();
         assert!(!manager.query().unwrap().running);
         assert!(!apply_t3(&mut settings, SavedT3Mode::Auto, &saved, &key, &manager).unwrap());
@@ -651,7 +657,12 @@ mod live_tests {
         use std::os::unix::fs::PermissionsExt;
         fs::set_permissions(&failed, fs::Permissions::from_mode(0o700)).unwrap();
         let previous = settings.clone();
-        assert!(super::relocation::relocate(&mut settings, &saved, Some(&failed), &manager).unwrap_err().to_string().contains("recovered"));
+        assert!(
+            super::relocation::relocate(&mut settings, &saved, Some(&failed), &manager)
+                .unwrap_err()
+                .to_string()
+                .contains("recovered")
+        );
         assert_eq!(settings, previous);
         wait_for_installation(settings.installation.as_ref().unwrap()).unwrap();
         assert!(manager.query().unwrap().running && manager.query().unwrap().enabled);

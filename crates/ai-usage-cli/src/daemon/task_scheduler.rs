@@ -346,7 +346,9 @@ impl ServiceManager for ScheduledTask {
     }
     fn set_autostart(&self, enabled: bool) -> Result<()> {
         let session = Session::connect()?;
-        let task = session.task(&self.name)?.context("scheduled task is not registered")?;
+        let task = session
+            .task(&self.name)?
+            .context("scheduled task is not registered")?;
         self.validate_task(&task)?;
         unsafe { task.SetEnabled(VARIANT_BOOL::from(enabled)) }?;
         Ok(())
@@ -535,7 +537,10 @@ mod tests {
             let state = manager.query().unwrap();
             assert!(state.registered && state.enabled && state.running);
         }
-        super::lifecycle_tests::independent_controls(&manager, settings.installation.as_ref().unwrap());
+        super::lifecycle_tests::independent_controls(
+            &manager,
+            settings.installation.as_ref().unwrap(),
+        );
         // Crash only this fixture's authenticated, owned backend. The launcher
         // supervisor must restart it without depending on scheduler heuristics.
         let url = settings.installation.as_ref().unwrap().base_url();
@@ -631,7 +636,9 @@ mod tests {
         let removed = manager.query().unwrap();
         assert!(!removed.registered && !removed.enabled && !removed.running);
         assert_eq!(read_key(&key).unwrap(), retained);
-        manager.install(settings.installation.as_ref().unwrap(), &manager.settings).unwrap();
+        manager
+            .install(settings.installation.as_ref().unwrap(), &manager.settings)
+            .unwrap();
         let session = Session::connect().unwrap();
         let task = session.task(&manager.name).unwrap().unwrap();
         unsafe {

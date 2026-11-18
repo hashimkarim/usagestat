@@ -16,8 +16,8 @@ use usagestat_core::{AppConfig, paths};
 mod launchd;
 #[cfg(test)]
 mod lifecycle_tests;
-mod service;
 mod relocation;
+mod service;
 #[cfg(any(target_os = "linux", test))]
 mod systemd;
 #[cfg(windows)]
@@ -273,8 +273,10 @@ fn execute(
         return service_status(manager, &load_settings(manager)?);
     }
     if !matches!(command, DaemonCommand::Status) {
-        anyhow::ensure!(!relocation::journal_path(&stored_path).try_exists()?,
-            "an installation relocation needs recovery; retain the previous package and run daemon recover");
+        anyhow::ensure!(
+            !relocation::journal_path(&stored_path).try_exists()?,
+            "an installation relocation needs recovery; retain the previous package and run daemon recover"
+        );
     }
     let mut settings = load_settings(manager)?;
     let key_file = settings
@@ -331,13 +333,23 @@ fn execute(
             let app = AppConfig::load_optional(&config)?;
             let plugin_dirs = if extra_dirs.is_empty() && settings.installation.is_some() {
                 let previous = settings.installation.as_ref().unwrap();
-                paths::relocate_installed_plugin_dirs(&previous.plugin_dirs, &previous.binary, &binary, paths::app_dir_name())
+                paths::relocate_installed_plugin_dirs(
+                    &previous.plugin_dirs,
+                    &previous.binary,
+                    &binary,
+                    paths::app_dir_name(),
+                )
             } else {
                 let selected = paths::plugin_dirs(&app, extra_dirs)?
                     .iter()
                     .map(|dir| absolute(dir))
                     .collect::<Result<Vec<_>>>()?;
-                paths::relocate_installed_plugin_dirs(&selected, &std::env::current_exe()?, &binary, paths::app_dir_name())
+                paths::relocate_installed_plugin_dirs(
+                    &selected,
+                    &std::env::current_exe()?,
+                    &binary,
+                    paths::app_dir_name(),
+                )
             };
             let mut environment = settings
                 .installation
@@ -414,23 +426,35 @@ fn execute(
             manager.disable()?;
         }
         DaemonCommand::Unregister => unregister(&settings, &stored_path, manager)?,
-        DaemonCommand::Relocate { binary } => relocation::relocate(&mut settings, &stored_path, binary.as_deref(), manager)?,
+        DaemonCommand::Relocate { binary } => {
+            relocation::relocate(&mut settings, &stored_path, binary.as_deref(), manager)?
+        }
         DaemonCommand::Recover => unreachable!(),
         DaemonCommand::Start | DaemonCommand::Stop | DaemonCommand::Autostart { .. } => {
             manager.validate()?;
-            let install = settings.installation.as_ref().context("no saved daemon installation; use daemon enable first")?;
+            let install = settings
+                .installation
+                .as_ref()
+                .context("no saved daemon installation; use daemon enable first")?;
             let registration = manager.query()?;
-            anyhow::ensure!(registration.registered, "no managed login registration; use daemon enable first");
+            anyhow::ensure!(
+                registration.registered,
+                "no managed login registration; use daemon enable first"
+            );
             match command {
                 DaemonCommand::Start => {
                     if !registration.running && endpoint(&install.base_url()).occupied {
-                        bail!("the saved daemon address is occupied; preserve that process before starting this installation");
+                        bail!(
+                            "the saved daemon address is occupied; preserve that process before starting this installation"
+                        );
                     }
                     manager.start()?;
                     wait_for_installation(install)?;
                 }
                 DaemonCommand::Stop => manager.stop()?,
-                DaemonCommand::Autostart { mode } => manager.set_autostart(*mode == AutostartMode::On)?,
+                DaemonCommand::Autostart { mode } => {
+                    manager.set_autostart(*mode == AutostartMode::On)?
+                }
                 _ => unreachable!(),
             }
         }
@@ -440,7 +464,11 @@ fn execute(
     service_status(manager, &settings)
 }
 
-fn unregister(settings: &DaemonSettings, stored_path: &Path, manager: &dyn ServiceManager) -> Result<()> {
+fn unregister(
+    settings: &DaemonSettings,
+    stored_path: &Path,
+    manager: &dyn ServiceManager,
+) -> Result<()> {
     manager.validate()?;
     // Retain migrated installation/key paths as well as T3 mode. Removing login
     // registration must not discard credentials or silently transfer ownership.
@@ -767,7 +795,14 @@ fn capture_provider_roots(
     saved: &mut BTreeMap<String, String>,
     read: impl Fn(&str) -> Option<String>,
 ) -> Result<()> {
-    for name in ["CLAUDE_CONFIG_DIR", "CODEX_HOME", "CURSOR_STATE_DB", "CURSOR_NIGHTLY_STATE_DB", "CURSOR_AGENT_HOME", "FLATPAK_XDG_CONFIG_HOME"] {
+    for name in [
+        "CLAUDE_CONFIG_DIR",
+        "CODEX_HOME",
+        "CURSOR_STATE_DB",
+        "CURSOR_NIGHTLY_STATE_DB",
+        "CURSOR_AGENT_HOME",
+        "FLATPAK_XDG_CONFIG_HOME",
+    ] {
         if let Some(value) = read(name) {
             if value.is_empty() {
                 saved.remove(name);
@@ -775,7 +810,10 @@ fn capture_provider_roots(
                 // Relative roots change meaning at login. Expanding them also
                 // changes Claude's raw-path credential hash, so require the
                 // user/upstream application to agree on an absolute spelling.
-                anyhow::ensure!(Path::new(&value).is_absolute(), "{name} must be an absolute provider path before enabling startup at login");
+                anyhow::ensure!(
+                    Path::new(&value).is_absolute(),
+                    "{name} must be an absolute provider path before enabling startup at login"
+                );
                 saved.insert(name.to_owned(), value);
             }
         }
@@ -783,9 +821,15 @@ fn capture_provider_roots(
     // OpenCode interprets relative database names beneath its XDG data root,
     // not the process working directory. Preserve that upstream selection.
     if let Some(value) = read("OPENCODE_DB") {
-        anyhow::ensure!(!value.contains('\0'), "OPENCODE_DB contains an invalid path character");
-        if value.is_empty() { saved.remove("OPENCODE_DB"); }
-        else { saved.insert("OPENCODE_DB".into(), value); }
+        anyhow::ensure!(
+            !value.contains('\0'),
+            "OPENCODE_DB contains an invalid path character"
+        );
+        if value.is_empty() {
+            saved.remove("OPENCODE_DB");
+        } else {
+            saved.insert("OPENCODE_DB".into(), value);
+        }
     }
     Ok(())
 }
@@ -808,24 +852,36 @@ mod tests {
 
     #[test]
     fn login_environment_preserves_only_explicit_absolute_provider_roots() {
-        let root = temp_dir().join("profile 使用 with spaces").to_string_lossy().into_owned();
+        let root = temp_dir()
+            .join("profile 使用 with spaces")
+            .to_string_lossy()
+            .into_owned();
         let mut saved = BTreeMap::from([("CODEX_HOME".into(), root.clone())]);
         capture_provider_roots(&mut saved, |name| match name {
             "CLAUDE_CONFIG_DIR" => Some(root.clone()),
             "CODEX_HOME" => Some(String::new()),
             "API_KEY" => panic!("secret environment requested"),
             _ => None,
-        }).unwrap();
-        assert_eq!(saved, BTreeMap::from([("CLAUDE_CONFIG_DIR".into(), root.clone())]));
+        })
+        .unwrap();
+        assert_eq!(
+            saved,
+            BTreeMap::from([("CLAUDE_CONFIG_DIR".into(), root.clone())])
+        );
         capture_provider_roots(&mut saved, |_| None).unwrap();
-        assert!(capture_provider_roots(&mut saved, |name| (name == "CODEX_HOME").then(|| "relative-profile".into())).is_err());
+        assert!(
+            capture_provider_roots(&mut saved, |name| (name == "CODEX_HOME")
+                .then(|| "relative-profile".into()))
+            .is_err()
+        );
         assert!(!saved.contains_key("CODEX_HOME"));
         capture_provider_roots(&mut saved, |name| match name {
             "OPENCODE_DB" => Some("channel.db".into()),
             "FLATPAK_XDG_CONFIG_HOME" => Some(root.clone()),
             "OPENCODE_AUTH_CONTENT" => panic!("inline provider credentials requested"),
             _ => None,
-        }).unwrap();
+        })
+        .unwrap();
         assert_eq!(saved["OPENCODE_DB"], "channel.db");
         assert_eq!(saved["FLATPAK_XDG_CONFIG_HOME"], root);
         fs::remove_dir_all(Path::new(&root).parent().unwrap()).unwrap();

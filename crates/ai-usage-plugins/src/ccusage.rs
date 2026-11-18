@@ -88,8 +88,15 @@ pub fn query_status_json(opts: &CcusageQueryOpts, plugin_id: &str) -> String {
     // Pass the zone explicitly and stamp that exact zone on the result. Inferring
     // it later at store-read time would mislabel historical or imported rows.
     let mut opts = opts.clone();
-    let time_zone = opts.time_zone.clone().filter(|zone| !zone.trim().is_empty())
-        .or_else(|| std::env::var("TZ").ok().filter(|zone| !zone.trim().is_empty()))
+    let time_zone = opts
+        .time_zone
+        .clone()
+        .filter(|zone| !zone.trim().is_empty())
+        .or_else(|| {
+            std::env::var("TZ")
+                .ok()
+                .filter(|zone| !zone.trim().is_empty())
+        })
         .or_else(|| iana_time_zone::get_timezone().ok())
         .unwrap_or_else(|| "UTC".to_string());
     opts.time_zone = Some(time_zone.trim().trim_start_matches(':').to_string());
@@ -626,11 +633,17 @@ mod tests {
 
     #[test]
     fn provenance_uses_the_explicit_zone_for_current_and_legacy_reports() {
-        let opts = CcusageQueryOpts { time_zone: Some("Europe/Amsterdam".into()), ..Default::default() };
+        let opts = CcusageQueryOpts {
+            time_zone: Some("Europe/Amsterdam".into()),
+            ..Default::default()
+        };
         for provider in [CcusageProvider::Claude, CcusageProvider::Codex] {
             for flavor in [CcusageCommandFlavor::Current, CcusageCommandFlavor::Legacy] {
                 let args = runner_args(CcusageRunnerKind::Bunx, &opts, provider, flavor);
-                assert!(args.windows(2).any(|args| args == ["--timezone", "Europe/Amsterdam"]));
+                assert!(
+                    args.windows(2)
+                        .any(|args| args == ["--timezone", "Europe/Amsterdam"])
+                );
             }
         }
         let mut data = serde_json::json!({"daily":[{"date":"2026-09-27","totalTokens":10}]});

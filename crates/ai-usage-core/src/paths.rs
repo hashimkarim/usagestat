@@ -243,8 +243,14 @@ mod tests {
         expected.extend(installed_plugin_dirs(new, "usagestat"));
         expected.push(PathBuf::from("outside/other-package/plugins"));
         assert_eq!(result, expected);
-        assert_eq!(relocate_installed_plugin_dirs(&saved, old, old, "usagestat"), saved);
-        assert_eq!(relocate_installed_plugin_dirs(&[custom.clone()], old, new, "usagestat"), vec![custom]);
+        assert_eq!(
+            relocate_installed_plugin_dirs(&saved, old, old, "usagestat"),
+            saved
+        );
+        assert_eq!(
+            relocate_installed_plugin_dirs(&[custom.clone()], old, new, "usagestat"),
+            vec![custom]
+        );
         // Explicit owner transfer can change the resource layout too.
         let flat = Path::new("new archive 使用/usagestatd.exe");
         let result = relocate_installed_plugin_dirs(&saved, old, flat, "usagestat");
@@ -252,7 +258,10 @@ mod tests {
         assert_eq!(result.len(), 3);
         let app = Path::new("Usage.app/Contents/MacOS/usagestatd");
         let result = relocate_installed_plugin_dirs(&saved, old, app, "usagestat");
-        assert_eq!(result[1], PathBuf::from("Usage.app/Contents/Resources/plugins"));
+        assert_eq!(
+            result[1],
+            PathBuf::from("Usage.app/Contents/Resources/plugins")
+        );
     }
 
     #[test]

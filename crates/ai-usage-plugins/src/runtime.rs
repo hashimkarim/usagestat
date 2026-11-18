@@ -88,7 +88,9 @@ fn probe_custom(provider: &LoadedProvider, config: Option<&ProviderConfig>) -> U
             || snapshot.metrics.iter().any(|m| matches!(m, MetricLine::Badge {label, ..} if label.eq_ignore_ascii_case("error"))) {
             snapshot.state = Some(usagestat_core::model::ProviderState::Failed);
         }
-        if let Some(value) = body.get("fetchedAt") { snapshot.fetched_at = serde_json::from_value(value.clone()).map_err(|_| ())?; }
+        if let Some(value) = body.get("fetchedAt") {
+            snapshot.fetched_at = serde_json::from_value(value.clone()).map_err(|_| ())?;
+        }
         snapshot.plan = body.get("plan").and_then(|v| v.as_str()).map(str::to_owned);
         Ok(snapshot)
     })();
@@ -158,7 +160,10 @@ fn run_in_context(
     // A stable source name makes QuickJS exceptions actionable without exposing
     // the user's installation path or dumping plugin source/credentials.
     let mut eval_options = EvalOptions::default();
-    eval_options.filename = Some(format!("{}/{}", provider.manifest.id, provider.manifest.entry));
+    eval_options.filename = Some(format!(
+        "{}/{}",
+        provider.manifest.id, provider.manifest.entry
+    ));
     ctx.eval_with_options::<(), _>(provider.entry_script.as_bytes(), eval_options)
         .map_err(|error| plugin_error(&ctx, error, "script evaluation"))?;
 
@@ -174,7 +179,8 @@ fn run_in_context(
     let probe_ctx: Value = globals
         .get("__usagestat_ctx")
         .unwrap_or_else(|_| Value::new_undefined(ctx.clone()));
-    let result: Object = probe_fn.call::<_, MaybePromise>((probe_ctx,))
+    let result: Object = probe_fn
+        .call::<_, MaybePromise>((probe_ctx,))
         .and_then(|value| value.finish())
         .map_err(|error| plugin_error(&ctx, error, "probe"))?;
 
@@ -261,7 +267,10 @@ fn extract_error_string(ctx: &Ctx<'_>) -> String {
             // type and source location (QuickJS often says only "not a function").
             if !name.is_empty() {
                 let stack = value.get::<_, String>("stack").unwrap_or_default();
-                let frame = stack.lines().map(str::trim).find(|line| line.starts_with("at "));
+                let frame = stack
+                    .lines()
+                    .map(str::trim)
+                    .find(|line| line.starts_with("at "));
                 return match frame {
                     Some(frame) => format!("{name}: {trimmed} ({frame})"),
                     None => format!("{name}: {trimmed}"),
@@ -591,7 +600,10 @@ mod provider_sync_tests {
         ] {
             let snapshot = probe_provider(&fixture(script), "auto", None);
             let message = error_text(&snapshot);
-            assert!(message.contains("TypeError:") || message.contains("SyntaxError:"), "{message}");
+            assert!(
+                message.contains("TypeError:") || message.contains("SyntaxError:"),
+                "{message}"
+            );
             assert!(message.contains("runtime-test/plugin.js:1"), "{message}");
         }
         let snapshot = probe_provider(
@@ -627,7 +639,11 @@ mod provider_sync_tests {
             ("Probe timed out after 12 seconds", ProviderState::TimedOut),
         ] {
             for asynchronous in [false, true] {
-                let body = if asynchronous { "async probe(){await Promise.resolve();" } else { "probe(){" };
+                let body = if asynchronous {
+                    "async probe(){await Promise.resolve();"
+                } else {
+                    "probe(){"
+                };
                 let script = format!(
                     "globalThis.__usagestat_plugin = {{{body}throw new Error({});}}}};",
                     serde_json::to_string(message).unwrap()
@@ -641,7 +657,8 @@ mod provider_sync_tests {
 
     #[test]
     fn antigravity_discovery_runs_with_native_host_wrappers() {
-        let script = format!(r#"
+        let script = format!(
+            r#"
             __usagestat_ctx.host.ls._discoverReportRaw = function(raw) {{
                 if (JSON.parse(raw).processName !== 'language_server') throw new Error('unexpected discovery');
                 return JSON.stringify({{status:'ready',result:{{ports:[12345],csrf:'fixture'}}}});
@@ -652,7 +669,9 @@ mod provider_sync_tests {
                     {{label:'Gemini Pro',quotaInfo:{{remainingFraction:0.75}}}}
                 ]}}}}}})}};
             }};
-            {}"#, include_str!("../../../plugins/antigravity/plugin.js"));
+            {}"#,
+            include_str!("../../../plugins/antigravity/plugin.js")
+        );
         let snapshot = probe_provider(&fixture(&script), "auto", None);
         assert_eq!(snapshot.plan.as_deref(), Some("Fixture"), "{snapshot:?}");
         assert!(matches!(&snapshot.metrics[0], MetricLine::Progress { used, .. } if *used == 25.0));
@@ -660,7 +679,8 @@ mod provider_sync_tests {
 
     #[test]
     fn antigravity_oauth_database_runs_with_native_helpers() {
-        let script = format!(r#"
+        let script = format!(
+            r#"
             const ctx = __usagestat_ctx;
             ctx.provider = {{settings:{{ideVariant:'antigravity'}}}};
             const db = ctx.host.fs.appSupportPath('Antigravity/User/globalStorage/state.vscdb');
@@ -680,7 +700,9 @@ mod provider_sync_tests {
                 if (req.headers.Authorization !== 'Bearer ' + token) throw new Error('lost access token');
                 return {{status:200,bodyText:JSON.stringify({{models:{{fixture:{{displayName:'Gemini Pro',quotaInfo:{{remainingFraction:0.75}}}}}}}})}};
             }};
-            {}"#, include_str!("../../../plugins/antigravity/plugin.js"));
+            {}"#,
+            include_str!("../../../plugins/antigravity/plugin.js")
+        );
         let snapshot = probe_provider(&fixture(&script), "auto", None);
         assert_ne!(snapshot.source.as_deref(), Some("error"), "{snapshot:?}");
         assert!(matches!(&snapshot.metrics[0], MetricLine::Progress { used, .. } if *used == 25.0));
@@ -702,7 +724,8 @@ mod provider_sync_tests {
 
     #[test]
     fn structured_provider_settings_survive_native_injection() {
-        let config: ProviderConfig = toml::from_str(r#"
+        let config: ProviderConfig = toml::from_str(
+            r#"
             id = "runtime-test"
             [settings]
             sessionRoots = ["/selected/profile/sessions"]
@@ -714,7 +737,10 @@ mod provider_sync_tests {
             "globalThis.__usagestat_plugin = {probe(ctx) { const s=ctx.provider.settings; if (!Array.isArray(s.sessionRoots) || !s.flags.partial || s.flags.count !== 2) throw 'Lost structured settings'; return {lines:[ctx.line.text({label:'Root',value:s.sessionRoots[0]})]}; }};",
         );
         let result = probe_provider(&provider, "auto", Some(&config));
-        assert!(matches!(&result.metrics[0], MetricLine::Text { value, .. } if value == "/selected/profile/sessions"), "{result:?}");
+        assert!(
+            matches!(&result.metrics[0], MetricLine::Text { value, .. } if value == "/selected/profile/sessions"),
+            "{result:?}"
+        );
     }
 
     #[test]
@@ -729,7 +755,11 @@ mod provider_sync_tests {
             include_str!("../../../plugins/xkiro/plugin.js")
         );
         let snapshot = probe_provider(&fixture(&script), "api", None);
-        assert_eq!(snapshot.state, Some(usagestat_core::model::ProviderState::Ready), "{snapshot:?}");
+        assert_eq!(
+            snapshot.state,
+            Some(usagestat_core::model::ProviderState::Ready),
+            "{snapshot:?}"
+        );
         assert_eq!(snapshot.plan.as_deref(), Some("Pro"));
         assert!(matches!(&snapshot.metrics[0], MetricLine::Progress { used, .. } if *used == 25.0));
     }
@@ -789,7 +819,11 @@ mod provider_sync_tests {
             include_str!("../../../plugins/typesafe/plugin.js")
         );
         let snapshot = probe_provider(&fixture(&script), "web", None);
-        assert_eq!(snapshot.state, Some(usagestat_core::model::ProviderState::Failed), "{snapshot:?}");
+        assert_eq!(
+            snapshot.state,
+            Some(usagestat_core::model::ProviderState::Failed),
+            "{snapshot:?}"
+        );
         let json = serde_json::to_string(&snapshot).unwrap();
         assert!(json.contains("Cloudflare"), "{snapshot:?}");
         assert!(!json.contains("private-response"));
@@ -798,7 +832,8 @@ mod provider_sync_tests {
 
     #[test]
     fn opaque_cookie_sessions_reject_invalid_native_scope_before_network() {
-        let mut provider = fixture(r#"globalThis.__usagestat_plugin={probe(ctx){
+        let mut provider = fixture(
+            r#"globalThis.__usagestat_plugin={probe(ctx){
             if (!ctx.host.http.cookieSessionAvailable) throw 'Missing configured session';
             for (const req of [{url:'https://foreign.example/api/me',cookieSession:'configured'},
                 {url:'https://console.lithosai.cloud/api/me',cookieSession:'foreign-account'}]) {
@@ -811,8 +846,12 @@ mod provider_sync_tests {
         );
         provider.manifest.id = "lithosai".into();
         let config: ProviderConfig = toml::from_str("id='lithosai'\ncookieHeader='__Host-console_session=fixture; __Host-console_csrf=fixture'").unwrap();
-        let snapshot = probe_provider(&provider,"web",Some(&config));
-        assert_eq!(snapshot.state,Some(usagestat_core::model::ProviderState::Ready),"{snapshot:?}");
+        let snapshot = probe_provider(&provider, "web", Some(&config));
+        assert_eq!(
+            snapshot.state,
+            Some(usagestat_core::model::ProviderState::Ready),
+            "{snapshot:?}"
+        );
     }
 
     #[test]
@@ -827,29 +866,41 @@ mod provider_sync_tests {
                 include_str!("../../../plugins/workbuddy/plugin.js"),
             ),
         ] {
-            let script = format!(r#"
+            let script = format!(
+                r#"
                 __usagestat_ctx.host.http.requestCookieSession = req => {{
                     if (req.cookieSession !== 'configured' || req.headers.Cookie) throw 'Wrong opaque session';
                     const data = req.url.endsWith('/api/me') ? {{activeOrganization:{{id:'org_fixture'}},user:{{}}}} :
                         req.url.endsWith('/api/billing') ? {{balanceNanos:5000000000,hasCard:false,onHold:false}} :
                         req.url.endsWith('summary') ? {{code:0,data:{{Packages:[{{CapacityUnit:'credits',CycleTotalCapacity:'100',CycleRemainCapacity:'75'}}]}}}} : null;
                     return {{status:data?200:503,headers:{{}},bodyText:JSON.stringify(data)}};
-                }}; {}"#,source);
-            let mut provider = fixture(&script); provider.manifest.id = id.into();
-            let config: ProviderConfig = toml::from_str(&format!("id='{id}'\ncookieHeader='session=fixture'")).unwrap();
-            let snapshot = probe_provider(&provider,"web",Some(&config));
-            assert_eq!(snapshot.state,Some(usagestat_core::model::ProviderState::Ready),"{snapshot:?}");
+                }}; {}"#,
+                source
+            );
+            let mut provider = fixture(&script);
+            provider.manifest.id = id.into();
+            let config: ProviderConfig =
+                toml::from_str(&format!("id='{id}'\ncookieHeader='session=fixture'")).unwrap();
+            let snapshot = probe_provider(&provider, "web", Some(&config));
+            assert_eq!(
+                snapshot.state,
+                Some(usagestat_core::model::ProviderState::Ready),
+                "{snapshot:?}"
+            );
             if id == "lithosai" {
                 assert!(snapshot.metrics.iter().any(|line| matches!(line,MetricLine::Text{label,value,..} if label=="Balance" && value=="USD 5.00")));
             } else {
-                assert!(matches!(&snapshot.metrics[0],MetricLine::Progress{used,..} if *used==25.0));
+                assert!(
+                    matches!(&snapshot.metrics[0],MetricLine::Progress{used,..} if *used==25.0)
+                );
             }
         }
     }
 
     #[test]
     fn museai_discovery_and_action_storage_run_without_intl_or_browser_import() {
-        let source = format!(r#"
+        let source = format!(
+            r#"
             const action='a'.repeat(40), writes=[];
             const host=__usagestat_ctx.host;
             host.fs.readTextLimited=()=>{{throw 'No saved action';}};
@@ -874,12 +925,22 @@ mod provider_sync_tests {
                 if(JSON.stringify(writes)!==JSON.stringify([{{actionID:action}}])) throw 'Unexpected persisted data';
                 return result;
             }};
-        "#,include_str!("../../../plugins/museai/plugin.js"));
-        let mut provider=fixture(&source); provider.manifest.id="museai".into();
-        let config:ProviderConfig=toml::from_str("id='museai'\ncookieHeader='session=fixture'").unwrap();
-        let snapshot=probe_provider(&provider,"web",Some(&config));
-        assert_eq!(snapshot.state,Some(usagestat_core::model::ProviderState::Ready),"{snapshot:?}");
-        assert!(matches!(&snapshot.metrics[0],MetricLine::Progress{used,period_duration_ms,..} if *used==35.0 && *period_duration_ms==Some(604800000)));
+        "#,
+            include_str!("../../../plugins/museai/plugin.js")
+        );
+        let mut provider = fixture(&source);
+        provider.manifest.id = "museai".into();
+        let config: ProviderConfig =
+            toml::from_str("id='museai'\ncookieHeader='session=fixture'").unwrap();
+        let snapshot = probe_provider(&provider, "web", Some(&config));
+        assert_eq!(
+            snapshot.state,
+            Some(usagestat_core::model::ProviderState::Ready),
+            "{snapshot:?}"
+        );
+        assert!(
+            matches!(&snapshot.metrics[0],MetricLine::Progress{used,period_duration_ms,..} if *used==35.0 && *period_duration_ms==Some(604800000))
+        );
     }
 
     #[test]

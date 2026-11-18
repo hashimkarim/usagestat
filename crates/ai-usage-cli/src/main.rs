@@ -591,10 +591,15 @@ fn run_cli() -> Result<()> {
             }
             let json_output = json || matches!(format, CostFormat::Json);
             if period.is_some() && (!json_output || from_file.is_some()) {
-                anyhow::bail!("--period requires --format json and cannot be used with --from-file");
+                anyhow::bail!(
+                    "--period requires --format json and cannot be used with --from-file"
+                );
             }
             if json_output && from_file.is_none() {
-                run_cost_historical(&selection.ids, period.as_deref().unwrap_or(&days.to_string()))
+                run_cost_historical(
+                    &selection.ids,
+                    period.as_deref().unwrap_or(&days.to_string()),
+                )
             } else {
                 run_cost(
                     &providers,
@@ -649,12 +654,23 @@ fn run_cli() -> Result<()> {
                 },
         } => run_cache_clear(snapshots, history, all, cookies, cost, provider, json),
         Command::Auth {
-            command: AuthCommand::ImportCookies { provider, format, browser, profile, user_data_dir },
+            command:
+                AuthCommand::ImportCookies {
+                    provider,
+                    format,
+                    browser,
+                    profile,
+                    user_data_dir,
+                },
         } => run_auth_import_cookies(
             &providers,
             provider,
             json || matches!(format, OutputFormat::Json),
-            auth_cookies::ImportOptions { browser, profile, user_data_dir },
+            auth_cookies::ImportOptions {
+                browser,
+                profile,
+                user_data_dir,
+            },
         ),
         Command::Auth {
             command: AuthCommand::Curl { provider, format },
@@ -1230,19 +1246,23 @@ fn run_cost_historical(provider_ids: &[String], period: &str) -> Result<()> {
     let mut targets = cost_provider_targets(provider_ids);
     if provider_ids.is_empty() {
         for row in usagestat_core::usage_daily::all_selected_daily_rows()? {
-            if !targets.contains(&row.provider_id) { targets.push(row.provider_id); }
+            if !targets.contains(&row.provider_id) {
+                targets.push(row.provider_id);
+            }
         }
     }
 
     let today = chrono::Utc::now().date_naive();
-    let cutoff = usagestat_core::usage_daily::period_start(period, today).map_err(|error| anyhow::anyhow!(error))?;
+    let cutoff = usagestat_core::usage_daily::period_start(period, today)
+        .map_err(|error| anyhow::anyhow!(error))?;
     let since = cutoff.map(|date| date.format("%Y%m%d").to_string());
 
     let mut results: Vec<serde_json::Value> = Vec::new();
     for target in &targets {
         let mut saved = usagestat_core::usage_daily::selected_daily_rows(target)?;
         if !saved.is_empty() {
-            usagestat_core::usage_daily::filter_period(&mut saved, period, today).map_err(|error| anyhow::anyhow!(error))?;
+            usagestat_core::usage_daily::filter_period(&mut saved, period, today)
+                .map_err(|error| anyhow::anyhow!(error))?;
             let daily: Vec<_> = saved.iter().map(|row| serde_json::json!({
                 "date": row.date, "inputTokens": row.input_tokens, "outputTokens": row.output_tokens,
                 "cacheReadTokens": row.cache_read_tokens, "cacheCreationTokens": row.cache_creation_tokens,
@@ -1251,9 +1271,13 @@ fn run_cost_historical(provider_ids: &[String], period: &str) -> Result<()> {
                 "tokensKnown": row.tokens_known, "costKnown": row.cost_known, "requests": row.requests,
             })).collect();
             let cost: f64 = saved.iter().map(|row| row.cost_usd).sum();
-            let total = saved.iter().try_fold(0u64, |sum, row| sum.checked_add(row.total_tokens));
+            let total = saved
+                .iter()
+                .try_fold(0u64, |sum, row| sum.checked_add(row.total_tokens));
             let sum = |field: fn(&usagestat_core::usage_daily::UsageDailyRow) -> u64| {
-                saved.iter().try_fold(0u64, |sum, row| sum.checked_add(field(row)))
+                saved
+                    .iter()
+                    .try_fold(0u64, |sum, row| sum.checked_add(field(row)))
             };
             results.push(serde_json::json!({"provider":target,"currency":"USD","period":period,"timeZone":"UTC","daily":daily,
                 "periodDays":cutoff.map(|start| (today - start).num_days() as u32 + 1).unwrap_or(0),
@@ -1297,7 +1321,9 @@ fn run_cost_historical(provider_ids: &[String], period: &str) -> Result<()> {
                         let date = d.get("date")?.as_str()?.to_string();
                         // Filter to requested window
                         let parsed = date.parse::<chrono::NaiveDate>().ok()?;
-                        if parsed > today || cutoff.is_some_and(|start| parsed < start) { return None; }
+                        if parsed > today || cutoff.is_some_and(|start| parsed < start) {
+                            return None;
+                        }
                         let input_tokens = json_u64(d, &["inputTokens", "input_tokens"]);
                         let output_tokens = json_u64(d, &["outputTokens", "output_tokens"]);
                         let cache_read_tokens =
@@ -1367,7 +1393,9 @@ fn run_cost_historical(provider_ids: &[String], period: &str) -> Result<()> {
             currency: "USD",
             daily,
             totals,
-            period_days: cutoff.map(|start| (today - start).num_days() as u32 + 1).unwrap_or(0),
+            period_days: cutoff
+                .map(|start| (today - start).num_days() as u32 + 1)
+                .unwrap_or(0),
         })?);
     }
 
