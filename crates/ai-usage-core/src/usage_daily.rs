@@ -260,24 +260,46 @@ struct DailyAccumulator {
 }
 
 static WRITE_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
-static ESTIMATE_BACKFILL: std::sync::OnceLock<fn(&mut UsageDailyRow) -> bool> = std::sync::OnceLock::new();
+static ESTIMATE_BACKFILL: std::sync::OnceLock<fn(&mut UsageDailyRow) -> bool> =
+    std::sync::OnceLock::new();
 
 fn needs_estimate_backfill(row: &UsageDailyRow) -> bool {
-    (row.source == "local-transcript-v2" && matches!(row.cost_source.as_deref(), Some("api-rate-estimate" | "api-rate-aggregate-estimate")))
-        || (row.source == "ccusage" && row.models.values().any(|m| !m.cost_known && m.tokens_known && m.cost_usd == 0.0) && matches!(row.cost_source.as_deref(), None | Some("api-rate-estimate" | "api-rate-aggregate-estimate" | "reported-with-api-model-estimates")))
+    (row.source == "local-transcript-v2"
+        && matches!(
+            row.cost_source.as_deref(),
+            Some("api-rate-estimate" | "api-rate-aggregate-estimate")
+        ))
+        || (row.source == "ccusage"
+            && row
+                .models
+                .values()
+                .any(|m| !m.cost_known && m.tokens_known && m.cost_usd == 0.0)
+            && matches!(
+                row.cost_source.as_deref(),
+                None | Some(
+                    "api-rate-estimate"
+                        | "api-rate-aggregate-estimate"
+                        | "reported-with-api-model-estimates"
+                )
+            ))
 }
 
 /// Repair retained local estimates under the same lock as normal ingestion.
 /// Billing and fully priced imports are never passed to the repair callback.
 /// The same repair is registered for subsequent imported rows.
-pub fn backfill_api_estimates(repair: fn(&mut UsageDailyRow) -> bool) -> Result<(), UsageDailyError> {
+pub fn backfill_api_estimates(
+    repair: fn(&mut UsageDailyRow) -> bool,
+) -> Result<(), UsageDailyError> {
     let _ = ESTIMATE_BACKFILL.set(repair);
     let _guard = WRITE_LOCK.lock().unwrap_or_else(|error| error.into_inner());
     let path = paths::usage_daily_file()?;
     backfill_store(&path, repair)
 }
 
-fn backfill_store(path: &Path, mut repair: impl FnMut(&mut UsageDailyRow) -> bool) -> Result<(), UsageDailyError> {
+fn backfill_store(
+    path: &Path,
+    mut repair: impl FnMut(&mut UsageDailyRow) -> bool,
+) -> Result<(), UsageDailyError> {
     let mut store = read_store(path)?;
     let mut changed = false;
     for row in &mut store.rows {
@@ -285,7 +307,9 @@ fn backfill_store(path: &Path, mut repair: impl FnMut(&mut UsageDailyRow) -> boo
             changed |= repair(row);
         }
     }
-    if changed { write_store(path, &store)?; }
+    if changed {
+        write_store(path, &store)?;
+    }
     Ok(())
 }
 
@@ -301,7 +325,9 @@ pub fn ingest_json(provider_id: &str, payload_json: &str) -> Result<usize, Usage
     let mut store = read_store(&path)?;
     for mut row in new_rows {
         if needs_estimate_backfill(&row) {
-            if let Some(repair) = ESTIMATE_BACKFILL.get() { repair(&mut row); }
+            if let Some(repair) = ESTIMATE_BACKFILL.get() {
+                repair(&mut row);
+            }
         }
         upsert_row(&mut store.rows, row);
     }
@@ -1006,16 +1032,43 @@ mod tests {
         let mut local = row("2026-09-01");
         local.source = "local-transcript-v2".into();
         local.cost_source = Some("api-rate-estimate".into());
-        let mut billing = local.clone(); billing.source = "billing".into();
-        let mut external = local.clone(); external.source = "ccusage".into();
-        let mut unpriced_import=external.clone();unpriced_import.models.insert("gpt-6.1-sol".into(),UsageModelDaily {cost_known:false,..Default::default()});
-        write_store(&path, &StoredUsageDaily {version:1,rows:vec![local,billing.clone(),external.clone(),unpriced_import]}).unwrap();
-        backfill_store(&path, |row| { row.cost_usd=42.0; row.cost_known=true; true }).unwrap();
-        let stored=read_store(&path).unwrap();
-        assert_eq!(stored.rows[0].cost_usd,42.0);
-        assert_eq!(stored.rows[3].cost_usd,42.0);
-        assert_eq!(serde_json::to_value(&stored.rows[1]).unwrap(),serde_json::to_value(&billing).unwrap());
-        assert_eq!(serde_json::to_value(&stored.rows[2]).unwrap(),serde_json::to_value(&external).unwrap());
+        let mut billing = local.clone();
+        billing.source = "billing".into();
+        let mut external = local.clone();
+        external.source = "ccusage".into();
+        let mut unpriced_import = external.clone();
+        unpriced_import.models.insert(
+            "gpt-6.1-sol".into(),
+            UsageModelDaily {
+                cost_known: false,
+                ..Default::default()
+            },
+        );
+        write_store(
+            &path,
+            &StoredUsageDaily {
+                version: 1,
+                rows: vec![local, billing.clone(), external.clone(), unpriced_import],
+            },
+        )
+        .unwrap();
+        backfill_store(&path, |row| {
+            row.cost_usd = 42.0;
+            row.cost_known = true;
+            true
+        })
+        .unwrap();
+        let stored = read_store(&path).unwrap();
+        assert_eq!(stored.rows[0].cost_usd, 42.0);
+        assert_eq!(stored.rows[3].cost_usd, 42.0);
+        assert_eq!(
+            serde_json::to_value(&stored.rows[1]).unwrap(),
+            serde_json::to_value(&billing).unwrap()
+        );
+        assert_eq!(
+            serde_json::to_value(&stored.rows[2]).unwrap(),
+            serde_json::to_value(&external).unwrap()
+        );
     }
 
     #[test]

@@ -304,16 +304,55 @@ mod tests {
     #[test]
     fn new_manual_sessions_allow_only_their_exact_read_routes() {
         for (provider, method, url) in [
-            ("perplexity", "GET", "https://www.perplexity.ai/rest/rate-limit/status?version=2.18&source=default"),
-            ("opendesign", "GET", "https://amr-api.open-design.ai/api/v1/workspaces/fixture/billing/coding-plan-usage"),
-            ("googledeveloper", "GET", "https://me.developers.google.com/benefits?authuser=0"),
-            ("googledeveloper", "POST", "https://me.developers.google.com/_/GoogleDeveloperProfile/data/batchexecute?rpcids=Ro0AYc&source-path=%2Fbenefits&hl=en&authuser=0&rt=c"),
+            (
+                "perplexity",
+                "GET",
+                "https://www.perplexity.ai/rest/rate-limit/status?version=2.18&source=default",
+            ),
+            (
+                "opendesign",
+                "GET",
+                "https://amr-api.open-design.ai/api/v1/workspaces/fixture/billing/coding-plan-usage",
+            ),
+            (
+                "googledeveloper",
+                "GET",
+                "https://me.developers.google.com/benefits?authuser=0",
+            ),
+            (
+                "googledeveloper",
+                "POST",
+                "https://me.developers.google.com/_/GoogleDeveloperProfile/data/batchexecute?rpcids=Ro0AYc&source-path=%2Fbenefits&hl=en&authuser=0&rt=c",
+            ),
         ] {
             let selected = session(provider, "session=fixture");
-            assert_eq!(selected.headers(url, method, HashMap::new()).unwrap()["Cookie"], "session=fixture");
-            assert!(selected.headers(&url.replace("https://", "http://"), method, HashMap::new()).is_err());
-            assert!(selected.headers("https://evil.test/benefits?authuser=0", method, HashMap::new()).is_err());
-            assert!(selected.headers("https://me.developers.google.com/benefits?authuser=8", method, HashMap::new()).is_err());
+            assert_eq!(
+                selected.headers(url, method, HashMap::new()).unwrap()["Cookie"],
+                "session=fixture"
+            );
+            assert!(
+                selected
+                    .headers(&url.replace("https://", "http://"), method, HashMap::new())
+                    .is_err()
+            );
+            assert!(
+                selected
+                    .headers(
+                        "https://evil.test/benefits?authuser=0",
+                        method,
+                        HashMap::new()
+                    )
+                    .is_err()
+            );
+            assert!(
+                selected
+                    .headers(
+                        "https://me.developers.google.com/benefits?authuser=8",
+                        method,
+                        HashMap::new()
+                    )
+                    .is_err()
+            );
         }
     }
 
@@ -340,21 +379,23 @@ mod tests {
         ] {
             assert!(s.headers(url, "GET", HashMap::new()).is_err());
         }
-        assert!(s
-            .headers(
+        assert!(
+            s.headers(
                 "https://console.lithosai.cloud/api/me",
                 "POST",
                 HashMap::new()
             )
-            .is_err());
+            .is_err()
+        );
         for name in ["Cookie", "cookie", "Authorization", "X-CONSOLE-CSRF"] {
-            assert!(s
-                .headers(
+            assert!(
+                s.headers(
                     "https://console.lithosai.cloud/api/me",
                     "GET",
                     HashMap::from([(name.into(), "foreign".into())])
                 )
-                .is_err());
+                .is_err()
+            );
         }
     }
     #[test]
@@ -459,24 +500,29 @@ mod tests {
         assert!(!headers.contains_key("X-Console-Csrf"));
         assert!(s.headers(url, "GET", HashMap::new()).is_err());
         s.user_agent = None;
-        assert!(s
-            .headers(url, "POST", HashMap::new())
-            .unwrap_err()
-            .contains("browserUserAgent"));
+        assert!(
+            s.headers(url, "POST", HashMap::new())
+                .unwrap_err()
+                .contains("browserUserAgent")
+        );
     }
     #[test]
     fn additional_instances_and_disabled_cookie_access_never_use_ambient_credentials() {
         let config: ProviderConfig =
             toml::from_str("id = 'lithosai'\ninstanceId = 'other-account'").unwrap();
-        assert!(!Session::configured("lithosai", Some(&config))
-            .unwrap()
-            .available());
+        assert!(
+            !Session::configured("lithosai", Some(&config))
+                .unwrap()
+                .available()
+        );
         let config: ProviderConfig = toml::from_str(
             "id = 'lithosai'\ncookieHeader = 'private'\n[settings]\ncookies = 'off'",
         )
         .unwrap();
-        assert!(!Session::configured("lithosai", Some(&config))
-            .unwrap()
-            .available());
+        assert!(
+            !Session::configured("lithosai", Some(&config))
+                .unwrap()
+                .available()
+        );
     }
 }

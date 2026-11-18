@@ -299,11 +299,13 @@ mod tests {
                 }],
             },
         );
-        assert!(cache
-            .refresh(vec![known.clone(), vanished], |_| panic!(
-                "only saved requests exist"
-            ))
-            .is_err());
+        assert!(
+            cache
+                .refresh(vec![known.clone(), vanished], |_| panic!(
+                    "only saved requests exist"
+                ))
+                .is_err()
+        );
         assert!(
             cache.pricing_as_of.is_empty(),
             "failed refresh must not finalize the upgrade"
@@ -409,18 +411,22 @@ mod tests {
                 }],
             },
         );
-        assert!(cache
-            .refresh(vec![path.clone()], |_| panic!(
-                "supported cached request must not be recounted"
-            ))
-            .is_err());
+        assert!(
+            cache
+                .refresh(vec![path.clone()], |_| panic!(
+                    "supported cached request must not be recounted"
+                ))
+                .is_err()
+        );
         assert_eq!(cache.version, 8);
         std::fs::write(&path,"{\"type\":\"session_meta\",\"payload\":{\"id\":\"child\"}}\n{\"type\":\"turn_context\",\"payload\":{\"turn_id\":\"turn\",\"model\":\"gpt-6.1-sol\"}}").unwrap();
-        assert!(cache
-            .refresh(vec![path.clone()], |_| panic!(
-                "metadata retry must retain counters"
-            ))
-            .unwrap());
+        assert!(
+            cache
+                .refresh(vec![path.clone()], |_| panic!(
+                    "metadata retry must retain counters"
+                ))
+                .unwrap()
+        );
         assert_eq!(cache.version, VERSION);
         assert_eq!(cache.files[&path].events[0].model, "gpt-6.1-sol");
         assert_eq!(cache.files[&path].events[0].input_tokens, 100);
