@@ -27,7 +27,7 @@
       showPace:true, showReset:true, showStatusLinks:true, showDashboardLinks:true,
       resetTimeFormat:'smart', metricLayout:'vertical', providerSpacing:16,
       components:COMPONENTS.slice(), thresholds:DEFAULT_THRESHOLDS.map(t=>({...t})),
-      notifications:false, scrollToSwitch:false, shortcuts:{overview:'o',previous:'[',next:']',refresh:'r',settings:'s'},
+      notifications:false, scrollToSwitch:false, spendBudgetUsd:0, spendSpikeMultiple:0, spendNotify:false, shortcuts:{overview:'o',previous:'[',next:']',refresh:'r',settings:'s'},
     };
     if (typeof value.search === 'string') result.search = value.search.slice(0, 256);
     if (['all','live','attention','near','tracked'].includes(value.status)) result.status = value.status;
@@ -53,6 +53,10 @@
     if(value.shortcuts&&typeof value.shortcuts==='object')for(const key of Object.keys(result.shortcuts)){
       if(typeof value.shortcuts[key]==='string'&&value.shortcuts[key].length<=1)result.shortcuts[key]=value.shortcuts[key].toLowerCase();
     }
+    // Zero turns a spend alert off.
+    if(Number.isFinite(value.spendBudgetUsd)&&value.spendBudgetUsd>=0&&value.spendBudgetUsd<=1e7)result.spendBudgetUsd=value.spendBudgetUsd;
+    if(Number.isFinite(value.spendSpikeMultiple)&&value.spendSpikeMultiple>=0&&value.spendSpikeMultiple<=100)result.spendSpikeMultiple=value.spendSpikeMultiple;
+    if(typeof value.spendNotify==='boolean')result.spendNotify=value.spendNotify;
     if (REFRESH_SECONDS.includes(value.refreshSeconds)) result.refreshSeconds = value.refreshSeconds;
     if (Array.isArray(value.providerOrder)) result.providerOrder = [...new Set(value.providerOrder.filter(validId))].slice(0, 256);
     if (value.providers && typeof value.providers === 'object' && !Array.isArray(value.providers)) {

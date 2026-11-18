@@ -133,7 +133,7 @@ header{
 
 /* ── overview grid ── */
 .overview-summary{display:grid;grid-template-columns:minmax(0,1.08fr) minmax(0,.92fr) minmax(0,.92fr);gap:16px;margin-bottom:16px;align-items:stretch}
-@media(max-width:1180px) and (min-width:761px){.overview-summary{grid-template-columns:repeat(2,minmax(0,1fr))}.overview-summary>:last-child{grid-column:1/-1}.overview-summary>:last-child .rollup-grid{grid-template-columns:repeat(4,minmax(0,1fr))}}
+@media(max-width:1180px) and (min-width:761px){.overview-summary{grid-template-columns:repeat(2,minmax(0,1fr))}.overview-summary>:last-child{grid-column:1/-1}.overview-summary>:last-child .rollup-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:760px){.overview-summary{grid-template-columns:minmax(0,1fr)}}
 .overview-panel{
   background:linear-gradient(180deg,color-mix(in srgb,var(--s0) 92%,var(--blue) 8%),var(--s0));
@@ -563,12 +563,11 @@ header{
 .usage-table tr:last-child td{border-bottom:none}
 .cal{display:grid;grid-template-columns:auto minmax(0,1fr);grid-template-rows:auto auto;column-gap:8px;row-gap:4px;font:10.5px var(--sans);color:var(--su)}
 .cal-scroll{overflow-x:auto;scrollbar-width:thin;overscroll-behavior-x:contain}
-@media(max-width:760px){.cal-scroll{-webkit-mask-image:linear-gradient(90deg,transparent,#000 22px);mask-image:linear-gradient(90deg,transparent,#000 22px)}}
 .cal-scroll>.cal{min-width:calc(var(--weeks)*10px + 30px);max-width:calc(var(--weeks)*18px + 30px)}
 .cal{justify-content:start}
 .heatmap-head{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px}
 .cal-months{grid-column:2;display:grid;grid-template-columns:repeat(var(--weeks),minmax(0,1fr));column-gap:var(--cal-gap,4px);white-space:nowrap}
-.cal-days{grid-column:1;grid-row:2;display:grid;grid-template-rows:repeat(7,minmax(0,1fr));row-gap:var(--cal-gap,4px)}
+.cal-days{grid-column:1;grid-row:2;position:sticky;left:0;z-index:1;background:var(--s0);padding-right:4px;display:grid;grid-template-rows:repeat(7,minmax(0,1fr));row-gap:var(--cal-gap,4px)}
 /* Zero-height labels let the square cells, not the text, set the row height. */
 .cal-days span{height:0;display:flex;align-items:center;align-self:center;line-height:1}
 .cal-grid{grid-column:2;grid-row:2;display:grid;align-content:start;grid-template-columns:repeat(var(--weeks),minmax(0,1fr));gap:var(--cal-gap,4px)}
@@ -918,6 +917,7 @@ async function load(){
     applyTabVisibility();
     renderActive();
     checkThresholdNotifications();
+    checkSpendNotifications();
   } catch {
     S.online = false; setOnline(false); renderActive();
   }
@@ -1267,6 +1267,49 @@ function primaryPercentOf(s){
   return m ? pct(m) : null;
 }
 
+// Month-to-date API-equivalent spend from saved daily rows (UTC calendar days).
+// Projection extrapolates the month's elapsed share, counting at least one day.
+function spendStatus(rows, now=Date.now()){
+  const today=dateKey(new Date(now)), month=today.slice(0,7);
+  const byDay=new Map();
+  let known=true;
+  for(const r of rows){
+    const d=rowDate(r); if(!d) continue;
+    byDay.set(d,(byDay.get(d)||0)+rowCost(r));
+    if(d.startsWith(month)&&r.costKnown===false) known=false;
+  }
+  let monthToDate=0;
+  for(const [d,v] of byDay) if(d.startsWith(month)&&d<=today) monthToDate+=v;
+  const start=Date.UTC(+month.slice(0,4), +month.slice(5,7)-1, 1);
+  const daysInMonth=new Date(Date.UTC(+month.slice(0,4), +month.slice(5,7), 0)).getUTCDate();
+  const elapsedDays=Math.max(1,(now-start)/864e5);
+  const prior=[];
+  for(let i=1;i<=30;i++) prior.push(byDay.get(dateKey(new Date(now-i*864e5)))||0);
+  const priorAverage=prior.reduce((a,b)=>a+b,0)/30;
+  return {month, today:byDay.get(today)||0, monthToDate, projected:monthToDate/elapsedDays*daysInMonth,
+    priorAverage, costKnown:known, daysInMonth};
+}
+function spendAlerts(status, prefs=S.prefs){
+  const alerts=[], budget=prefs.spendBudgetUsd, spike=prefs.spendSpikeMultiple;
+  if(budget>0){
+    const used=status.monthToDate/budget;
+    if(used>=1) alerts.push({key:'budget-over',level:'budget',color:'#ff5f57',text:'Monthly spend is over budget',sub:`${fmtUsd(status.monthToDate)} of ${fmtUsd(budget)} · API-equivalent`});
+    else if(status.projected>budget) alerts.push({key:'budget-pace',level:'budget',color:'#f6d32d',text:'On pace to exceed the monthly budget',sub:`${fmtUsd(status.monthToDate)} so far · projected ${fmtUsd(status.projected)} of ${fmtUsd(budget)}`});
+  }
+  // A one-dollar floor keeps quiet months from alerting on cents.
+  if(spike>0&&status.priorAverage>0&&status.today>=1&&status.today>=spike*status.priorAverage)
+    alerts.push({key:'spike',level:'spend',color:'#ce8670',text:`Today's spend is ${(status.today/status.priorAverage).toFixed(1)}× the 30-day average`,sub:`${fmtUsd(status.today)} today · ${fmtUsd(status.priorAverage)} average`});
+  return alerts;
+}
+// Notifies when an alert first appears during this session, like quota thresholds.
+function checkSpendNotifications(rows=S.dailyRows.filter(r=>providerSetting(r.providerId).visible)){
+  const status=spendStatus(rows), keys=new Set(spendAlerts(status).map(a=>a.key+':'+(a.key==='spike'?dateKey(todayUtcDate()):status.month)));
+  const previous=S.spendAlertKeys; S.spendAlertKeys=keys;
+  if(!previous||!S.prefs.spendNotify||typeof Notification==='undefined'||Notification.permission!=='granted') return;
+  for(const alert of spendAlerts(status)) if(!previous.has(alert.key+':'+(alert.key==='spike'?dateKey(todayUtcDate()):status.month)))
+    new Notification('usagestat · '+alert.text,{body:alert.sub,tag:'usagestat-spend-'+alert.key});
+}
+
 function renderOverviewSummary(){
   const el = document.getElementById('overviewSummary');
   if(!el) return;
@@ -1330,6 +1373,9 @@ function renderOverviewSummary(){
       sub:'Open the provider tab for setup or login details'
     });
   }
+  const spendRows = S.dailyRows.filter(r=>providerSetting(r.providerId).visible);
+  const spend = spendStatus(spendRows);
+  alerts.unshift(...spendAlerts(spend));
   if(hidden.length){
     alerts.push({
       level:'hidden',
@@ -1386,6 +1432,8 @@ function renderOverviewSummary(){
   html+=rollupCard(fmtTok(r7.totalTokens),'7d tokens',deltaBadge(deltaPercent(r7.totalTokens,p7.totalTokens)));
   html+=rollupCard(r30.rows?recordedCost(r30):'—','30d spend',r30.costKnown&&p30.costKnown?deltaBadge(deltaPercent(r30.cost,p30.cost)):'');
   html+=rollupCard(fmtTok(r30.totalTokens),'30d tokens',deltaBadge(deltaPercent(r30.totalTokens,p30.totalTokens)));
+  html+=rollupCard(recordedCost({cost:spend.monthToDate,costKnown:spend.costKnown}),S.prefs.spendBudgetUsd>0?`month to date · ${fmtUsd(S.prefs.spendBudgetUsd)} budget`:'month to date','');
+  html+=rollupCard(fmtUsd(spend.projected),'projected month','');
   html+=`</div>`;
   html+=overviewTrendHtml(trend);
   html+=topContributorsHtml(top, r30);
@@ -2171,8 +2219,44 @@ function downloadText(filename, content, type){
 }
 
 function csvCell(value){
-  const s = String(value ?? '');
+  let s = String(value ?? '');
+  // Spreadsheets run text starting with = + - @ as a formula; keep it inert.
+  if(typeof value==='string' && /^[=+\-@\t\r]/.test(s) && !/^-?\d/.test(s)) s = "'"+s;
   return /[",\n\r]/.test(s) ? `"${s.replace(/"/g,'""')}"` : s;
+}
+
+// One row per chart period: saved daily usage summed per UTC day, week or month.
+function groupedUsageCsv(rows, group){
+  const map = new Map();
+  for(const r of rows){
+    const date = rowDate(r); if(!date) continue;
+    const key = group==='day' ? date : bucketKey(date+'T00:00:00Z', group).slice(0,10);
+    if(!map.has(key)) map.set(key, {rows:[]});
+    map.get(key).rows.push(r);
+  }
+  const lines = [['period_start','group','input_tokens','cached_input_tokens','cache_write_tokens','output_tokens','reasoning_tokens','total_tokens','cost_usd','tokens_known','cost_known','days'].join(',')];
+  for(const [key, b] of [...map].sort((a,b)=>a[0].localeCompare(b[0]))){
+    const t = usageTotals(b.rows);
+    lines.push([key, group, t.inputTokens, t.cacheReadTokens, t.cacheCreationTokens, t.outputTokens, t.reasoningTokens, t.totalTokens, t.cost.toFixed(6), t.tokensKnown, t.costKnown, new Set(b.rows.map(rowDate)).size].map(csvCell).join(','));
+  }
+  return lines.join('\r\n');
+}
+
+// Polled quota samples in the chart's grouping (peak per period, like the chart).
+function quotaHistoryCsv(records, group){
+  const recs = aggregateHistory(records, group);
+  const lines = [['captured_at','group','provider_id','source','progress_label','used_percent','used','limit','reset_at'].join(',')];
+  for(const r of recs){
+    const progress = r.progress?.length ? r.progress : [{label:'Primary',percent:r.primaryPercent,used:'',limit:''}];
+    for(const p of progress){
+      const percent = p.percent ?? (p.limit>0 ? p.used/p.limit*100 : null);
+      lines.push([r.ts, group, r.providerId||'', r.source||'', p.label, percent==null?'':Number(percent).toFixed(2), p.used??'', p.limit??'', p.resetsAt||''].map(csvCell).join(','));
+    }
+  }
+  return lines.join('\r\n');
+}
+function exportButton(attr){
+  return `<button class="cost-tab chart-export" type="button" ${attr} title="Download the chart's data as CSV">CSV</button>`;
 }
 
 function applyAppearance(){
@@ -2324,6 +2408,10 @@ function displayAdvancedHtml(){return `<section class="settings-section" aria-la
   </section><section class="settings-section" aria-labelledby="threshold-heading"><h2 id="threshold-heading">Usage thresholds</h2><p>Set names, percentages used, colours and crossing notifications. Notifications use fresh quota observations only.</p>
     <div id="threshold-rows">${S.prefs.thresholds.map(t=>`<div class="collection-fields" data-threshold="${esc(t.id)}"><div class="collection-field"><label>Name</label><input class="ctrl-input" data-threshold-field="name" value="${esc(t.name)}"></div><div class="collection-field"><label>Percent used</label><input class="ctrl-input" type="number" min="0" max="1000" data-threshold-field="percent" value="${t.percent}"></div><div class="collection-field"><label>Colour</label><input type="color" data-threshold-field="color" value="${t.color}"></div><label><input type="checkbox" id="setting-notify-${esc(t.id)}" data-threshold-field="notify"${t.notify?' checked':''}> Notify on crossing</label><button class="action-btn" data-delete-threshold="${esc(t.id)}">Delete threshold</button></div>`).join('')}</div>
     <div class="settings-actions"><button class="action-btn" id="add-threshold">Add threshold</button><button class="action-btn" id="enable-notifications">${S.prefs.notifications?'Disable':'Enable'} browser notifications</button></div><p class="settings-note">${S.prefs.notifications?'Notifications enabled for this dashboard.':'Browser notifications are off.'}</p>
+  </section><section class="settings-section" aria-labelledby="spend-heading"><h2 id="spend-heading">Spend alerts</h2><p>API-equivalent cost from saved local usage, all visible providers. Set 0 to turn an alert off.</p>
+    <div class="setting-row"><label for="pref-spendBudgetUsd">Monthly budget · USD</label><input class="ctrl-input" type="number" min="0" step="10" id="pref-spendBudgetUsd" data-pref="spendBudgetUsd" value="${S.prefs.spendBudgetUsd}"></div>
+    <div class="setting-row"><label for="pref-spendSpikeMultiple">Daily spike · × 30-day average</label><input class="ctrl-input" type="number" min="0" max="100" step="0.5" id="pref-spendSpikeMultiple" data-pref="spendSpikeMultiple" value="${S.prefs.spendSpikeMultiple}"></div>
+    ${preferenceCheck('spendNotify','Notify when a spend alert starts')}
   </section>`;}
 function bindDisplayExtras(root){
   root.querySelectorAll('[data-pref]').forEach(input=>input.addEventListener('change',()=>setDashboardPref(input.dataset.pref,input.type==='checkbox'?input.checked:input.type==='number'?Number(input.value):input.value)));
@@ -2810,13 +2898,14 @@ function renderHistorySection(id, raw, snap, reports){
   html+=HISTORY_RANGES.map(([v,l])=>`<button class="history-tab" type="button" data-range="${v}">${l}</button>`).join('');
   html+=`</div><div class="history-tabs" id="history-buckets-${esc(id)}" role="group" aria-label="Group by">`;
   html+=HISTORY_GROUPS.map(([v,l])=>bucketTab(v,l,false)).join('');
-  html+=`</div></div><div class="history-chart" id="history-chart-${esc(id)}"></div></div>`;
+  html+=`</div>${exportButton('data-history-export')}</div><div class="history-chart" id="history-chart-${esc(id)}"></div></div>`;
   html+=`<div id="history-summary-${esc(id)}"></div></div>`;
   box.insertAdjacentHTML('beforeend', html);
 
   const redraw=()=>drawHistoryView(id, box, state);
   box.querySelectorAll('[data-mode]').forEach(btn=>btn.addEventListener('click',()=>{ state.mode=btn.dataset.mode; redraw(); }));
   box.querySelectorAll('[data-bucket]').forEach(btn=>btn.addEventListener('click',()=>{ state.bucket=btn.dataset.bucket; redraw(); }));
+  box.querySelector('[data-history-export]')?.addEventListener('click',()=>exportHistoryView(id, state));
   box.querySelectorAll('[data-range]').forEach(btn=>btn.addEventListener('click',()=>{
     state.range=btn.dataset.range; redraw();
     // Quota samples load 30 days up front; wider spans fetch on demand.
@@ -2840,15 +2929,24 @@ function drawHistoryView(id, box, state){
   });
   const days = historyRangeDays(state.range);
   const chartId = `history-chart-${id}`;
-  if(state.mode==='quota'){
-    const end = state.records.length ? +new Date(state.records[state.records.length-1].ts) : Date.now();
-    const recs = days===null ? state.records : state.records.filter(r=>+new Date(r.ts)>=end-days*86400000);
-    buildHistoryChart(chartId, recs, 'quota', group);
-  } else {
-    buildHistoryChart(chartId, usageHistoryRecords(usageRangeRows(state.usageRows, days), group), state.mode, group);
-  }
+  const view = historyViewData(state);
+  if(state.mode==='quota') buildHistoryChart(chartId, view.records, 'quota', group);
+  else buildHistoryChart(chartId, usageHistoryRecords(view.rows, group), state.mode, group);
   const summary = box.querySelector(`#history-summary-${CSS.escape(id)}`);
   if(summary) summary.innerHTML = historySummaryHtml(state, days);
+}
+
+// What the Usage History chart shows: quota samples or saved daily usage in the span.
+function historyViewData(state){
+  const days = historyRangeDays(state.range);
+  if(state.mode!=='quota') return {rows:usageRangeRows(state.usageRows, days)};
+  const end = state.records.length ? +new Date(state.records[state.records.length-1].ts) : Date.now();
+  return {records:days===null ? state.records : state.records.filter(r=>+new Date(r.ts)>=end-days*86400000)};
+}
+function exportHistoryView(id, state){
+  const group = historyGroupFor(state.mode, state.bucket), view = historyViewData(state);
+  const csv = state.mode==='quota' ? quotaHistoryCsv(view.records, group) : groupedUsageCsv(view.rows, group);
+  downloadText(`usagestat-${id}-${state.mode==='quota'?'quota':'usage'}-${state.range}-${group}.csv`, csv, 'text/csv;charset=utf-8');
 }
 
 // Saved daily rows inside the span, with idle days filled as zero so lines
@@ -2948,14 +3046,19 @@ function costHeaderHtml(id){
   return `<div class="cost-head"><div class="box-title">Cost History · Last 30 Days</div><div class="cost-controls">
     <div class="cost-range" id="cost-range-${esc(id)}" role="group" aria-label="Time span">${tabs('range',[['7','7D'],['30','30D'],['month','Month'],['90','90D'],['365','Year'],['all','All']])}</div>
     <div class="cost-range" id="cost-group-${esc(id)}" role="group" aria-label="Group by">${tabs('group',[['auto','Auto'],['day','Daily'],['week','Weekly'],['month','Monthly']])}</div>
+    ${exportButton('data-cost-export')}
   </div></div>`;
 }
 
 function setupCostRange(box, id, daily){
   const state = { daily: daily.map(normalizeCostRow).filter(d=>d.date).sort((a,b)=>a.date.localeCompare(b.date)), range:S.costRanges?.[id] || '30', group:S.costGroups?.[id] || 'auto' };
   box._costState = state;
-  const mark=()=>box.querySelectorAll('.cost-tab').forEach(b=>b.classList.toggle('active', b.dataset.range ? b.dataset.range===state.range : b.dataset.group===state.group));
-  box.querySelectorAll('.cost-tab').forEach(btn=>{
+  const mark=()=>box.querySelectorAll('.cost-tab:not(.chart-export)').forEach(b=>b.classList.toggle('active', b.dataset.range ? b.dataset.range===state.range : b.dataset.group===state.group));
+  box.querySelector('[data-cost-export]')?.addEventListener('click',()=>{
+    const rows=costViewRows(state);
+    downloadText(`usagestat-${id}-cost-${state.range}-${costGroupFor(rows,state.group)}.csv`, groupedUsageCsv(rows, costGroupFor(rows,state.group)), 'text/csv;charset=utf-8');
+  });
+  box.querySelectorAll('.cost-tab:not(.chart-export)').forEach(btn=>{
     btn.addEventListener('click',()=>{
       if(btn.dataset.range){ state.range = btn.dataset.range; (S.costRanges ||= {})[id]=state.range; }
       else { state.group = btn.dataset.group; (S.costGroups ||= {})[id]=state.group; }
@@ -2966,9 +3069,16 @@ function setupCostRange(box, id, daily){
   updateCostView(id, state);
 }
 
-function updateCostView(id, state){
-  const rows = state.range === 'all' ? fullCalendarRange(state.daily) : state.range === 'month'
+function costViewRows(state){
+  return state.range === 'all' ? fullCalendarRange(state.daily) : state.range === 'month'
     ? calendarWindow(state.daily, todayUtcDate().getUTCDate()) : calendarWindow(state.daily, Number(state.range));
+}
+// Auto keeps bars readable by coarsening long ranges to weeks or months.
+function costGroupFor(rows, grouping){
+  return ['day','week','month'].includes(grouping) ? grouping : rows.length>70*7 ? 'month' : rows.length>70 ? 'week' : 'day';
+}
+function updateCostView(id, state){
+  const rows = costViewRows(state);
   const title = document.querySelector(`#cost-box-${CSS.escape(id)} .cost-head .box-title`);
   if(title) title.textContent = `Cost History · ${rangeLabel(state.range)}`;
   const stats = document.getElementById(`cost-stats-${id}`);
@@ -2979,7 +3089,8 @@ function updateCostView(id, state){
     stats.innerHTML = `<div class="cstat"><div class="cstat-val">${recordedCost(totals)}</div><div class="cstat-lbl">${state.range==='30'?'30-day':'range'} total</div></div>
       <div class="cstat"><div class="cstat-val">${recordedCost({cost:avgDay,costKnown:totals.costKnown})}</div><div class="cstat-lbl">per active day</div></div>
       <div class="cstat"><div class="cstat-val">${activeDays}/${rows.length}</div><div class="cstat-lbl">active days</div></div>
-      <div class="cstat"><div class="cstat-val">${fmtTok(totals.totalTokens)}</div><div class="cstat-lbl">total tokens</div></div>`;
+      <div class="cstat"><div class="cstat-val">${fmtTok(totals.totalTokens)}</div><div class="cstat-lbl">total tokens</div></div>`
+      + (state.range==='month' ? `<div class="cstat"><div class="cstat-val">${fmtUsd(spendStatus(state.daily).projected)}</div><div class="cstat-lbl">projected month</div></div>` : '');
   }
   buildChart(`chart-${id}`, rows, id, state.group);
   updateModelTable(id, rows);
@@ -3721,8 +3832,7 @@ function buildChart(containerId, daily, providerId, grouping='auto'){
     container.innerHTML=`<div class="chart-loading">${unpriced?'Usage in this range is unpriced':'No daily cost data recorded'}</div>`; return;
   }
 
-  // Auto keeps bars readable by coarsening long ranges to weeks or months.
-  const group = ['day','week','month'].includes(grouping) ? grouping : daily.length>70*7 ? 'month' : daily.length>70 ? 'week' : 'day';
+  const group = costGroupFor(daily, grouping);
   const buckets = [];
   for(const d of daily){
     const key = group==='day' ? d.date : group==='month' ? d.date.slice(0,7) : dateKey(addDays(parseDateOnly(d.date), -((parseDateOnly(d.date).getUTCDay()+6)%7)));

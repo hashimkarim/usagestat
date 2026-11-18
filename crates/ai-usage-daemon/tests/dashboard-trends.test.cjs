@@ -763,3 +763,49 @@ test('hover details keep to the numbers; notes appear once pinned', () => {
   assert.match(ui.run('detailHtml(d,true)'), /Explanatory note/);
   assert.doesNotMatch(ui.run('TIP.pinned=false;tipFooter()'), /press Enter/);
 });
+
+test('spend status projects the UTC month and alerts on budget pace and daily spikes',()=>{
+  const ui=dashboard();
+  // Sep 11 12:00 UTC: 10.5 days elapsed of 30.
+  const now=Date.UTC(2026,8,11,12);
+  ui.context.rows=[row('2026-08-31',0,30),row('2026-09-01',0,10),row('2026-09-10',0,11),row('2026-09-11',0,21),{...row('2026-09-11',0,0,'claude'),costKnown:false}];
+  const status=ui.run(`spendStatus(rows, ${now})`);
+  assert.equal(status.monthToDate,42,'August is excluded');
+  assert.equal(status.today,21);
+  assert.equal(status.costKnown,false,'an unpriced row this month marks the total partial');
+  assert.equal(Math.round(status.projected),120);
+  assert.equal(status.priorAverage,(30+10+11)/30);
+  const keys=prefs=>ui.run(`spendAlerts(spendStatus(rows, ${now}), ${JSON.stringify(prefs)}).map(a=>a.key).join(",")`).split(",").filter(Boolean);
+  assert.deepEqual(keys({spendBudgetUsd:0,spendSpikeMultiple:0}),[],'zero turns alerts off');
+  assert.deepEqual(keys({spendBudgetUsd:100,spendSpikeMultiple:0}),['budget-pace']);
+  assert.deepEqual(keys({spendBudgetUsd:40,spendSpikeMultiple:0}),['budget-over']);
+  assert.deepEqual(keys({spendBudgetUsd:500,spendSpikeMultiple:5}),['spike']);
+  assert.deepEqual(keys({spendBudgetUsd:500,spendSpikeMultiple:20}),[]);
+  // The first day of a month counts at least one elapsed day.
+  assert.equal(ui.run(`spendStatus([${JSON.stringify(row('2026-10-01',0,3))}], ${Date.UTC(2026,9,1,0,30)}).projected`),93);
+});
+
+test('spend preferences reject invalid values and keep alerts off by default',()=>{
+  assert.deepEqual([settings.normalize({}).spendBudgetUsd,settings.normalize({}).spendSpikeMultiple,settings.normalize({}).spendNotify],[0,0,false]);
+  const prefs=settings.normalize({spendBudgetUsd:250,spendSpikeMultiple:3,spendNotify:true});
+  assert.deepEqual([prefs.spendBudgetUsd,prefs.spendSpikeMultiple,prefs.spendNotify],[250,3,true]);
+  const bad=settings.normalize({spendBudgetUsd:-5,spendSpikeMultiple:1000,spendNotify:'yes'});
+  assert.deepEqual([bad.spendBudgetUsd,bad.spendSpikeMultiple,bad.spendNotify],[0,0,false]);
+});
+
+test('chart CSV exports sum saved usage per period and keep formula text inert',()=>{
+  const ui=dashboard();
+  ui.context.rows=[row('2026-09-01',10,1),row('2026-09-02',20,2),row('2026-09-08',5,0.5),{...row('2026-09-08',1,0),costKnown:false}];
+  const lines=ui.run(`groupedUsageCsv(rows,'week')`).split('\r\n');
+  assert.equal(lines.length,3);
+  assert.match(lines[0],/^period_start,group,input_tokens/);
+  assert.equal(lines[1],'2026-08-31,week,30,0,0,0,0,30,3.000000,true,true,2');
+  assert.equal(lines[2],'2026-09-07,week,6,0,0,0,0,6,0.500000,true,false,1');
+  assert.equal(ui.run(`groupedUsageCsv(rows,'month')`).split('\r\n').length,2);
+  assert.equal(ui.run(`csvCell('=HYPERLINK("x")')`),`"'=HYPERLINK(""x"")"`);
+  assert.equal(ui.run(`csvCell('-1.5')`),'-1.5');
+  assert.equal(ui.run(`csvCell(-2)`),'-2');
+  const quota=ui.run(`quotaHistoryCsv([{ts:'2026-09-01T10:00:00Z',providerId:'codex',source:'oauth',primaryPercent:40,progress:[{label:'Weekly',used:40,limit:100,percent:null}]},{ts:'2026-09-01T11:00:00Z',providerId:'codex',source:'oauth',primaryPercent:55,progress:[{label:'Weekly',used:55,limit:100,percent:null}]}],'raw')`).split('\r\n');
+  assert.equal(quota.length,3);
+  assert.match(quota[2],/^2026-09-01T11:00:00Z,raw,codex,oauth,Weekly,55\.00,55,100,$/);
+});
