@@ -802,6 +802,7 @@ fn capture_provider_roots(
         "CURSOR_NIGHTLY_STATE_DB",
         "CURSOR_AGENT_HOME",
         "FLATPAK_XDG_CONFIG_HOME",
+        "GEMINI_CLI_HOME",
     ] {
         if let Some(value) = read(name) {
             if value.is_empty() {
@@ -813,6 +814,24 @@ fn capture_provider_roots(
                 anyhow::ensure!(
                     Path::new(&value).is_absolute(),
                     "{name} must be an absolute provider path before enabling startup at login"
+                );
+                saved.insert(name.to_owned(), value);
+            }
+        }
+    }
+    // Comma-separated log roots (the ccusage convention); each entry must be absolute.
+    for name in ["GEMINI_DATA_DIR", "AMP_DATA_DIR"] {
+        if let Some(value) = read(name) {
+            if value.is_empty() {
+                saved.remove(name);
+            } else {
+                anyhow::ensure!(
+                    value
+                        .split(',')
+                        .map(str::trim)
+                        .filter(|entry| !entry.is_empty())
+                        .all(|entry| Path::new(entry).is_absolute()),
+                    "{name} entries must be absolute provider paths before enabling startup at login"
                 );
                 saved.insert(name.to_owned(), value);
             }
@@ -884,6 +903,20 @@ mod tests {
         .unwrap();
         assert_eq!(saved["OPENCODE_DB"], "channel.db");
         assert_eq!(saved["FLATPAK_XDG_CONFIG_HOME"], root);
+        let list = format!("{root},/srv/gemini");
+        capture_provider_roots(&mut saved, |name| match name {
+            "GEMINI_DATA_DIR" => Some(list.clone()),
+            "AMP_DATA_DIR" => Some(root.clone()),
+            _ => None,
+        })
+        .unwrap();
+        assert_eq!(saved["GEMINI_DATA_DIR"], list);
+        assert_eq!(saved["AMP_DATA_DIR"], root);
+        assert!(
+            capture_provider_roots(&mut saved, |name| (name == "GEMINI_DATA_DIR")
+                .then(|| format!("{root},relative")))
+            .is_err()
+        );
         fs::remove_dir_all(Path::new(&root).parent().unwrap()).unwrap();
     }
 
