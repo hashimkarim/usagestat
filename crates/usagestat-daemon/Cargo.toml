@@ -9,8 +9,8 @@ name = "usagestatd"
 path = "src/main.rs"
 
 [dependencies]
-usagestat-core = { path = "../ai-usage-core" }
-usagestat-plugins = { path = "../ai-usage-plugins" }
+usagestat-core = { path = "../usagestat-core" }
+usagestat-plugins = { path = "../usagestat-plugins" }
 anyhow.workspace = true
 chrono.workspace = true
 clap.workspace = true

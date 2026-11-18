@@ -48,7 +48,7 @@ def check(binary: Path) -> dict:
         env["USAGESTAT_PROBE_TIMEOUT_SEC"] = "1"
         helper = root / ("gh.exe" if os.name == "nt" else "gh")
         subprocess.run(["rustc", "--edition=2024", "--crate-name=probe_fixture",
-                        str(ROOT / "crates/ai-usage-core/tests/fixtures/process_helper.rs"),
+                        str(ROOT / "crates/usagestat-core/tests/fixtures/process_helper.rs"),
                         "-o", str(helper)], check=True, capture_output=True, timeout=60)
         env["USAGESTAT_HELPER_PATH"] = str(root)
         plugins = root / "plugins/probe-cancellation"

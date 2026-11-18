@@ -9,7 +9,7 @@ anything other than "operational", linking to the status page.
 
 Only status hosts verified to serve the Statuspage `api/v2/summary.json`
 document at their own origin are polled; the table lives in
-`crates/ai-usage-daemon/src/status_monitor.rs`. Every other status page,
+`crates/usagestat-daemon/src/status_monitor.rs`. Every other status page,
 including pages that redirect to another host or serve a different format, is
 reported as not monitored. Nothing is inferred from a page that was not read.
 

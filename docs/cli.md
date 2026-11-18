@@ -42,7 +42,7 @@ cargo build -p usagestat-cli
 ```
 
 ```bash
-cargo install --path crates/ai-usage-cli
+cargo install --path crates/usagestat-cli
 usagestat list
 ```
 

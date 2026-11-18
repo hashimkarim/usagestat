@@ -10,7 +10,7 @@ path = "src/lib.rs"
 
 [dependencies]
 age = { version = "0.12.1", default-features = false }
-usagestat-core = { path = "../ai-usage-core" }
+usagestat-core = { path = "../usagestat-core" }
 anyhow.workspace = true
 base64.workspace = true
 chrono.workspace = true

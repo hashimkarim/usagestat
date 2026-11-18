@@ -20,7 +20,7 @@ test("all shipped manifests and provider scripts parse", () => {
 });
 
 test("new providers are opt-in, discoverable, and declare only allowed credentials", () => {
-  const host = fs.readFileSync(path.join(ROOT, "crates/ai-usage-plugins/src/host_api.rs"), "utf8").split("const ENV_ALLOWLIST")[1].split("];", 1)[0];
+  const host = fs.readFileSync(path.join(ROOT, "crates/usagestat-plugins/src/host_api.rs"), "utf8").split("const ENV_ALLOWLIST")[1].split("];", 1)[0];
   for (const id of newProviders) {
     const manifest = JSON.parse(fs.readFileSync(path.join(ROOT, "plugins", id, "plugin.json"), "utf8"));
     assert.equal(manifest.enabledByDefault, false, id);

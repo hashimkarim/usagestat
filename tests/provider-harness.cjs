@@ -6,7 +6,7 @@ const crypto = require('node:crypto');
 const root = path.resolve(__dirname, '..');
 // Run the same JS utility functions injected by the native host, rather than
 // another implementation of date, refresh, output and request semantics.
-const nativeHost = fs.readFileSync(path.join(root, 'crates/ai-usage-plugins/src/host_api.rs'), 'utf8');
+const nativeHost = fs.readFileSync(path.join(root, 'crates/usagestat-plugins/src/host_api.rs'), 'utf8');
 const utilityScript = nativeHost.slice(nativeHost.indexOf('fn inject_utils(')).match(/r#"([\s\S]*?)"#/)[1];
 
 function providerHarness(id, options = {}) {

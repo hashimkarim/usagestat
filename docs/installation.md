@@ -199,7 +199,7 @@ export PATH="$HOME/.local/bin:$PATH"
 For development from the current checkout, use the separate
 [dev installer](../README.md#development). Its commands are named
 `usagestat-dev` and `usagestatd-dev`, with a separate config/data profile.
-`cargo install --path crates/ai-usage-cli` alone installs only the CLI and omits
+`cargo install --path crates/usagestat-cli` alone installs only the CLI and omits
 the daemon and bundled plugin resources.
 
 ## Verify and start

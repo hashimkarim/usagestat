@@ -6,7 +6,7 @@ license.workspace = true
 description = "Internal Windows background launcher for usagestatd"
 
 [dependencies]
-usagestat-core = { path = "../ai-usage-core" }
+usagestat-core = { path = "../usagestat-core" }
 
 [target.'cfg(windows)'.dependencies]
 windows = { version = "0.62", features = ["Win32_System_JobObjects", "Win32_System_Threading", "Win32_Security", "Win32_Foundation"] }

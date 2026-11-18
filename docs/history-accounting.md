@@ -142,7 +142,7 @@ Local `costSource: "api-rate-estimate"` values use standard API rates verified o
 2026-09-27, with Sonnet 5.5 added from its published rates on 2026-09-29.
 GPT-6.1 Sol was added from its official model page on 2026-11-15.
 The rate schedule and its verification date live in
-[`pricing.rs`](../crates/ai-usage-daemon/src/pricing.rs). Price upgrades repair
+[`pricing.rs`](../crates/usagestat-daemon/src/pricing.rs). Price upgrades repair
 cached request estimates without discarding token counters. Compacted Claude
 summaries affected by new rates are replayed from their original logs because
 prompt tiers must be applied before aggregation. Retained daily rows whose logs
@@ -197,7 +197,7 @@ count, or subscription allowance alone cannot establish token cost.
 ```sh
 cargo test -p usagestat-core -p usagestat-daemon
 cargo build -p usagestat-daemon
-node --test crates/ai-usage-daemon/tests/*.test.cjs
+node --test crates/usagestat-daemon/tests/*.test.cjs
 ```
 
 The HTTP integration test uses synthetic transcripts and an isolated daemon

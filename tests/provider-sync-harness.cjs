@@ -4,7 +4,7 @@ const vm = require("node:vm");
 const { createHash } = require("node:crypto");
 
 const ROOT = path.resolve(__dirname, "..");
-const hostSource = fs.readFileSync(path.join(ROOT, "crates/ai-usage-plugins/src/host_api.rs"), "utf8");
+const hostSource = fs.readFileSync(path.join(ROOT, "crates/usagestat-plugins/src/host_api.rs"), "utf8");
 // Run the shipped JS helpers so fixture tests catch host/plugin contract mismatches.
 const utilityScript = hostSource.match(/fn inject_utils[\s\S]*?r#"([\s\S]*?)"#/)[1];
 const NOW = "2026-09-05T12:00:00Z";
@@ -88,7 +88,7 @@ function load(id, options = {}) {
   }
   const sandbox = vm.createContext({ __usagestat_ctx: ctx, __OPENUSAGE_PLUGIN_REGISTRATION_ID__: id, Date: Clock });
   vm.runInContext(utilityScript, sandbox);
-  vm.runInContext(fs.readFileSync(path.join(ROOT, 'crates/ai-usage-plugins/src/bundled_provider.js'), 'utf8'), sandbox);
+  vm.runInContext(fs.readFileSync(path.join(ROOT, 'crates/usagestat-plugins/src/bundled_provider.js'), 'utf8'), sandbox);
   const manifest=JSON.parse(fs.readFileSync(path.join(ROOT,'plugins',id,'plugin.json'),'utf8'));
   vm.runInContext(fs.readFileSync(path.resolve(ROOT, "plugins", id, manifest.entry), "utf8"), sandbox, { filename: id + "/"+manifest.entry });
   const plugin = sandbox.__usagestat_plugin || sandbox.__ai_usage_plugin || sandbox.__openusage_plugin;

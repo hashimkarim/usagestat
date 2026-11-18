@@ -1,7 +1,7 @@
 # Private backend state
 
 Tracking issue: [#6](https://github.com/hashimkarim/usagestat/issues/6).
-Implementation: [`usagestat-core::storage`](../crates/ai-usage-core/src/storage.rs).
+Implementation: [`usagestat-core::storage`](../crates/usagestat-core/src/storage.rs).
 
 All backend-produced state files use shared private storage: management keys,
 daemon settings and environment/unit files, snapshot cache, daily usage,

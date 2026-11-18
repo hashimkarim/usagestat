@@ -1,11 +1,11 @@
 [workspace]
 resolver = "2"
 members = [
-    "crates/ai-usage-core",
-    "crates/ai-usage-plugins",
-    "crates/ai-usage-cli",
-    "crates/ai-usage-daemon",
-    "crates/ai-usage-service",
+    "crates/usagestat-core",
+    "crates/usagestat-plugins",
+    "crates/usagestat-cli",
+    "crates/usagestat-daemon",
+    "crates/usagestat-service",
 ]
 
 [workspace.package]

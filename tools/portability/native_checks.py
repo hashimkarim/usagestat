@@ -77,7 +77,7 @@ def main() -> int:
             suffix = ".exe" if os.name == "nt" else ""
             env["USAGESTAT_TEST_CLI"] = str(target_dir / args.target / "debug" / ("usagestat" + suffix))
             env["USAGESTAT_TEST_DAEMON"] = str(target_dir / args.target / "debug" / ("usagestatd" + suffix))
-            node_tests = sorted(ROOT.glob("tests/*.test.cjs")) + sorted(ROOT.glob("crates/ai-usage-daemon/tests/*.test.cjs")) + sorted(ROOT.glob("npm/*.test.cjs"))
+            node_tests = sorted(ROOT.glob("tests/*.test.cjs")) + sorted(ROOT.glob("crates/usagestat-daemon/tests/*.test.cjs")) + sorted(ROOT.glob("npm/*.test.cjs"))
             if node_tests:
                 # Expand here: Windows subprocess does not expand shell globs.
                 command("node-tests", ["node", "--test", *[str(path) for path in node_tests]])

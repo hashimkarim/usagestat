@@ -34,7 +34,7 @@ jobs:
         run: rustup default 1.89.0
       - name: Build daemon for HTTP integration tests
         run: cargo build --locked -p usagestat-daemon
-      - run: node --test crates/ai-usage-daemon/tests/*.test.cjs
+      - run: node --test crates/usagestat-daemon/tests/*.test.cjs
       - name: Test owned service update synchronization
         run: |
           python3 -m unittest discover -s tools/updates -p 'test_*.py' -v

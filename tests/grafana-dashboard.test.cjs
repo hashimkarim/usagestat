@@ -5,7 +5,7 @@ const path = require('node:path');
 
 const root = path.join(__dirname, '..');
 const dashboard = JSON.parse(fs.readFileSync(path.join(root, 'docs/grafana/usagestat-dashboard.json'), 'utf8'));
-const exporter = fs.readFileSync(path.join(root, 'crates/ai-usage-daemon/src/prometheus.rs'), 'utf8');
+const exporter = fs.readFileSync(path.join(root, 'crates/usagestat-daemon/src/prometheus.rs'), 'utf8');
 
 // Metric families the exporter declares with "# TYPE <name> gauge".
 const exported = new Set([...exporter.matchAll(/# TYPE (usagestat_\w+) /g)].map(match => match[1]));

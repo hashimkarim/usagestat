@@ -1,7 +1,7 @@
 # Native helper execution
 
 Tracking issue: [#5](https://github.com/Hashim-K/usagestat/issues/5).
-Implementation: [`usagestat-core::process`](../crates/ai-usage-core/src/process.rs).
+Implementation: [`usagestat-core::process`](../crates/usagestat-core/src/process.rs).
 
 ## Discovery and arguments
 

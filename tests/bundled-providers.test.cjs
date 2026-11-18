@@ -136,7 +136,7 @@ test('HTTP failures neither leak bodies/credentials nor retry a rate limit', asy
 });
 
 test('adapter blocks off-origin requests before attaching provider credentials', async () => {
-  const script = fs.readFileSync(path.join(ROOT, 'crates/ai-usage-plugins/src/bundled_provider.js'), 'utf8');
+  const script = fs.readFileSync(path.join(ROOT, 'crates/usagestat-plugins/src/bundled_provider.js'), 'utf8');
   const app = load('atlascloud', {provider: {apiKey: 'secret-fixture'}});
   const sandbox = vm.createContext({});
   vm.runInContext(script + `\ndefineProvider({id:'test', name:'Test', endpoints:['https://good.example'],

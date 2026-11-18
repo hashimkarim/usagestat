@@ -75,7 +75,7 @@ for ident in SYNC_PROVIDERS:
     ])
 for ident in ['codex', 'command-code', 'elevenlabs', 'kiro', 'minimax', 'moonshot', 'openrouter', 'poe']:
     FIXTURES.setdefault(ident, []).append('tests/codex-auth.test.cjs' if ident == 'codex' else 'tests/inspo-sync-20260909.test.cjs')
-FIXTURES['codex'] = list(dict.fromkeys(FIXTURES['codex'] + ['crates/ai-usage-daemon/src/codex_usage.rs']))
+FIXTURES['codex'] = list(dict.fromkeys(FIXTURES['codex'] + ['crates/usagestat-daemon/src/codex_usage.rs']))
 FIXTURES.setdefault('kimi', []).append('tests/kimi-updates.test.cjs')
 NOTES['factory'] = 'Configured API keys and manual web credentials are implemented; legacy file/keychain paths remain. V2 encrypted files still require absent AES-GCM host methods; real auth formats/account selection are unverified.'
 NOTES['droid'] = 'Aliases Factory API/manual-web and legacy auth code; v2 encrypted files still require absent AES-GCM host methods. Live credentials remain unverified.'
@@ -95,8 +95,8 @@ for ident in ['muse', 'museai', 'lithosai', 'workbuddy', 'opencode-go']:
 NOTES['museai'] = 'Separate muse.ai web provider; bounded action discovery and instance-local public action ID caching. Manual cookies only; weekly percentages and reported top-ups remain separate. Real sessions unverified.'
 NOTES['lithosai'] = 'Instance-bound manual session plus same-origin CSRF echo on three permitted console routes. Signed prepaid balance and optional UTC spend; no fabricated quota. Rust/QuickJS and synthetic fixtures only; real sessions unverified.'
 NOTES['workbuddy'] = 'Instance-bound manual cookie requests on three permitted billing routes, with the full cookie-owning browser User-Agent configured in dashboard setup. Credit balance and optional China cycle reset. No automatic browser/desktop credential import; live sessions unverified.'
-FIXTURES['lithosai'].extend(['crates/ai-usage-plugins/src/cookie_sessions.rs','crates/ai-usage-plugins/src/runtime.rs'])
-FIXTURES['workbuddy'].extend(['crates/ai-usage-plugins/src/cookie_sessions.rs','crates/ai-usage-plugins/src/runtime.rs'])
+FIXTURES['lithosai'].extend(['crates/usagestat-plugins/src/cookie_sessions.rs','crates/usagestat-plugins/src/runtime.rs'])
+FIXTURES['workbuddy'].extend(['crates/usagestat-plugins/src/cookie_sessions.rs','crates/usagestat-plugins/src/runtime.rs'])
 for ident in ['claude', 'codex', 'deepseek', 'devin', 'clinepass', 'command-code', 'litellm', 'mistral', 'venice', 'pi', 'coderabbit', 'gemini-apps']:
     FIXTURES.setdefault(ident, []).append('tests/inspo-sync-20260927.test.cjs')
 NOTES['pi'] = 'Bounded local Pi/OMP transcript collection, profile isolation and partial/unpriced history fixtures. Only explicitly recognized historical model prices are estimated; full model coverage and process discovery are pending.'
@@ -117,10 +117,10 @@ NOTES['typesafe'] += ' Cookie billing may be blocked by Cloudflare; challenge fi
 for ident in BUNDLED | {'qwencloud','claude','codex','cursor','cursor-nightly','ollama','opencode-go','antigravity','antigravity-cli','antigravity-ide','xai'}:
     FIXTURES.setdefault(ident, []).append('tests/provider-inspo-20261026.test.cjs')
 for ident in {'claudeplatform','langdock','xapi','gemini-apps','qwencloud'}:
-    FIXTURES.setdefault(ident, []).append('crates/ai-usage-plugins/src/cookie_sessions.rs')
+    FIXTURES.setdefault(ident, []).append('crates/usagestat-plugins/src/cookie_sessions.rs')
     NOTES[ident] = NOTES.get(ident, '') + ' Manual cookie injection is native, instance-bound and restricted to reviewed HTTPS routes; automatic browser import and live acceptance are unverified.'
 for ident in ['cursor','cursor-nightly']:
-    FIXTURES[ident].append('crates/ai-usage-plugins/src/cursor_usage_export/events.rs')
+    FIXTURES[ident].append('crates/usagestat-plugins/src/cursor_usage_export/events.rs')
     NOTES[ident] += ' Event history accepts complete pages of billed charges, scopes private derived caches to account/profile/timezone, and falls back to CSV when evidence is incomplete.'
 NOTES['kimi'] += ' Current ratio pools and expiring gift credits are covered by tests/provider-inspo-20261026.test.cjs; exhausted monthly pools retain primary precedence.'
 NOTES['qwencloud'] += ' Individual subscription and explicit team Token Plan sources share the existing identity; empty team results do not fall back to another billing source.'

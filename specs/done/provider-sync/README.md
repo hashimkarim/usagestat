@@ -56,7 +56,7 @@ replacement for UsageStat's collectors. Price tables require primary provider
 verification and are not copied from reference estimates. Automatic reset claims,
 sign-in switching and desktop UI machinery remain outside this provider sync.
 
-The implementation lives in `crates/ai-usage-plugins/src/bundled_provider.js`,
+The implementation lives in `crates/usagestat-plugins/src/bundled_provider.js`,
 `cookie_sessions.rs`, `cursor_usage_export.rs`, `cursor_usage_export/events.rs`
 and the existing provider entries.
 `tests/provider-inspo-20261026.test.cjs` exercises the shipped entries, while

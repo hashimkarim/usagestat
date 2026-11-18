@@ -616,7 +616,7 @@
       "fixtures": [
         "tests/bundled-providers.test.cjs",
         "tests/provider-inspo-20261026.test.cjs",
-        "crates/ai-usage-plugins/src/cookie_sessions.rs"
+        "crates/usagestat-plugins/src/cookie_sessions.rs"
       ],
       "auditNote": "Vendored CodexBar provider with a bounded native asynchronous host adapter and explicit credential/endpoint routing. Disabled by default. Adapter fixtures do not qualify real credentials, browser import, or every optional upstream workflow; cache TTL is not persisted. Manual cookie injection is native, instance-bound and restricted to reviewed HTTPS routes; automatic browser import and live acceptance are unverified."
     },
@@ -828,7 +828,7 @@
         "tests/codex-auth.test.cjs",
         "tools/portability/codex_auth.py",
         "tools/portability/local_usage.py",
-        "crates/ai-usage-daemon/src/codex_usage.rs",
+        "crates/usagestat-daemon/src/codex_usage.rs",
         "tests/inspo-sync-20260927.test.cjs",
         "tests/provider-inspo-20261026.test.cjs"
       ],
@@ -1037,7 +1037,7 @@
         "tests/provider-updates.test.cjs",
         "tests/quota-regressions.test.cjs",
         "tests/provider-inspo-20261026.test.cjs",
-        "crates/ai-usage-plugins/src/cursor_usage_export/events.rs"
+        "crates/usagestat-plugins/src/cursor_usage_export/events.rs"
       ],
       "auditNote": "Native DB resolver and stable/custom-profile isolation. Shared CLI fallback only for default stable profile; SQLite refresh writeback capability needs audit. Event history accepts complete pages of billed charges, scopes private derived caches to account/profile/timezone, and falls back to CSV when evidence is incomplete."
     },
@@ -1088,7 +1088,7 @@
         "tests/provider-updates.test.cjs",
         "tests/quota-regressions.test.cjs",
         "tests/provider-inspo-20261026.test.cjs",
-        "crates/ai-usage-plugins/src/cursor_usage_export/events.rs"
+        "crates/usagestat-plugins/src/cursor_usage_export/events.rs"
       ],
       "auditNote": "Separate native DB and override; shared stable CLI auth/history excluded. SQLite refresh writeback capability needs audit. Event history accepts complete pages of billed charges, scopes private derived caches to account/profile/timezone, and falls back to CSV when evidence is incomplete."
     },
@@ -1609,7 +1609,7 @@
         "tests/bundled-providers.test.cjs",
         "tests/inspo-sync-20260927.test.cjs",
         "tests/provider-inspo-20261026.test.cjs",
-        "crates/ai-usage-plugins/src/cookie_sessions.rs"
+        "crates/usagestat-plugins/src/cookie_sessions.rs"
       ],
       "auditNote": "Manual instance-scoped opaque cookie session on the permitted Gemini GraphQL usage route. Stable provider identity and GEMINI_COOKIE alias preserved. Browser-bound live sessions remain unverified. Manual cookie injection is native, instance-bound and restricted to reviewed HTTPS routes; automatic browser import and live acceptance are unverified."
     },
@@ -2048,7 +2048,7 @@
       "fixtures": [
         "tests/bundled-providers.test.cjs",
         "tests/provider-inspo-20261026.test.cjs",
-        "crates/ai-usage-plugins/src/cookie_sessions.rs"
+        "crates/usagestat-plugins/src/cookie_sessions.rs"
       ],
       "auditNote": "Vendored CodexBar provider with a bounded native asynchronous host adapter and explicit credential/endpoint routing. Disabled by default. Adapter fixtures do not qualify real credentials, browser import, or every optional upstream workflow; cache TTL is not persisted. Manual cookie injection is native, instance-bound and restricted to reviewed HTTPS routes; automatic browser import and live acceptance are unverified."
     },
@@ -2135,8 +2135,8 @@
       "fixtures": [
         "tests/bundled-providers.test.cjs",
         "tests/provider-inspo-20261004.test.cjs",
-        "crates/ai-usage-plugins/src/cookie_sessions.rs",
-        "crates/ai-usage-plugins/src/runtime.rs",
+        "crates/usagestat-plugins/src/cookie_sessions.rs",
+        "crates/usagestat-plugins/src/runtime.rs",
         "tests/provider-inspo-20261026.test.cjs"
       ],
       "auditNote": "Instance-bound manual session plus same-origin CSRF echo on three permitted console routes. Signed prepaid balance and optional UTC spend; no fabricated quota. Rust/QuickJS and synthetic fixtures only; real sessions unverified."
@@ -2934,7 +2934,7 @@
         "tests/provider-updates.test.cjs",
         "tests/quota-regressions.test.cjs",
         "tests/provider-inspo-20261026.test.cjs",
-        "crates/ai-usage-plugins/src/cookie_sessions.rs"
+        "crates/usagestat-plugins/src/cookie_sessions.rs"
       ],
       "auditNote": " Manual cookie injection is native, instance-bound and restricted to reviewed HTTPS routes; automatic browser import and live acceptance are unverified. Individual subscription and explicit team Token Plan sources share the existing identity; empty team results do not fall back to another billing source."
     },
@@ -3632,8 +3632,8 @@
       "fixtures": [
         "tests/bundled-providers.test.cjs",
         "tests/provider-inspo-20261004.test.cjs",
-        "crates/ai-usage-plugins/src/cookie_sessions.rs",
-        "crates/ai-usage-plugins/src/runtime.rs",
+        "crates/usagestat-plugins/src/cookie_sessions.rs",
+        "crates/usagestat-plugins/src/runtime.rs",
         "tests/provider-inspo-20261026.test.cjs"
       ],
       "auditNote": "Instance-bound manual cookie requests on three permitted billing routes, with the full cookie-owning browser User-Agent configured in dashboard setup. Credit balance and optional China cycle reset. No automatic browser/desktop credential import; live sessions unverified."
@@ -3695,7 +3695,7 @@
       "fixtures": [
         "tests/bundled-providers.test.cjs",
         "tests/provider-inspo-20261026.test.cjs",
-        "crates/ai-usage-plugins/src/cookie_sessions.rs"
+        "crates/usagestat-plugins/src/cookie_sessions.rs"
       ],
       "auditNote": "Vendored CodexBar provider with a bounded native asynchronous host adapter and explicit credential/endpoint routing. Disabled by default. Adapter fixtures do not qualify real credentials, browser import, or every optional upstream workflow; cache TTL is not persisted. Manual cookie injection is native, instance-bound and restricted to reviewed HTTPS routes; automatic browser import and live acceptance are unverified."
     },

@@ -2,7 +2,7 @@
 
 [`usagestat-dashboard.json`](usagestat-dashboard.json) charts the daemon's
 Prometheus endpoint (`GET /metrics`, see
-[`prometheus.rs`](../../crates/ai-usage-daemon/src/prometheus.rs)):
+[`prometheus.rs`](../../crates/usagestat-daemon/src/prometheus.rs)):
 
 | Metric | Labels | Meaning |
 | --- | --- | --- |

@@ -13,8 +13,8 @@ name = "usagestat"
 path = "src/main.rs"
 
 [dependencies]
-usagestat-core = { path = "../ai-usage-core" }
-usagestat-plugins = { path = "../ai-usage-plugins" }
+usagestat-core = { path = "../usagestat-core" }
+usagestat-plugins = { path = "../usagestat-plugins" }
 anyhow.workspace = true
 aes.workspace = true
 cbc.workspace = true
