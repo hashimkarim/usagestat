@@ -10,6 +10,7 @@
 - Add CSV export to Cost History and Usage History, matching each chart's span and grouping. Exported text that a spreadsheet would run as a formula is kept inert.
 - Add `usagestat statusline`: one line of quotas, reset times and today's cost from the running daemon, for Claude Code and other agent statuslines.
 - Add Projects and Hours panels to provider tabs: cost per project, and usage by hour of day and weekday in local time. The local log cache now keeps hourly detail (cache v10, rebuilt once from logs).
+- Add Gemini CLI and Amp local log sources for token and cost history, alongside Claude Code and Codex. Gemini models stay unpriced until rates are verified. Startup at login keeps `GEMINI_DATA_DIR`, `GEMINI_CLI_HOME` and `AMP_DATA_DIR`.
 - Add event hooks: `[[hooks]]` in `config.toml` runs a command or sends a webhook POST when a quota crosses a threshold, resets, or a provider starts failing or recovers. `usagestat hooks test <event>` sends a sample payload. See [docs/cli.md](docs/cli.md#event-hooks).
 - Add optional combined overview cards for several accounts of the same provider, and an Image button that saves a local PNG summary.
 - Collection settings saves now edit `config.toml` in place, keeping key order and comments.
