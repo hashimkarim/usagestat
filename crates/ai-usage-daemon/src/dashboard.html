@@ -1171,7 +1171,8 @@ function combinedCardHtml(group){
   const topP = top ? pct(top.m) : null;
   let html = `<div class="card combined-card" style="--accent:${topP!=null?barCol(topP):'#484f58'}">`;
   html+=`<div class="card-head"><div class="card-meta"><div class="card-name"><span data-card-component="logo">${providerIcon(base)}</span><span data-card-component="name">${esc(S.allProviders.find(p=>p.id===base)?.name||providerName(group[0].providerId))}</span></div>`;
-  html+=`<div class="card-tags"><span class="badge">${group.length} accounts</span></div></div>`;
+  // Accounts share the provider's status page; show its badge once.
+  html+=`<div class="card-tags"><span class="badge">${group.length} accounts</span>${[...new Set(group.map(s=>incidentBadgeHtml(s.providerId)).filter(Boolean))].join('')}</div></div>`;
   if(topP!=null) html+=arcSvg(displayPct(topP),barCol(topP),snapshotDetail(top.s,top.m));
   html+=`</div><div class="card-body">`;
   let cost = 0, tokens = 0;
