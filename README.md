@@ -415,6 +415,8 @@ Endpoints in the source checkout:
 - `GET /v1/providers`
 - `GET /v1/usage`
 - `GET /v1/usage/:providerId`
+- `GET /v1/status` ([provider incident status](docs/provider-status.md))
+- `GET /metrics` (Prometheus; see the [Grafana dashboard](docs/grafana/README.md))
 - `GET /v0/management/quota-scheduler/status` (opt-in, management key required)
 
 See [CLI documentation](docs/cli.md) for usage/history exports and daemon controls.

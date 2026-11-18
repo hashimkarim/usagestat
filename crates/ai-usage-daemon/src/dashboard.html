@@ -291,6 +291,11 @@ header{
 .b-cli  {color:var(--yellow);border-color:color-mix(in srgb,var(--yellow) 45%,transparent);background:color-mix(in srgb,var(--yellow) 10%,transparent)}
 .b-local{color:var(--mu);   border-color:color-mix(in srgb,var(--mu) 30%,transparent);background:transparent}
 .b-error{color:var(--red);  border-color:rgba(248,81,73,.4); background:rgba(248,81,73,.08)}
+.b-incident{text-decoration:none}
+.b-incident-minor{color:var(--yellow);border-color:color-mix(in srgb,var(--yellow) 45%,transparent);background:color-mix(in srgb,var(--yellow) 10%,transparent)}
+.b-incident-major{color:var(--orange);border-color:color-mix(in srgb,var(--orange) 45%,transparent);background:color-mix(in srgb,var(--orange) 10%,transparent)}
+.b-incident-critical{color:var(--red);border-color:rgba(248,81,73,.5);background:rgba(248,81,73,.12)}
+.b-incident-maintenance{color:var(--teal);border-color:color-mix(in srgb,var(--teal) 45%,transparent);background:color-mix(in srgb,var(--teal) 10%,transparent)}
 .plan-tag{font:11px var(--mono);color:var(--mu);padding:2px 6px;border:1px solid var(--bd);border-radius:4px}
 
 /* arc */
@@ -922,6 +927,7 @@ async function load(){
     S.snapshots = usage;
     S.allProviders=providers;
     S.providers = providers.filter(p=>p.enabled);
+    S.status = await fetchProviderStatus();
     if(!S.iconCatalog)try{S.iconCatalog=await fetch('/v1/icon-catalog').then(r=>r.ok?r.json():null);}catch{}
     if(daily && !daily.error && (Array.isArray(daily)||Array.isArray(daily.daily)))S.dailyRows = normalizeDailyRows(daily);
     S.dailyError = !daily || !!daily.error || !(Array.isArray(daily) || Array.isArray(daily.daily));
@@ -1100,6 +1106,7 @@ function renderOverview(){
     if(isErr)html+=`<span class="badge">Usage unavailable · ${esc(s.state||'failed')}</span>`;
     if(s.source) html+=`<span class="${srcCls(s.source)}">${esc(s.source)}</span>`;
     if(s.plan)   html+=`<span class="plan-tag">${esc(s.plan)}</span>`;
+    html+=incidentBadgeHtml(s.providerId);
     html+=`</div></div>`;
     if(primP!=null) html+=arcSvg(displayPct(primP),barCol(primP),snapshotDetail(s,primM));
     html+=`</div><div class="card-body">`;
@@ -2732,6 +2739,7 @@ async function renderProvider(id){
   if(snapshotHasError(snap))html+=`<span class="badge">Usage unavailable · ${esc(snap.state||'failed')}</span>`;
   if(snap.source) html+=`<span class="${srcCls(snap.source)}">${esc(snap.source)}</span>`;
   if(snap.plan)   html+=`<span class="plan-tag">${esc(snap.plan)}</span>`;
+  html+=incidentBadgeHtml(id);
   if(safeWebUrl(snap.statusPageUrl)&&S.prefs.showStatusLinks) html+=`<a class="slink" style="font-size:12px" href="${esc(snap.statusPageUrl)}" target="_blank" rel="noreferrer"><svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="5" cy="5" r="3.5"/><circle cx="5" cy="5" r="1.2"/></svg>${esc(new URL(snap.statusPageUrl).hostname)}</a>`;
   if(S.prefs.showDashboardLinks){const provider=(S.allProviders||S.providers).find(p=>p.id===id),link=safeWebUrl(provider?.usageDashboardUrl||provider?.webUrl);if(link)html+=`<a class="slink" href="${esc(link)}" target="_blank" rel="noreferrer">provider usage ↗</a>`;}
   html+=`</div></div>`;
@@ -4096,6 +4104,24 @@ function pct(m){return m.limit>0?Math.min(m.used/m.limit*100,100):0}
 function pillCls(c){return'pill '+({'green':'pill-green','red':'pill-red','blue':'pill-blue','yellow':'pill-yellow','orange':'pill-orange'}[c]||'')}
 function srcCls(s){return'badge b-'+({'oauth':'oauth','web':'web','api':'api','cli':'cli','local':'local','error':'error'}[s]||'local')}
 function safeWebUrl(value){if(typeof value!=='string'||!/^https?:\/\//i.test(value))return null;try{return /^https?:$/.test(new URL(value).protocol)?value:null;}catch{return null;}}
+
+// ── provider incident status (GET /v1/status) ─────────────────────────────────
+// Older daemons lack the route; any failure simply hides the badges.
+async function fetchProviderStatus(){
+  try{const response=await fetch('/v1/status');if(!response.ok)return null;const rows=await response.json();return Array.isArray(rows)?rows:null;}catch{return null;}
+}
+const INCIDENT_BADGES={minor:'Minor incident',major:'Major outage',critical:'Critical outage',maintenance:'Maintenance'};
+function incidentBadgeHtml(providerId){
+  const row=Array.isArray(S.status)?S.status.find(r=>r&&r.providerId===providerId):null;
+  if(!row||row.monitored!==true||typeof row.indicator!=='string'||!Object.hasOwn(INCIDENT_BADGES,row.indicator))return'';
+  const names=(Array.isArray(row.incidents)?row.incidents:[]).map(i=>i?.name).filter(n=>typeof n==='string'&&n);
+  let title=[row.description,...names].filter(t=>typeof t==='string'&&t).join(' · ');
+  if(row.state==='stale')title+=' (last known status)';
+  const href=safeWebUrl(row.statusPageUrl),label=esc(INCIDENT_BADGES[row.indicator]),cls=`badge b-incident b-incident-${row.indicator}`;
+  return href
+    ?`<a class="${cls}" href="${esc(href)}" target="_blank" rel="noreferrer" title="${esc(title)}">${label}</a>`
+    :`<span class="${cls}" title="${esc(title)}">${label}</span>`;
+}
 
 function fmtMetric(m){
   const k=m.format?.kind;

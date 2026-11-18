@@ -56,6 +56,13 @@ services. Custom commands execute with your OS account's permissions. Additional
 plugins can access the host capabilities you grant them, including files,
 processes, credential stores and network requests. Install only code you trust.
 
+The daemon also reads public incident status for enabled providers whose
+status page is a verified Statuspage.io site (for example status.claude.com or
+status.openai.com). These are anonymous HTTPS GET requests with no credentials,
+cookies or account details, made at most every five minutes per status host;
+the status host sees only normal connection information such as your IP
+address. Set `USAGESTAT_STATUS_CHECKS=0` to disable them.
+
 UsageStat does not upload local transcripts to the maintainer. If you explicitly
 configure SDK run ingestion and forwarding, accepted usage records are stored
 locally and forwarded to the destination you choose. Those records can include

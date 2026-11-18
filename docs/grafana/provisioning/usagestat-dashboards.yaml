@@ -1,0 +1,13 @@
+# Grafana dashboard provider for the bundled UsageStat dashboard.
+# Copy to /etc/grafana/provisioning/dashboards/ and put
+# usagestat-dashboard.json in the `path` directory below.
+apiVersion: 1
+providers:
+  - name: usagestat
+    folder: UsageStat
+    type: file
+    disableDeletion: false
+    allowUiUpdates: true
+    updateIntervalSeconds: 60
+    options:
+      path: /var/lib/grafana/dashboards/usagestat
