@@ -34,6 +34,7 @@ mod pricing;
 mod prometheus;
 mod run_usage;
 mod settings;
+mod status_monitor;
 use usagestat_core::usage_daily::UsageModelDaily as ModelAggregate;
 
 #[derive(Debug, Parser)]
@@ -81,6 +82,7 @@ struct AppState {
     identity: Option<JsonValue>,
     control: control::ControlApi,
     settings: Option<Arc<settings::SettingsApi>>,
+    status: status_monitor::StatusMonitor,
 }
 
 fn main() -> Result<()> {
@@ -160,6 +162,7 @@ fn main() -> Result<()> {
         })),
         control,
         settings: None,
+        status: status_monitor::StatusMonitor::default(),
     }));
     let refresh_flag = Arc::new(AtomicBool::new(false));
 
@@ -202,6 +205,7 @@ fn main() -> Result<()> {
     // Ingestion-only services (--no-poll) never read provider logs.
     if !cli.no_poll {
         start_usage_summarizer(Arc::clone(&state), Arc::clone(&shutdown));
+        start_status_poller(Arc::clone(&state), Arc::clone(&shutdown));
     }
     let result = serve(
         listener,
@@ -252,6 +256,48 @@ fn start_usage_summarizer(state: Arc<Mutex<AppState>>, shutdown: Arc<AtomicBool>
                 }
             }
             for _ in 0..if providers.is_empty() { 1 } else { 60 } {
+                if shutdown.load(Ordering::Relaxed) {
+                    return;
+                }
+                thread::sleep(Duration::from_secs(1));
+            }
+        }
+    });
+}
+
+/// Polls public incident status for enabled providers' Statuspage sites.
+/// Detached like the summarizer so a slow status host never delays shutdown.
+fn start_status_poller(state: Arc<Mutex<AppState>>, shutdown: Arc<AtomicBool>) {
+    if !state.lock().expect("app state poisoned").status.enabled() {
+        return;
+    }
+    let Some(client) = status_monitor::client() else {
+        log::warn!("provider status client is unavailable; incident status is disabled");
+        return;
+    };
+    thread::spawn(move || {
+        while !shutdown.load(Ordering::Relaxed) {
+            let due = {
+                let mut guard = state.lock().expect("app state poisoned");
+                let wanted = guard.status.wanted_origins(&guard.providers);
+                guard.status.due(&wanted, Utc::now())
+            };
+            for origin in due {
+                if shutdown.load(Ordering::Relaxed) {
+                    return;
+                }
+                // Never hold the state lock across the request.
+                let result = status_monitor::fetch(&client, origin);
+                if let Err(error) = &result {
+                    log::debug!("provider status {origin} unavailable: {error}");
+                }
+                state
+                    .lock()
+                    .expect("app state poisoned")
+                    .status
+                    .record(origin, result, Utc::now());
+            }
+            for _ in 0..30 {
                 if shutdown.load(Ordering::Relaxed) {
                     return;
                 }
@@ -593,6 +639,13 @@ fn route(
         let guard = state.lock().expect("app state poisoned");
         let snapshots = ordered_snapshots(&guard);
         let body = serde_json::to_string(&snapshots).unwrap_or_else(|_| "[]".into());
+        return response_json(200, "OK", &body);
+    }
+
+    if path == "/v1/status" {
+        let guard = state.lock().expect("app state poisoned");
+        let body = serde_json::to_string(&guard.status.report(&guard.providers))
+            .unwrap_or_else(|_| "[]".into());
         return response_json(200, "OK", &body);
     }
 
