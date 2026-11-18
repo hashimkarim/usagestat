@@ -1219,6 +1219,9 @@ function renderOverviewControls(){
     <button class="action-btn" type="button" id="exportQuota">
       <svg viewBox="0 0 16 16"><path d="M8 2v7"/><path d="M5 6l3 3 3-3"/><path d="M3 13h10"/></svg>Quota CSV
     </button>
+    <button class="action-btn" type="button" id="shareImage" title="Save a PNG summary of visible providers">
+      <svg viewBox="0 0 16 16"><rect x="2" y="3" width="12" height="10" rx="1.5"/><path d="M2 11l3.5-3 3 2.5L11 8l3 3"/></svg>Image
+    </button>
     <button class="action-btn" type="button" id="exportJson">
       <svg viewBox="0 0 16 16"><path d="M8 2v7"/><path d="M5 6l3 3 3-3"/><path d="M3 13h10"/></svg>JSON
     </button>
@@ -1254,6 +1257,7 @@ function renderOverviewControls(){
   el.querySelector('#exportDaily')?.addEventListener('click', exportDailyCsv);
   el.querySelector('#exportQuota')?.addEventListener('click', exportQuotaCsv);
   el.querySelector('#exportJson')?.addEventListener('click', exportDashboardJson);
+  el.querySelector('#shareImage')?.addEventListener('click', shareSummaryImage);
   el.querySelector('#exportPrefs')?.addEventListener('click', exportPreferences);
   el.querySelector('#importPrefs')?.addEventListener('click', ()=>document.getElementById('prefs-file').click());
 }
@@ -2262,6 +2266,49 @@ function exportDashboardJson(){
     dailyRows:S.dailyRows,
   }, null, 2);
   downloadText(`usagestat-dashboard-${dateKey(todayUtcDate())}.json`, body, 'application/json;charset=utf-8');
+}
+
+// Rows for the share image: visible providers' primary quota and 30-day spend.
+function shareSummaryRows(){
+  return visibleSnapshots().filter(s=>!snapshotHasError(s)).slice(0,6).map(s=>{
+    const m = UsageDashboardSettings.primary(s,S.prefs), roll = providerWindowTotals(s.providerId,30);
+    return {name:providerName(s.providerId), label:m?.label||'', percent:m?pct(m):null, cost:roll.cost, tokens:roll.totalTokens};
+  });
+}
+// Draws locally on a canvas; nothing is uploaded. Copies to the clipboard when allowed.
+async function shareSummaryImage(){
+  const W=1200, H=630, css=getComputedStyle(document.documentElement), v=(name,fallback)=>css.getPropertyValue(name).trim()||fallback;
+  const canvas=document.createElement('canvas'); canvas.width=W; canvas.height=H;
+  const g=canvas.getContext('2d'); if(!g) return;
+  const font=v('--sans','system-ui, sans-serif'), mono=v('--mono','monospace');
+  g.fillStyle=v('--bg','#23283d'); g.fillRect(0,0,W,H);
+  g.fillStyle=v('--s0','#1e2233'); g.beginPath(); g.roundRect(40,40,W-80,H-80,18); g.fill();
+  g.fillStyle=v('--blue','#7289da'); [[76,96,8,22],[88,86,8,32],[100,76,8,42]].forEach(([x,y,w,h])=>g.fillRect(x,y,w,h));
+  g.fillStyle=v('--hi','#fff'); g.font=`700 30px ${font}`; g.fillText('usagestat',124,112);
+  g.fillStyle=v('--mu','#b9bbbe'); g.font=`18px ${font}`;
+  const today=new Date().toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'});
+  g.fillText(today,W-80-g.measureText(today).width,112);
+  const rows=shareSummaryRows(); let y=170;
+  for(const r of rows){
+    g.fillStyle=v('--hi','#fff'); g.font=`600 22px ${font}`; g.fillText(r.name.slice(0,28),76,y+8);
+    g.fillStyle=v('--su','#8e9297'); g.font=`15px ${font}`; g.fillText(r.label.slice(0,24),76,y+32);
+    if(r.percent!=null){
+      g.fillStyle=v('--s2','#101320'); g.beginPath(); g.roundRect(440,y-6,420,14,7); g.fill();
+      if(r.percent>0){ g.fillStyle=barCol(r.percent); g.beginPath(); g.roundRect(440,y-6,Math.max(14,420*Math.min(100,r.percent)/100),14,7); g.fill(); }
+      g.fillStyle=v('--hi','#fff'); g.font=`700 22px ${mono}`; g.fillText(`${r.percent.toFixed(0)}%`,880,y+8);
+    }
+    g.fillStyle=v('--mu','#b9bbbe'); g.font=`18px ${mono}`;
+    const cost=r.cost>0?fmtUsd(r.cost):'—'; g.fillText(cost,W-80-g.measureText(cost).width-20,y+8);
+    y+=64;
+  }
+  const spend=spendStatus(S.dailyRows.filter(r=>providerSetting(r.providerId).visible));
+  g.fillStyle=v('--su','#8e9297'); g.font=`16px ${font}`;
+  g.fillText(`30-day spend per provider · month to date ${fmtUsd(spend.monthToDate)} · API-equivalent estimates`,76,H-74);
+  const blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/png'));
+  if(!blob) return;
+  const name=`usagestat-${dateKey(todayUtcDate())}.png`, url=URL.createObjectURL(blob), a=document.createElement('a');
+  a.href=url; a.download=name; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+  try{ if(navigator.clipboard?.write&&typeof ClipboardItem!=='undefined') await navigator.clipboard.write([new ClipboardItem({'image/png':blob})]); }catch{}
 }
 
 function downloadText(filename, content, type){

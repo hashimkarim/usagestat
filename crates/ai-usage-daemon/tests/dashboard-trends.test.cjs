@@ -854,3 +854,12 @@ test('combined account cards group plugin instances and show each account',()=>{
   assert.equal(settings.normalize({combineAccounts:true}).combineAccounts,true);
   assert.equal(settings.normalize({}).combineAccounts,false);
 });
+
+test('share image rows use visible providers primary quota and skip failed ones',()=>{
+  const ui=dashboard([row(today,100,7)]);
+  ui.run(`S.snapshots=[{providerId:'codex',displayName:'Codex',fetchedAt:'2026-09-06T00:00:00Z',state:'ready',metrics:[{type:'progress',label:'Weekly',used:42,limit:100,format:{kind:'percent'}}]},
+    {providerId:'broken',displayName:'Broken',fetchedAt:'2026-09-06T00:00:00Z',state:'error',source:'error',metrics:[]}];`);
+  const rows=JSON.parse(ui.run('JSON.stringify(shareSummaryRows())'));
+  assert.equal(rows.length,1);
+  assert.deepEqual(rows[0],{name:'Codex',label:'Weekly',percent:42,cost:7,tokens:100});
+});
