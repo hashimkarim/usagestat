@@ -765,7 +765,7 @@ fn write_atomic(path: &Path, contents: &str) -> Result<()> {
     Ok(())
 }
 
-fn local_client(timeout: Duration) -> Result<reqwest::blocking::Client> {
+pub(super) fn local_client(timeout: Duration) -> Result<reqwest::blocking::Client> {
     let _ = rustls::crypto::ring::default_provider().install_default();
     Ok(reqwest::blocking::Client::builder()
         .no_proxy()

@@ -4,6 +4,7 @@ mod daemon;
 mod dashboard;
 mod doctor;
 mod history;
+mod statusline;
 
 use anyhow::{Context, Result};
 use chrono::{Local, Utc};
@@ -82,6 +83,16 @@ enum Command {
         /// Print the dashboard URL without opening a browser
         #[arg(long)]
         url: bool,
+        /// Daemon address (defaults to the managed service address, then 127.0.0.1:6736)
+        #[arg(long, value_name = "ADDRESS:PORT")]
+        bind: Option<std::net::SocketAddr>,
+    },
+    /// Print a one-line quota and cost summary for agent statuslines
+    ///
+    /// Reads the running daemon only. With no provider, a Claude Code
+    /// statusline payload on stdin selects the matching provider.
+    Statusline {
+        provider_ids: Vec<String>,
         /// Daemon address (defaults to the managed service address, then 127.0.0.1:6736)
         #[arg(long, value_name = "ADDRESS:PORT")]
         bind: Option<std::net::SocketAddr>,
@@ -430,6 +441,14 @@ fn run_cli() -> Result<()> {
         Some(path) => path,
         None => paths::config_file()?,
     };
+    if let Some(Command::Statusline { provider_ids, bind }) = &cli.command {
+        return statusline::run(statusline::Options {
+            providers: provider_ids.clone(),
+            bind: *bind,
+            color: !cli.no_color && !cli.plain && std::env::var_os("NO_COLOR").is_none(),
+            json,
+        });
+    }
     if let Some(Command::Dashboard { url, bind }) = &cli.command {
         return dashboard::run(*url, *bind, json);
     }
@@ -458,7 +477,10 @@ fn run_cli() -> Result<()> {
         augment_debug: false,
         no_credits: false,
     }) {
-        Command::Doctor | Command::Daemon { .. } | Command::Dashboard { .. } => {
+        Command::Doctor
+        | Command::Daemon { .. }
+        | Command::Dashboard { .. }
+        | Command::Statusline { .. } => {
             unreachable!("daemon and dashboard commands are handled before provider discovery")
         }
         Command::Capabilities => {
@@ -704,6 +726,7 @@ fn effective_args() -> Vec<OsString> {
                 "usage"
                     | "daemon"
                     | "dashboard"
+                    | "statusline"
                     | "doctor"
                     | "capabilities"
                     | "list"

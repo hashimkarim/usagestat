@@ -203,6 +203,22 @@ stops and restarts. `usagestat daemon t3 off` disables the bridge;
 `usagestat daemon disable` stops the daemon and turns off autostart.
 See the [T3 Code setup guide](docs/t3-code.md) for supported quotas and details.
 
+### Agent statuslines
+
+`usagestat statusline` prints one line of quotas, reset times and today's cost
+from the running daemon, for example
+`Claude · Session 23% (2h54m) · Weekly 39% (42h54m) · today $317.13`.
+It never probes providers, so it is cheap to call on every prompt. For Claude
+Code, add this to `~/.claude/settings.json`; the session payload on stdin selects
+the Claude provider:
+
+```json
+{ "statusLine": { "type": "command", "command": "usagestat statusline" } }
+```
+
+Name providers to choose them explicitly (`usagestat statusline codex`), add
+`--json` for structured output, or `--no-color` to drop the 75%/90% colours.
+
 ## Providers and configuration
 
 Plugins are discovered from:
