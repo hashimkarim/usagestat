@@ -18,10 +18,12 @@
       if(setupKey)headers['X-Usagestat-Setup-Key']=setupKey;
       if(body)headers['Content-Type']='application/json';
       const response=await fetcher(path,{method,headers,cache:'no-store',credentials:'same-origin',...(body&&{body:JSON.stringify(body)})});
-      const result=await response.json();
+      const result=await response.json().catch(()=>({}));
       if(!response.ok){
+        // A current backend names why settings are off; an older one has no route.
         const error=new Error(response.status===409?'Collection settings changed in another window. Reload them before saving.':
-          response.status===404?'Collection settings require a newer local backend with dashboard setup enabled.':
+          response.status===404&&result.error==='dashboard_settings_disabled'?'Collection settings are off for this backend: it runs without polling (--no-poll) or listens on a non-local address.':
+          response.status===404?'Collection settings require a newer local backend.':
           response.status===403?'Open the dashboard directly on the local backend to edit collection settings.':
           response.status===400?'Some collection settings are invalid. Check the source, fields and values.':
           response.status===401?'Choose the backend’s private local setup key to edit collection settings.':'Could not access collection settings.');

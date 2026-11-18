@@ -136,6 +136,19 @@ test('storage failure keeps session preferences and reports that they were not s
   assert.match(ui.element('settings-status').textContent,/session only/);
 });
 
+test('a provider hash survives reload and an unknown one falls back to Overview',async()=>{
+  const ui=dashboard();ui.run('renderActive=()=>{};setOnline=()=>{};checkThresholdNotifications=()=>{};startTick=()=>{};');
+  ui.context.location={hash:'#claude'};
+  ui.events.hashchange();
+  assert.equal(ui.run('S.active'),'claude');
+  ui.run('S.loadedAt=0;S.providers=[];');ui.context.location={hash:'#retired'};
+  ui.events.hashchange();
+  assert.equal(ui.run('S.active'),'retired');
+  ui.context.fetch=async url=>({ok:true,json:async()=>url==='/v1/usage'?[snapshot]:url==='/v1/providers'?[{id:'codex',enabled:true}]:url==='/v1/history/daily'?[]:null});
+  await ui.run('load()');
+  assert.equal(ui.run('S.active'),'overview');
+});
+
 test('settings links and another dashboard tab update the displayed page',()=>{
   const ui=dashboard();ui.context.location={hash:'#settings'};
   ui.events.hashchange();
@@ -252,7 +265,10 @@ test('credit and token budgets can be selected without inventing an unlimited qu
   const prefs=settings.normalize({providers:{codex:{primaryQuota:'API credits'}}});
   assert.equal(settings.primary(budget,prefs).label,'API credits');
   assert.equal(settings.primary({...budget,metrics:budget.metrics.slice(1)},prefs),null);
-  const ui=dashboard();assert.equal(ui.run('detailedUsd(.00032)'),'$0.00032');assert.equal(ui.run('detailedCost({cost:0,costKnown:false})'),'Unpriced');
+  const ui=dashboard();assert.equal(ui.run('tipUsd(.00032)'),'<$0.01');assert.equal(ui.run('tipCost({cost:0,costKnown:false})'),'Unpriced');
+  ui.context.budget=budget;
+  const credits=JSON.parse(ui.run('JSON.stringify(snapshotDetail(budget,budget.metrics[0]))'));
+  assert.ok(credits.rows.some(([label,value])=>label==='Remaining'&&value==='$8.00'),'dollar quotas use cents');
 });
 
 test('provider readouts cannot inject HTML or executable links into setup-capable pages',async()=>{
@@ -263,4 +279,32 @@ test('provider readouts cannot inject HTML or executable links into setup-capabl
   assert.match(overview,/&lt;img src=x onerror=bad\(\)&gt;/);
   await ui.run('animateCompareBars=()=>{};fetchHistory=async()=>[];fetchCcusageReports=async()=>null;fetchCost=async()=>null;renderStatsSection=()=>{};renderHistorySection=()=>{};renderCostSection=()=>{};renderProvider("codex")');
   assert.doesNotMatch(ui.element('panel-codex').innerHTML,/<img src=x|href="javascript:|class="badge b-custom" onclick=/);
+});
+
+test('detail tooltips keep exact tokens but show money at cents precision in grouped details',()=>{
+  const ui=dashboard();
+  ui.context.day=[{providerId:'claude',date:'2026-11-05',inputTokens:4004,outputTokens:1566457,cacheReadTokens:536901091,cacheCreationTokens:5350625,totalTokens:543822177,cost:165.4784992,costKnown:true,costSource:'api-rate-estimate',pricingAsOf:'2026-11-15'}];
+  const detail=JSON.parse(ui.run('JSON.stringify(dailyDetail(day,"Nov 5"))'));
+  assert.equal(detail.headline.value,'$165.48');
+  assert.match(detail.headline.sub,/^543\.8M tokens/);
+  assert.ok(detail.parts.items.every(item=>!/\d\.\d{3}/.test(item.value)),'summary values stay at display precision');
+  assert.ok(detail.rows.some(([label,value])=>label==='Cost · USD'&&value==='$165.48'),'detail cost is rounded to cents');
+  assert.ok(detail.rows.some(([label,value])=>label==='Total tokens'&&value.replace(/\D/g,'')==='543822177'));
+  const html=ui.run('detailHtml(dailyDetail(day,"Nov 5"))');
+  const [summary,details]=html.split('<details class="tt-exact"');
+  assert.ok(details,'full rows live in a disclosure');
+  assert.match(details,/<summary>Details /);
+  assert.doesNotMatch(html,/\$[\d,]+\.\d{3}/,'no money shown beyond cents');
+  assert.match(details,/543,822,177/,'token counts stay exact');
+  const groups=[...details.matchAll(/class="tt-grp-h">([^<]+)</g)].map(m=>m[1]);
+  assert.deepEqual(groups,['Tokens','Cost','Records']);
+  assert.match(details,/class="tt-row tt-total"><span>Cost · USD/,'group totals are emphasised');
+  assert.equal(ui.run('tipUsd(.0004)'),'<$0.01');assert.equal(ui.run('tipUsd(0)'),'$0.00');
+});
+
+test('collection settings explain a disabled backend apart from an older one', async () => {
+  const backend = require('../src/dashboard-backend.js');
+  const reply = body => async () => ({ ok: false, status: 404, json: async () => body });
+  await assert.rejects(backend.create(reply({ error: 'dashboard_settings_disabled' }), null).load(), /off for this backend.*--no-poll/);
+  await assert.rejects(backend.create(reply({ error: 'not_found' }), null).load(), /newer local backend/);
 });

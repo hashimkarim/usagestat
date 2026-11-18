@@ -3,7 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>AI Usage</title>
+<title>usagestat</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='3.5' fill='%231e2130'/%3E%3Cg fill='%237289da'%3E%3Crect x='3' y='9' width='2.5' height='4' rx='.8'/%3E%3Crect x='6.75' y='6' width='2.5' height='7' rx='.8'/%3E%3Crect x='10.5' y='3' width='2.5' height='10' rx='.8'/%3E%3C/g%3E%3C/svg%3E">
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 
@@ -21,12 +22,12 @@
 
 html{background:#101320}
 body{min-height:100vh;color:var(--tx);font-family:var(--sans);font-size:14px;line-height:1.5}
-body::before{
-  content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;
-  background:
-    radial-gradient(ellipse 70% 45% at 50% -8%,rgba(114,137,218,.12),transparent 62%),
-    linear-gradient(180deg,#23283d 0%,#1e2233 42%,#101320 100%);
-}
+body{--page-bg:radial-gradient(ellipse 70% 45% at 50% -8%,rgba(114,137,218,.12),transparent 62%),linear-gradient(180deg,#23283d 0%,#1e2233 42%,#101320 100%)}
+body::before{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;background:var(--page-bg)}
+/* Masks the gap above the floating sticky header so scrolled content never
+   shows through it or the header's rounded corners. Painted with the same viewport-sized page background. */
+.shell::before{content:'';position:fixed;top:0;left:0;right:0;height:20px;z-index:49;pointer-events:none;
+  background:var(--page-bg);background-size:100% 100vh;background-repeat:no-repeat}
 :focus-visible{outline:2px solid var(--bright);outline-offset:2px}
 .tab:focus-visible{outline-offset:-3px;border-radius:6px}
 
@@ -48,6 +49,7 @@ header{
   font:700 10px/1 var(--mono);color:var(--bright);letter-spacing:-.5px;flex-shrink:0;
   background:color-mix(in srgb,var(--deep) 22%,transparent);
 }
+.mark svg{width:16px;height:16px;fill:var(--blue)}
 .appname{font-size:13px;font-weight:600;letter-spacing:.02em;color:var(--tx);white-space:nowrap}
 
 /* ── tab bar (inside header) ── */
@@ -94,20 +96,24 @@ header{
 .rbtn:hover svg{stroke:var(--bright)}
 .rbtn.spin svg{animation:spin .7s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
-.ring-svg{position:absolute;inset:2px;width:calc(100% - 4px);height:calc(100% - 4px)}
+.rbtn .ring-svg{position:absolute;inset:2px;z-index:0;width:calc(100% - 4px);height:calc(100% - 4px)}
 .ring-t{fill:none;stroke:var(--blue);stroke-width:2.5;stroke-linecap:round;opacity:.38;
   transform:rotate(-90deg);transform-origin:center;transition:stroke-dashoffset 1s linear}
 @media(max-width:640px){
-  .shell{padding:16px 20px 44px}
-  header{flex-wrap:wrap}
-  .hstart{flex:1}
-  .hend{border-left:1px solid var(--bd);margin-left:auto}
-  .tab-bar{order:3;flex-basis:100%;border-left:0;border-top:1px solid var(--bd)}
-  .tab{min-height:42px;padding:0 14px}
+  .shell{padding:12px 12px 44px}
+  .shell::before{height:16px}
+  header{flex-wrap:wrap;top:6px}
+  .hstart{flex:1 1 auto;padding:9px 12px;min-width:0}
+  .hend{border-left:0;margin-left:auto;padding:9px 10px;gap:8px}
+  .tab-bar{order:3;flex-basis:100%;border-left:0;border-top:1px solid var(--bd);
+    -webkit-mask-image:linear-gradient(90deg,#000 calc(100% - 28px),transparent);mask-image:linear-gradient(90deg,#000 calc(100% - 28px),transparent)}
+  .tab{min-height:42px;padding:0 13px}
+  .quota-display{max-width:112px}
 }
 @media(max-width:440px){
   .ago{display:none}
-  .hend{gap:8px}
+  .appname{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+  .quota-display{max-width:100px;padding:0 4px}
 }
 
 /* ── panels ── */
@@ -177,6 +183,16 @@ header{
 .action-btn:hover{border-color:var(--blue);color:var(--hi);background:var(--s3)}
 .action-btn svg{width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
 .result-count{font:11px var(--mono);color:var(--mu)}
+@media(max-width:640px){
+  .overview-controls{display:grid;grid-template-columns:minmax(0,1fr);gap:10px;padding:10px}
+  .ctrl-group,.ctrl-group:first-child{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;flex:none}
+  .ctrl-group:first-child .ctrl-input{grid-column:1/-1;max-width:none;width:100%}
+  .ctrl-select{width:100%;min-width:0;padding:0 22px 0 8px}
+  .ctrl-group .action-btn{justify-content:center;min-width:0}
+  .ctrl-group:last-child{grid-template-columns:repeat(3,minmax(0,1fr));padding-top:10px;border-top:1px solid var(--bd)}
+  .ctrl-sep{display:none}
+  .result-count{align-self:center}
+}
 .rollup-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-bottom:12px}
 .rollup-card{background:color-mix(in srgb,var(--s1) 76%,transparent);border:1px solid var(--bd);border-radius:7px;padding:11px 12px;min-width:0}
 .rollup-value{font:700 19px/1.1 var(--mono);color:var(--hi);margin-bottom:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -205,6 +221,42 @@ header{
 .sk-card::after{content:'';position:absolute;inset:0;
   background:linear-gradient(90deg,transparent,rgba(255,255,255,.04),transparent);
   animation:shim 1.5s infinite}
+/* Skeletons mirror the section they stand in for so data swaps in without a
+   layout jump. Shapes are faint fills with the same shimmer as .sk-card. */
+.loading-skeleton{color:var(--mu)}
+.sk-shape{display:block;position:relative;overflow:hidden;height:10px;border-radius:4px;
+  background:color-mix(in srgb,var(--s3) 55%,transparent)}
+.sk-shape::after{content:'';position:absolute;inset:0;transform:translateX(-100%);
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,.05),transparent);animation:shim 1.6s ease-in-out infinite}
+.sk-line{width:42%;margin-bottom:12px}.sk-line.short{width:22%}.sk-line.wide{width:78%}
+.sk-row{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:2px 0 16px}
+.sk-pill{height:26px;width:62px;border-radius:6px}
+.sk-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:18px}
+.sk-head .sk-row{margin:0}.sk-head .sk-pill{width:44px}
+.sk-metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:18px 22px;margin:4px 0 20px}
+.sk-metrics.boxed{padding-bottom:16px;border-bottom:1px solid var(--bd)}
+.sk-metric{display:flex;flex-direction:column;gap:8px}
+.sk-metric .sk-shape:first-child{width:58%;height:9px}.sk-metric .sk-shape:last-child{width:76%;height:20px}
+.sk-chart{height:200px;display:flex;align-items:flex-end;gap:5px;padding:0 4px 0 44px;border-bottom:1px solid var(--bd);
+  background:repeating-linear-gradient(to top,transparent 0 44px,var(--bd) 44px 45px)}
+.sk-chart .sk-shape{flex:1;min-width:0;height:auto;border-radius:3px 3px 0 0}
+.sk-chart .sk-area{height:72%;border-radius:0;clip-path:polygon(0 100%,0 97%,10% 74%,22% 80%,34% 56%,46% 64%,58% 40%,70% 50%,82% 30%,100% 36%,100% 100%,0 100%)}
+.sk-ring{width:44px;height:44px;border-radius:50%;flex:none}
+.sk-kv{display:flex;justify-content:space-between;gap:16px}.sk-kv .sk-shape:first-child{width:34%}.sk-kv .sk-shape:last-child{width:28%}
+.sk-axis{display:flex;justify-content:space-between;padding:8px 4px 0 44px}.sk-axis .sk-shape{width:38px;height:8px}
+.sk-split{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:28px}
+.sk-block{height:150px;border-radius:6px}
+.sk-mix{display:grid;grid-template-columns:28% minmax(0,1fr) 16%;gap:12px;align-items:center;margin-bottom:16px}
+.sk-rows{display:flex;flex-direction:column}
+.sk-rows .sk-line{width:100%;height:12px;margin:0;padding:0}
+.sk-rows>div{padding:11px 0;border-bottom:1px solid var(--bd)}
+.overview-summary .sk-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}
+@media(max-width:760px){.overview-summary .sk-metrics{grid-template-columns:repeat(2,minmax(0,1fr))!important}}
+/* Reserve the toolbar's height until providers arrive so cards don't jump. */
+.overview-controls:empty{min-height:54px}
+.sk-card{display:flex;flex-direction:column;gap:12px}.sk-card .sk-shape::after{display:none}
+@media(max-width:760px){.sk-split{grid-template-columns:minmax(0,1fr)}}
+@media(prefers-reduced-motion:reduce){.sk-shape::after,.sk-card::after{animation:none}}
 @keyframes shim{from{transform:translateX(-100%)}to{transform:translateX(100%)}}
 
 /* ── overview card ── */
@@ -227,6 +279,8 @@ header{
 .card-name{font-size:14px;font-weight:600;color:var(--tx);margin-bottom:5px;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .card-tags{display:flex;align-items:center;flex-wrap:wrap;gap:4px}
+.card-tags:empty{display:none}
+.card-name:has(>[data-card-component="logo"]:not([hidden]) .provider-icon)+.card-tags{padding-left:38px}
 
 /* badges */
 .badge{font:600 10px/1 var(--mono);letter-spacing:.06em;text-transform:uppercase;
@@ -269,9 +323,9 @@ header{
 .pill-yellow{border-color:rgba(227,179,65,.5);color:var(--yellow);background:rgba(227,179,65,.08)}
 .pill-orange{border-color:rgba(240,136,62,.5);color:var(--orange);background:rgba(240,136,62,.08)}
 .spark{margin-top:4px}
-.spark-head{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin-bottom:6px}
-.spark-title{font:11px var(--mono);text-transform:uppercase;letter-spacing:.08em;color:var(--mu)}
-.spark-readout{font:11px var(--mono);color:var(--tx);text-align:right}
+.spark-head{display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:2px 10px;margin-bottom:6px}
+.spark-title{white-space:nowrap;font:11px var(--mono);text-transform:uppercase;letter-spacing:.08em;color:var(--mu)}
+.spark-readout{font:11px var(--mono);color:var(--tx);text-align:right;margin-left:auto}
 .spark-bars{display:flex;align-items:flex-end;gap:2px;height:42px;padding:6px 0 3px;border-bottom:1px solid var(--bd)}
 .spark-bar{flex:1;min-width:2px;max-width:12px;border-radius:2px 2px 0 0;background:var(--spark,var(--blue));opacity:.78}
 .spark-note{font:10px var(--mono);color:var(--mu);margin-top:4px}
@@ -374,18 +428,58 @@ header{
 .tl-chart,.cost-chart{font-family:var(--sans);font-variant-numeric:tabular-nums}
 .tl-chart{cursor:crosshair}
 .cost-col.hover rect:not(:first-child){filter:brightness(1.18)}
-.tt-row i{font-style:normal;color:var(--su);margin-left:4px}
 
 /* tooltip */
 #tip{
-  position:fixed;display:none;z-index:200;pointer-events:auto;
-  background:var(--s2);border:1px solid var(--bd);border-radius:7px;
-  padding:8px 12px;min-width:140px;
-  box-shadow:0 4px 16px rgba(0,0,0,.4);
+  position:fixed;display:none;z-index:200;pointer-events:auto;box-sizing:border-box;
+  width:max-content;min-width:200px;max-width:min(360px,calc(100vw - 16px));max-height:calc(100vh - 16px);
+  overflow:auto;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:var(--s3) transparent;
+  background:var(--s2);color:var(--tx);border:1px solid var(--s3);border-radius:10px;
+  padding:12px 14px 10px;font:13px/1.45 var(--sans);font-variant-numeric:tabular-nums;text-align:left;
+  box-shadow:0 10px 32px rgba(0,0,0,.45);
 }
-.tt-date{font:600 12px var(--mono);color:var(--tx);margin-bottom:4px}
-.tt-cost{font:700 16px/1 var(--mono);color:var(--bright);margin-bottom:4px}
-.tt-meta{font:11px var(--mono);color:var(--mu)}
+#tip[data-pinned="true"]{border-color:var(--bright)}
+#tip:focus{outline:none}#tip:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+.tt-head{margin-bottom:8px}
+.tt-date{font:600 13px/1.3 var(--sans);color:var(--hi)}
+.tt-hero{display:flex;align-items:baseline;gap:8px;margin-top:6px;flex-wrap:wrap}
+.tt-hero b{font:650 20px/1.15 var(--sans);color:var(--hi);letter-spacing:-.01em}
+.tt-hero span{font-size:12px;color:var(--mu)}
+.tt-sub{font-size:12.5px;color:var(--mu);margin-top:2px}
+.tt-sec{border-top:1px solid var(--s3);padding-top:8px;margin-top:8px}
+.tt-sec-h{font:600 11px/1.3 var(--sans);letter-spacing:.04em;text-transform:uppercase;color:var(--su);margin-bottom:5px}
+.tt-sec-h i{font-style:normal;text-transform:none;letter-spacing:0;color:var(--yellow)}
+.tt-parts{display:grid;grid-template-columns:8px minmax(0,1fr) auto auto;column-gap:12px;row-gap:4px;align-items:center}
+.tt-part{display:contents}
+.tt-part-l{color:var(--tx);min-width:0;overflow-wrap:anywhere}
+.tt-part-s{color:var(--su);font-size:12px;text-align:right}
+.tt-part b,.tt-row b{font-weight:600;color:var(--hi);text-align:right;white-space:nowrap}
+.tt-row{display:flex;gap:16px;justify-content:space-between;align-items:baseline;margin:3px 0;font-size:13px}
+.tt-row span{color:var(--mu);min-width:0}
+.tt-row b{white-space:normal;overflow-wrap:anywhere;max-width:62%}
+.tt-prov{margin-top:8px;font-size:12px;line-height:1.4;color:var(--mu);overflow-wrap:anywhere;font-variant-numeric:normal}
+.tt-prov>span[aria-hidden]{color:var(--su)}
+.tt-meta{margin:4px 0 0;font-size:12px;line-height:1.4;color:var(--su)}
+.tt-exact{margin-top:8px;border-top:1px solid var(--s3);padding-top:6px}
+.tt-exact summary{cursor:pointer;font-size:12.5px;font-weight:600;color:var(--bright);padding:4px 0;border-radius:4px}
+.tt-exact summary span{font-weight:500;color:var(--su)}
+.tt-exact summary:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+.tt-grp{margin-top:6px;padding:4px 10px;background:var(--s1);border-radius:7px}
+.tt-grp-h{font:600 10.5px/1.3 var(--sans);letter-spacing:.05em;text-transform:uppercase;color:var(--mu);padding:5px 0 6px}
+.tt-exact .tt-row{display:grid;grid-template-columns:minmax(6.5em,1fr) minmax(0,max-content);column-gap:16px;row-gap:1px;margin:0;padding:3px 0;font-size:12.5px;line-height:1.4;border-top:1px solid color-mix(in srgb,var(--s3) 85%,transparent)}
+.tt-exact .tt-grp-h+.tt-row{border-top:0}
+.tt-exact .tt-row b{max-width:none;text-align:right;font-weight:500;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.tt-exact .tt-row.tt-total span{color:var(--tx);font-weight:600}.tt-exact .tt-row.tt-total b{font-weight:700}
+.tt-exact .tt-total{padding-bottom:5px}.tt-exact .tt-total+.tt-row{border-top-color:var(--mu)}
+.tt-exact .tt-row.tt-text b{font-variant-numeric:normal}
+.tt-exact .tt-row.tt-long{grid-template-columns:minmax(0,1fr)}
+.tt-exact .tt-row.tt-long b{text-align:left;color:var(--tx)}
+.tt-prov-i{display:inline-block;max-width:100%;overflow-wrap:anywhere}
+.tt-part .u-dot{box-shadow:inset 0 0 0 1px rgba(0,0,0,.3)}
+.tt-foot{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:8px;padding-top:6px;border-top:1px solid var(--s3);font-size:11.5px;color:var(--su)}
+#tip:not([data-pinned="true"]) .tt-exact{display:none}
+.tt-close{font:600 12px var(--sans);color:var(--tx);background:var(--s3);border:1px solid var(--s3);border-radius:6px;padding:3px 10px;cursor:pointer;min-height:26px}
+.tt-close:hover{color:var(--hi)}.tt-close:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
 
 /* model table */
 .model-table{width:100%;border-collapse:collapse;margin-top:4px}
@@ -417,11 +511,13 @@ header{
   border:1px solid var(--bd2);background:var(--s1);color:var(--mu);
   border-radius:6px;padding:5px 9px;font:11px var(--mono);cursor:pointer
 }
+.history-tab:disabled{opacity:.4;cursor:not-allowed}
 .history-tab.active{color:var(--hi);border-color:var(--blue);background:color-mix(in srgb,var(--blue) 14%,transparent)}
 .history-chart{min-height:230px}
 .cost-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:14px}
 .cost-head .box-title{margin-bottom:0;flex:1;min-width:180px}
 .cost-range{display:flex;gap:6px;flex-wrap:wrap}
+.cost-controls{display:flex;gap:12px;flex-wrap:wrap}
 .cost-tab{border:1px solid var(--bd2);background:var(--s1);color:var(--mu);border-radius:6px;padding:5px 9px;font:11px var(--mono);cursor:pointer}
 .cost-tab.active{color:var(--hi);border-color:var(--blue);background:color-mix(in srgb,var(--blue) 14%,transparent)}
 .series-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 0;border-bottom:1px solid var(--bd)}
@@ -452,8 +548,12 @@ header{
 .usage-tab{border:1px solid var(--bd2);background:var(--s1);color:var(--mu);border-radius:6px;padding:5px 9px;font:11px var(--mono);cursor:pointer}
 .usage-tab.active{color:var(--hi);border-color:var(--blue);background:color-mix(in srgb,var(--blue) 14%,transparent)}
 .usage-panel{display:none}
-.usage-panel.active{display:block}
+/* Wide report tables scroll inside their panel so the section title and
+   report tabs stay put on narrow screens. */
+.usage-panel.active{display:block;min-width:0;overflow-x:auto;overscroll-behavior-x:contain;scrollbar-width:thin}
 .usage-split{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-bottom:16px}
+/* Spans beyond six months need the full row to keep cells legible. */
+.usage-split>div:has(>.heatmap-section.wide){grid-column:1/-1}
 @media(max-width:900px){.usage-split{grid-template-columns:minmax(0,1fr)}}
 .usage-table{width:100%;border-collapse:collapse;min-width:760px}
 .usage-table th{font:600 10px var(--mono);text-transform:uppercase;letter-spacing:.08em;color:var(--mu);padding:0 8px 8px;text-align:left;border-bottom:1px solid var(--bd)}
@@ -461,13 +561,18 @@ header{
 .usage-table td{padding:8px;border-bottom:1px solid var(--bd);font:12px var(--mono);color:var(--tx);vertical-align:middle}
 .usage-table td:not(:first-child){text-align:right;color:var(--mu)}
 .usage-table tr:last-child td{border-bottom:none}
-.cal{display:grid;grid-template-columns:auto 1fr;grid-template-rows:auto auto;column-gap:8px;row-gap:4px;font:10.5px var(--sans);color:var(--su)}
-.cal-scroll{overflow-x:auto;scrollbar-width:thin}
-.cal-scroll>.cal{display:inline-grid}
+.cal{display:grid;grid-template-columns:auto minmax(0,1fr);grid-template-rows:auto auto;column-gap:8px;row-gap:4px;font:10.5px var(--sans);color:var(--su)}
+.cal-scroll{overflow-x:auto;scrollbar-width:thin;overscroll-behavior-x:contain}
+@media(max-width:760px){.cal-scroll{-webkit-mask-image:linear-gradient(90deg,transparent,#000 22px);mask-image:linear-gradient(90deg,transparent,#000 22px)}}
+.cal-scroll>.cal{min-width:calc(var(--weeks)*10px + 30px);max-width:calc(var(--weeks)*18px + 30px)}
 .cal{justify-content:start}
-.cal-months{grid-column:2;display:grid;grid-template-columns:repeat(var(--weeks),14px);gap:4px;white-space:nowrap}
-.cal-days{grid-column:1;grid-row:2;display:grid;grid-template-rows:repeat(7,14px);gap:4px;line-height:14px}
-.cal-grid{grid-column:2;grid-row:2;display:grid;grid-template-columns:repeat(var(--weeks),14px);grid-template-rows:repeat(7,14px);gap:4px}
+.heatmap-head{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+.cal-months{grid-column:2;display:grid;grid-template-columns:repeat(var(--weeks),minmax(0,1fr));column-gap:var(--cal-gap,4px);white-space:nowrap}
+.cal-days{grid-column:1;grid-row:2;display:grid;grid-template-rows:repeat(7,minmax(0,1fr));row-gap:var(--cal-gap,4px)}
+/* Zero-height labels let the square cells, not the text, set the row height. */
+.cal-days span{height:0;display:flex;align-items:center;align-self:center;line-height:1}
+.cal-grid{grid-column:2;grid-row:2;display:grid;align-content:start;grid-template-columns:repeat(var(--weeks),minmax(0,1fr));gap:var(--cal-gap,4px)}
+.cal-grid .cal-cell{width:100%;height:auto;aspect-ratio:1;border-radius:min(3px,22%)}
 .cal-cell{display:inline-block;width:14px;height:14px;border-radius:3px;background:var(--s2);box-shadow:inset 0 0 0 1px #ffffff08}
 .cal-cell.l1{background:color-mix(in srgb,var(--blue) 30%,var(--s2))}
 .cal-cell.l2{background:color-mix(in srgb,var(--blue) 55%,var(--s2))}
@@ -477,7 +582,7 @@ header{
 .cal-legend .cal-cell{width:11px;height:11px}
 .model-mix{display:flex;flex-direction:column;gap:9px}
 .model-row{display:grid;grid-template-columns:minmax(130px,1fr) 78px 1.6fr 86px;gap:10px;align-items:center}
-@media(max-width:640px){.model-row{grid-template-columns:minmax(0,1fr) 48px 64px;gap:8px}.model-row .model-bar{display:none}}
+@media(max-width:640px){.model-row{grid-template-columns:minmax(0,1fr) auto auto;gap:10px}.model-row .model-bar{display:none}}
 .model-label{font:12px var(--mono);color:var(--tx);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .model-bar{height:5px;background:var(--s2);border-radius:999px;overflow:hidden}
 .model-bar div{height:100%;border-radius:999px;background:var(--blue)}
@@ -549,9 +654,7 @@ header{
 .u-sel{color:var(--bright);font-size:9px;vertical-align:1px}
 .u-asof{font-size:11px;color:var(--su)}
 .u-table.u-sources td:nth-child(2),.u-table.u-sources th:nth-child(2){text-align:left}
-.tt-row{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:7px;font:12px var(--sans);color:var(--mu);margin:3px 0}
-.tt-row b{font-weight:500;color:var(--tx);font-variant-numeric:tabular-nums}
-@media(max-width:640px){.u-page{padding:16px}.u-big{font-size:36px}.u-export{margin-left:0}.u-seg{flex-wrap:wrap}.u-chart{overflow-x:auto;margin:0 -16px;padding:0 16px}.u-chart svg{min-width:620px}.u-totals{grid-template-columns:repeat(2,minmax(0,1fr))}.u-tvalue{font-size:18px}}
+@media(max-width:640px){.u-page{padding:16px}.u-big{font-size:36px}.u-export{margin-left:0}.u-sechead{flex-wrap:wrap}.u-seg{display:flex;flex-wrap:nowrap;max-width:100%}.u-seg-btn{flex:1 1 auto;min-height:32px;padding:5px 7px;white-space:nowrap}.u-chart{overflow-x:auto;margin:0 -16px;padding:0 16px}.u-chart svg{min-width:620px}.u-totals{grid-template-columns:repeat(2,minmax(0,1fr))}.u-tvalue{font-size:18px}}
 /* provider detail: same type scale as the History page */
 .detail .box-title{font:600 15px var(--sans);text-transform:none;letter-spacing:0;color:var(--hi)}
 .detail .box-title::after{background:transparent}
@@ -569,7 +672,7 @@ header{
 
 /* Dashboard-only appearance and settings. */
 html[data-theme="light"]{--bg:#f3f4fa;--s0:#fff;--s1:#edf0f7;--s2:#e1e5f0;--s3:#dce1ef;--bd:#24304b22;--bd2:#24304b35;--bd3:#24304b30;--tx:#293249;--hi:#152038;--mu:#536079;--su:#66728a;--bright:#485da5;--green:#247652;--yellow:#856400;--orange:#985226;--red:#ae3535;background:var(--bg)}
-html[data-theme="light"] body::before{background:radial-gradient(ellipse 70% 45% at 50% -8%,color-mix(in srgb,var(--blue) 10%,transparent),transparent 62%),linear-gradient(180deg,var(--bg),var(--s1))}
+html[data-theme="light"] body{--page-bg:radial-gradient(ellipse 70% 45% at 50% -8%,color-mix(in srgb,var(--blue) 10%,transparent),transparent 62%),linear-gradient(180deg,var(--bg),var(--s1))}
 html[data-theme="light"] select{color-scheme:light}
 html[data-density="compact"] .grid{gap:10px;grid-template-columns:repeat(auto-fill,minmax(min(270px,100%),1fr))}
 html[data-density="compact"] .card-head{padding:10px 12px 7px 15px}
@@ -683,9 +786,6 @@ html[data-density="compact"] .overview-panel{padding:12px 14px}
 .card-body{display:flex;flex-direction:column}
 .card-name{display:flex;align-items:center;gap:8px}
 .card-name>[data-card-component]{display:inline-flex;align-items:center}
-#tip{max-width:min(480px,calc(100vw - 20px));max-height:calc(100vh - 24px);overflow:auto}
-.tt-row{display:flex;gap:10px;justify-content:space-between;font:11px var(--mono);margin-top:5px}
-.tt-row span:first-child{color:var(--mu)}
 @media(max-width:800px){.settings-layout{grid-template-columns:1fr}.provider-setting{grid-template-columns:minmax(0,1fr) auto;gap:12px}.provider-setting-title{grid-column:1}.provider-order-actions{grid-column:2;grid-row:1}.provider-setting-field{grid-column:1/-1}.settings-section{padding:16px}.settings-heading{flex-wrap:wrap}}
 </style>
 </head>
@@ -695,8 +795,8 @@ html[data-density="compact"] .overview-panel{padding:12px 14px}
 
   <header>
     <div class="hstart">
-      <div class="mark">AI</div>
-      <span class="appname">Usage</span>
+      <div class="mark"><svg viewBox="0 0 16 16" aria-hidden="true"><rect x="2" y="9" width="3" height="5" rx="1"/><rect x="6.5" y="5.5" width="3" height="8.5" rx="1"/><rect x="11" y="2" width="3" height="12" rx="1"/></svg></div>
+      <span class="appname">usagestat</span>
     </div>
     <nav id="tabs" class="tab-bar">
       <button class="tab active" data-tab="overview" onclick="switchTab('overview')">Overview</button>
@@ -721,18 +821,19 @@ html[data-density="compact"] .overview-panel{padding:12px 14px}
   <div id="offline" class="offline-wrap">
     <div class="oicon">⚡</div>
     <div class="otitle">Daemon offline</div>
-    <div class="osub">Start the AI usage daemon to see live data.</div>
-    <code class="ocmd">ai-usage-daemon</code>
+    <div class="osub">Start the usagestat daemon to see live data.</div>
+    <code class="ocmd">usagestat daemon enable</code>
   </div>
 
   <div class="panels">
     <div id="panel-overview" class="panel active">
-      <div id="overviewSummary" class="overview-summary"></div>
+      <div id="overviewSummary" class="overview-summary"><div class="overview-panel" aria-hidden="true"><span class="sk-shape" style="height:16px;width:46%;margin-bottom:12px"></span><span class="sk-shape" style="width:58%;margin-bottom:20px"></span><div class="sk-metrics" style="grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:0 0 14px"><span class="sk-shape sk-block" style="height:58px"></span><span class="sk-shape sk-block" style="height:58px"></span><span class="sk-shape sk-block" style="height:58px"></span><span class="sk-shape sk-block" style="height:58px"></span></div><span class="sk-shape sk-block" style="height:46px;margin-bottom:8px"></span><span class="sk-shape sk-block" style="height:46px"></span></div><div class="overview-panel" aria-hidden="true"><span class="sk-shape" style="height:16px;width:46%;margin-bottom:12px"></span><span class="sk-shape" style="width:58%;margin-bottom:20px"></span><div class="sk-mix"><span class="sk-shape"></span><span class="sk-shape" style="height:5px"></span><span class="sk-shape" style="width:70%"></span></div><div class="sk-mix"><span class="sk-shape"></span><span class="sk-shape" style="height:5px"></span><span class="sk-shape" style="width:70%"></span></div><div class="sk-mix"><span class="sk-shape"></span><span class="sk-shape" style="height:5px"></span><span class="sk-shape" style="width:70%"></span></div><div class="sk-mix"><span class="sk-shape"></span><span class="sk-shape" style="height:5px"></span><span class="sk-shape" style="width:70%"></span></div></div><div class="overview-panel" aria-hidden="true"><span class="sk-shape" style="height:16px;width:46%;margin-bottom:12px"></span><span class="sk-shape" style="width:58%;margin-bottom:20px"></span><div class="sk-metrics" style="gap:10px;margin:0 0 14px"><span class="sk-shape sk-block" style="height:58px"></span><span class="sk-shape sk-block" style="height:58px"></span><span class="sk-shape sk-block" style="height:58px"></span><span class="sk-shape sk-block" style="height:58px"></span></div><span class="sk-shape" style="width:40%;margin-bottom:12px"></span><div class="sk-chart" style="height:40px;padding:0;gap:3px;background:none"><span class="sk-shape" style="height:24%"></span><span class="sk-shape" style="height:22%"></span><span class="sk-shape" style="height:62%"></span><span class="sk-shape" style="height:78%"></span><span class="sk-shape" style="height:4%"></span><span class="sk-shape" style="height:4%"></span><span class="sk-shape" style="height:4%"></span><span class="sk-shape" style="height:4%"></span><span class="sk-shape" style="height:4%"></span><span class="sk-shape" style="height:4%"></span><span class="sk-shape" style="height:18%"></span><span class="sk-shape" style="height:10%"></span><span class="sk-shape" style="height:16%"></span><span class="sk-shape" style="height:4%"></span></div><div style="height:12px"></div><div class="sk-mix"><span class="sk-shape"></span><span class="sk-shape" style="height:5px"></span><span class="sk-shape" style="width:70%"></span></div><div class="sk-mix"><span class="sk-shape"></span><span class="sk-shape" style="height:5px"></span><span class="sk-shape" style="width:70%"></span></div></div></div>
       <div id="overviewControls" class="overview-controls"></div>
       <div id="prefs-notice" class="prefs-notice" role="status"></div>
       <input hidden type="file" id="prefs-file" accept="application/json,.json">
-      <div id="grid" class="grid">
-        <div class="sk-card"></div><div class="sk-card"></div><div class="sk-card"></div>
+      <div id="grid" class="grid" aria-busy="true">
+        <span class="sr-only" role="status">Loading providers</span>
+        <div class="sk-card" aria-hidden="true" style="padding:18px 16px"><div class="sk-head" style="margin-bottom:6px"><div style="flex:1"><span class="sk-shape sk-line" style="height:14px;width:38%"></span><span class="sk-shape sk-line short" style="margin:0"></span></div><span class="sk-shape sk-ring"></span></div><div class="sk-kv"><span class="sk-shape"></span><span class="sk-shape"></span></div><div class="sk-kv"><span class="sk-shape"></span><span class="sk-shape"></span></div><div class="sk-kv"><span class="sk-shape"></span><span class="sk-shape"></span></div><span class="sk-shape" style="height:4px"></span><div class="sk-kv"><span class="sk-shape"></span><span class="sk-shape"></span></div></div><div class="sk-card" aria-hidden="true" style="padding:18px 16px"><div class="sk-head" style="margin-bottom:6px"><div style="flex:1"><span class="sk-shape sk-line" style="height:14px;width:38%"></span><span class="sk-shape sk-line short" style="margin:0"></span></div><span class="sk-shape sk-ring"></span></div><div class="sk-kv"><span class="sk-shape"></span><span class="sk-shape"></span></div><div class="sk-kv"><span class="sk-shape"></span><span class="sk-shape"></span></div><div class="sk-kv"><span class="sk-shape"></span><span class="sk-shape"></span></div><span class="sk-shape" style="height:4px"></span><div class="sk-kv"><span class="sk-shape"></span><span class="sk-shape"></span></div></div><div class="sk-card" aria-hidden="true" style="padding:18px 16px"><div class="sk-head" style="margin-bottom:6px"><div style="flex:1"><span class="sk-shape sk-line" style="height:14px;width:38%"></span><span class="sk-shape sk-line short" style="margin:0"></span></div><span class="sk-shape sk-ring"></span></div><div class="sk-kv"><span class="sk-shape"></span><span class="sk-shape"></span></div><div class="sk-kv"><span class="sk-shape"></span><span class="sk-shape"></span></div><div class="sk-kv"><span class="sk-shape"></span><span class="sk-shape"></span></div><span class="sk-shape" style="height:4px"></span><div class="sk-kv"><span class="sk-shape"></span><span class="sk-shape"></span></div></div>
       </div>
     </div>
     <div id="panel-history" class="panel"></div>
@@ -802,17 +903,18 @@ async function load(){
       fetch('/v1/providers').then(r=>r.json()),
       fetch('/v1/history/daily').then(r=>r.ok?r.json():null).catch(()=>null),
     ]);
+    if(!Array.isArray(usage)||!Array.isArray(providers))throw Error("invalid refresh response");
     S.snapshots = usage;
     S.allProviders=providers;
     S.providers = providers.filter(p=>p.enabled);
     if(!S.iconCatalog)try{S.iconCatalog=await fetch('/v1/icon-catalog').then(r=>r.ok?r.json():null);}catch{}
-    S.dailyRows = normalizeDailyRows(daily);
+    if(daily && !daily.error && (Array.isArray(daily)||Array.isArray(daily.daily)))S.dailyRows = normalizeDailyRows(daily);
     S.dailyError = !daily || !!daily.error || !(Array.isArray(daily) || Array.isArray(daily.daily));
-    S.histories = {};
-    S.costs = {};
     S.online = true; S.loadedAt = Date.now(); updAgo();
     setOnline(true);
     buildTabs();
+    if(!STATIC_TABS.includes(S.active)&&!S.providers.some(p=>p.id===S.active))S.active='overview';
+    markActiveTab();
     applyTabVisibility();
     renderActive();
     checkThresholdNotifications();
@@ -832,29 +934,41 @@ async function doRefresh(){
   }finally{ busy=false; document.getElementById('rbtn').classList.remove('spin'); }
 }
 
+// A late response must not overwrite the cache used after a future failure.
+function dataRequest(key){
+  const versions=S.dataRequestVersions ||= {};
+  const version=versions[key]=(versions[key]||0)+1;
+  return ()=>versions[key]===version;
+}
+
 async function fetchCost(id){
-  if(id in S.costs) return S.costs[id];
-  try{ S.costs[id]=await fetch(`/v1/cost/${id}`).then(r=>r.json()); }
-  catch{ S.costs[id]=null; }
+  const current=dataRequest("cost:"+id);
+  try{ const response=await fetch(`/v1/cost/${id}`);if(!response.ok)throw Error("cost unavailable");const data=await response.json();if(!data.error && current())S.costs[id]=data; }
+  catch{ /* Retain the last successful response during transient failures. */ }
   return S.costs[id];
 }
 
-async function fetchHistory(id){
-  if(id in S.histories) return S.histories[id];
-  const since = dateKey(new Date(todayUtcDate().getTime()-29*86400000));
-  try{ S.histories[id]=await fetch(`/v1/history/${encodeURIComponent(id)}?since=${since}&group=hour&view=chart`).then(r=>r.ok?r.json():[]); }
-  catch{ S.histories[id]=[]; }
-  return S.histories[id];
+function loadedHistoryDays(id){ const d=S.historyDays?.[id]; return d===null ? null : Math.max(30, d ?? 30); }
+async function fetchHistory(id, days=loadedHistoryDays(id)){
+  const current=dataRequest("history:"+id);
+  // days=null loads every saved sample; otherwise the span ends today.
+  const since = days===null ? null : dateKey(new Date(todayUtcDate().getTime()-(days-1)*86400000));
+  try{ const response=await fetch(`/v1/history/${encodeURIComponent(id)}?${since?`since=${since}&`:''}group=hour&view=chart`);if(!response.ok)throw Error("history unavailable");const data=await response.json();if(!data.error && current()){S.histories[id]=data;(S.historyDays ||= {})[id]=days;} }
+  catch{ /* Retain the last successful history. */ }
+  return S.histories[id] || [];
 }
 
 async function fetchCcusageReports(id){
+  const current=dataRequest("reports:"+id);
   const reports = ['daily','weekly','monthly'];
-  const out = {};
+  const out = Object.fromEntries(reports.filter(report=>S.localReports?.[id]?.[report]).map(report=>[report,S.localReports[id][report]]));
   await Promise.all(reports.map(async report=>{
-    try{ out[report]=await fetch(`/v1/local-usage/${id}/${report}`).then(r=>r.json()); }
-    catch{ out[report]={ error:{ code:'FETCH_FAILED' } }; }
+    try{ const response=await fetch(`/v1/local-usage/${id}/${report}`);if(!response.ok)throw Error("report unavailable");const data=await response.json();if(!data.error)out[report]=data; }
+    catch{ /* Keep the previous report while the backend is unavailable. */ }
   }));
-  return out;
+  const combined={...S.localReports?.[id],...out};
+  if(current())(S.localReports ||= {})[id]=combined;
+  return combined;
 }
 
 // ── ui state ──────────────────────────────────────────────────────────────────
@@ -865,11 +979,16 @@ function setOnline(on){
   document.getElementById('offline').classList.toggle('show',!on);
 }
 
+const STATIC_TABS=['overview','history','settings'];
+function markActiveTab(){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t.dataset.tab===S.active));
+  document.querySelectorAll('.panel').forEach(p=>p.classList.toggle('active',p.id===`panel-${S.active}`));
+}
+
 function switchTab(id){
   if(S.active==='settings'&&S.settingsSection==='collection'&&S.collectionDirty)S.collectionDrafts=captureCollectionDrafts();
   S.active=id;
-  document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t.dataset.tab===id));
-  document.querySelectorAll('.panel').forEach(p=>p.classList.toggle('active',p.id===`panel-${id}`));
+  markActiveTab();
   applyTabVisibility();
   renderActive();
   if(typeof history!=='undefined') history.replaceState(null,'',id==='overview'?'#overview':'#'+encodeURIComponent(id));
@@ -938,6 +1057,7 @@ function buildTabs(){
 // ── overview ─────────────────────────────────────────────────────────────────
 function renderOverview(){
   const grid=document.getElementById('grid');
+  grid.removeAttribute?.('aria-busy');
   renderOverviewSummary();
   renderOverviewControls();
   if(!S.snapshots.length){grid.innerHTML='';return;}
@@ -975,7 +1095,7 @@ function renderOverview(){
         if(m.resetsAt&&S.prefs.showReset&&S.prefs.components.includes('reset')) html+=`<div class="resets">${fmtReset(m.resetsAt)}</div>`;
         html+=`</div>`;
       } else if(m.type==='text'){
-        html+=`<div class="metric"><div class="kv"><span class="mlabel" style="margin:0">${esc(m.label)}</span><span class="kv-val">${esc(m.value||'')}</span></div></div>`;
+        html+=`<div class="metric"><div class="kv"><span class="mlabel" style="margin:0">${esc(m.label)}</span><span class="kv-val">${esc(groupDollarText(m.value||''))}</span></div></div>`;
       } else if(m.type==='badge'){
         html+=`<div class="metric"><div class="kv"><span class="mlabel" style="margin:0">${esc(m.label)}</span><span class="${pillCls(m.color)}">${esc(m.text||'')}</span></div></div>`;
       } else if(m.type==='barChart'){
@@ -1005,7 +1125,7 @@ function renderOverview(){
     html+=`</div></div>`;
   });
   grid.innerHTML=html;applyCardComponents(grid);
-  animateBarsAndArcs(grid);
+  animateBarsAndArcs(grid, false);
 }
 
 function renderOverviewControls(){
@@ -1464,6 +1584,11 @@ const USAGE_METRICS = {
 const PROVIDER_COLORS = { codex:'#e4e4e7', claude:'#d97757', antigravity:'#9b87f5', copilot:'#5fb4e8', gemini:'#4f8ff7', cursor:'#a1a1aa' };
 const SERIES_PALETTE = ['#7289da','#43b581','#eaca8b','#da97cd','#6ec3d8','#ce8670','#b48ead'];
 function seriesColor(id, index){ return PROVIDER_COLORS[String(id).toLowerCase()] || SERIES_PALETTE[index % SERIES_PALETTE.length]; }
+// Provider readouts arrive as preformatted text such as "$12563.99 · 13B";
+// only the digit grouping of dollar amounts changes, never the value.
+function groupDollarText(text){
+  return String(text).replace(/\$(\d{4,})(?=[.\s·,)]|$)/g,(_,digits)=>'$'+digits.replace(/\B(?=(\d{3})+(?!\d))/g,','));
+}
 function fmtUsd(v){ return '$'+(Number(v)||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}); }
 // known=false: a partial sum shows '+', an unknown zero shows Unpriced/Unknown.
 function fmtMetricValue(metric, v, known){
@@ -1508,13 +1633,14 @@ function renderTrends(){
     const max = dateKey(todayUtcDate());
     html+=`<label class="u-field"><span>From</span><input id="trends-start" type="date" value="${esc(options.start)}" max="${max}"></label><label class="u-field"><span>Through</span><input id="trends-end" type="date" value="${esc(options.end)}" max="${max}"></label>`;
   }
-  html+=`<label class="u-field"><span class="sr-only">Group by</span><select id="trends-group">${[['day','Day'],['week','Week'],['month','Month']].map(([v,l])=>selectOption(v,l,options.group)).join('')}</select></label>`;
+  html+=segmented('group', options.group, [['day','Daily'],['week','Weekly'],['month','Monthly']]);
   html+=`<button class="action-btn u-export" id="trends-export" ${!model.rows?.length||S.dailyError?'disabled':''}><svg viewBox="0 0 16 16"><path d="M8 2v7"/><path d="M5 6l3 3 3-3"/><path d="M3 13h10"/></svg>Export CSV</button>`;
   html+=`</div>`;
 
+  if(S.dailyError && S.dailyRows.length)html+=`<div class="small-note" role="status">Could not refresh saved daily history; showing the last successful data.</div>`;
   if(model.error){
     html+=`<div class="trends-empty" role="alert">${esc(model.error)}</div>`;
-  } else if(S.dailyError){
+  } else if(S.dailyError && !S.dailyRows.length){
     html+=`<div class="trends-empty" role="alert">Could not load saved daily history. Try Refresh to load it again.</div>`;
   } else {
     const { range, current, previous } = model;
@@ -1526,10 +1652,7 @@ function renderTrends(){
     if(!current.rows){
       html+=`<div class="trends-empty"><strong>No saved daily usage in this range</strong><br>Try another period or provider. Daily totals are saved when a supported provider reads local usage logs.<br>Run <code>usagestat usage</code> or keep the daemon running to collect available reports.<br>Providers that report only quotas have snapshot charts in their provider tab.</div>`;
     } else {
-      // Dense daily curves read as noise; the chart coarsens itself while the
-      // breakdown keeps the chosen grouping.
-      const chartGroup = chartGrouping(range.days, options.group);
-      const chartModel = chartGroup===options.group ? model : UsageTrends.summarize(S.dailyRows, { ...options, group:chartGroup });
+      const chartGroup = options.group, chartModel = model;
       const layers = usageLayers(chartModel, metric);
       html+=`<div class="u-hero"><div class="u-summary">`;
       html+=`<div class="u-big">${esc(recordedMetric(current, metric))}</div>`;
@@ -1544,7 +1667,7 @@ function renderTrends(){
       }
       html+=`</div></div>`;
       html+=`<div class="u-chartcard"><div class="u-charthead"><span class="u-h">${esc(chartGroup==='day'?info.title:info.title.replace('Daily', chartGroup==='week'?'Weekly':'Monthly'))}</span>${segmented('metric', metric, Object.entries(USAGE_METRICS).map(([k,v])=>[k,v.label]))}</div>`;
-      html+=`<div class="u-chart" id="u-chart">${trendsChart(chartModel.buckets, metric, layers)}</div>${chartGroup!==options.group?`<div class="small-note">Charted by ${chartGroup} for readability · the breakdown below stays by ${options.group}.</div>`:''}</div>`;
+      html+=`<div class="u-chart" id="u-chart">${trendsChart(chartModel.buckets, metric, layers, chartGroup)}</div></div>`;
       html+=`</div>`;
 
       const input = current.inputTokens, cached = current.cacheReadTokens, write = current.cacheCreationTokens;
@@ -1575,7 +1698,13 @@ function renderTrends(){
       html+=`</div>`;
     }
   }
+  // Narrow screens scroll the chart sideways. Open on the latest days and keep
+  // the reader's position across redraws unless they were already at the end.
+  const oldChart = panel.querySelector?.('#u-chart');
+  const chartScroll = oldChart && oldChart.scrollWidth>oldChart.clientWidth ? { left:oldChart.scrollLeft, atEnd:oldChart.scrollLeft+oldChart.clientWidth>=oldChart.scrollWidth-2 } : null;
   panel.innerHTML = html + '</div>';
+  const newChart = panel.querySelector?.('#u-chart');
+  if(newChart && newChart.scrollWidth>newChart.clientWidth) newChart.scrollLeft = !chartScroll || chartScroll.atEnd ? newChart.scrollWidth : chartScroll.left;
   panel.onclick = e=>{
     const btn = e.target?.closest?.('[data-set]');
     if(btn){
@@ -1586,7 +1715,7 @@ function renderTrends(){
       S.showAllHistory = !S.showAllHistory; renderTrends();
     }
   };
-  for(const field of ['provider','start','end','group']){
+  for(const field of ['provider','start','end']){
     panel.querySelector('#trends-'+field)?.addEventListener('change', e=>{
       S.prefs.trends = { ...options, [field]:e.target.value };
       savePrefs();
@@ -1597,13 +1726,6 @@ function renderTrends(){
     if(model.rows?.length) exportDailyCsv(model.rows, `usagestat-history-${model.range.start}-${model.range.end}.csv`);
   });
   wireUsageChart(panel.querySelector('#u-chart'));
-}
-
-function chartGrouping(days, group){
-  const order = ['day','week','month'], perBucket = { day:1, week:7, month:30.4 };
-  let i = order.indexOf(group);
-  while(i < order.length-1 && days/perBucket[order[i]] > 45) i++;
-  return order[Math.max(0,i)];
 }
 
 // Local-log extras over the headline's provider-days, with coverage so a
@@ -1692,6 +1814,54 @@ function fmtDay(key){
   const d = parseDateOnly(key);
   return d ? d.toLocaleDateString('en-US',{ month:'short', day:'numeric', timeZone:'UTC' }) : key;
 }
+// X-axis labels for the ticks a chart shows: "MAY" for months, "MAY 18" for
+// days and weeks. When the ticks span years, the first label and each label
+// in a new year carry the year, so pass only the shown ticks.
+function periodTickLabels(dates, group){
+  const years = new Set(dates.map(d=>d.slice(0,4)));
+  let lastYear = null;
+  return dates.map(d=>{
+    const t = parseDateOnly(d.slice(0,10)); if(!t) return d;
+    const year = d.slice(0,4), withYear = years.size>1 && year!==lastYear; lastYear = year;
+    const base = group==='month' ? t.toLocaleDateString('en-US',{month:'short',timeZone:'UTC'}) : fmtDay(d.slice(0,10));
+    return (withYear ? `${base} '${year.slice(2)}` : base).toUpperCase();
+  });
+}
+// Evenly spaced indices into n points, always including the last one.
+function tickIndices(n, maxTicks){
+  const every = Math.max(1, Math.ceil(n/Math.max(1,maxTicks)));
+  const out = [];
+  for(let i=0;i<n;i+=every) if(n-1-i >= every/2 || i===0) out.push(i);
+  if(n && out[out.length-1]!==n-1) out.push(n-1);
+  return out;
+}
+// Calendar-aligned ticks for a time axis: whole hours, UTC midnights, Monday
+// week starts or month starts, stepped so at most maxTicks fit. Grouped views
+// tick on their own periods; raw and hourly samples pick hours or days.
+function timeAxisTicks(t0, t1, bucket, maxTicks){
+  const H = 3600000, D = 86400000, span = t1-t0;
+  // Spans past about two months tick on month starts whatever the grouping.
+  const unit = bucket==='month' || span>75*D ? 'month' : bucket==='week' ? 'week' : bucket==='day' || span>=2*D ? 'day' : 'hour';
+  const steps = { hour:[1,2,3,6,12], day:[1,2,7,14,28], week:[1,2,4,8,13,26,52], month:[1,2,3,6,12,24] }[unit];
+  const size = { hour:H, day:D, week:7*D, month:30.44*D }[unit];
+  const step = steps.find(n=>span/(n*size) <= maxTicks-1) || steps[steps.length-1];
+  const out = [];
+  if(unit==='month'){
+    const d = new Date(t0); let y = d.getUTCFullYear(), m = d.getUTCMonth();
+    if(Date.UTC(y,m,1)<t0) m++;
+    m = Math.ceil(m/step)*step;
+    for(let t; (t=Date.UTC(y,m,1))<=t1; m+=step) out.push(t);
+  } else {
+    const st = step*(unit==='week'?7*D:unit==='day'?D:H);
+    // Weeks start on Monday (Jan 5 1970 was a Monday).
+    const origin = unit==='week' ? 4*D : 0;
+    for(let t=Math.ceil((t0-origin)/st)*st+origin; t<=t1; t+=st) out.push(t);
+  }
+  const isHour = unit==='hour';
+  const labels = isHour ? out.map(t=>new Date(t).toLocaleTimeString('en-US',{hour:'numeric',timeZone:'UTC'}).toUpperCase())
+    : periodTickLabels(out.map(t=>new Date(t).toISOString().slice(0,10)), unit);
+  return out.map((t,i)=>({ t, label:labels[i] }));
+}
 
 // Fetch compact saved daily model rows; never download session reports here.
 function ensureModelReports(ids){
@@ -1703,7 +1873,7 @@ function ensureModelReports(ids){
     S.modelReports[id] = { status:'loading', at:Date.now(), rows:cached?.rows || [] };
     S.modelReports[id].promise = fetch(`/v1/history/models/${encodeURIComponent(id)}`).then(r=>r.ok?r.json():Promise.reject())
       .then(report=>{ S.modelReports[id] = { status:report?.error?'error':'ok', at:Date.now(), rows:normalizeDailyRows(report) }; })
-      .catch(()=>{ S.modelReports[id] = { status:'error', at:Date.now(), rows:[] }; })
+      .catch(()=>{ S.modelReports[id] = { status:'error', at:Date.now(), rows:cached?.rows || [] }; })
       .finally(()=>{ if(S.active==='history') renderTrends(); });
     pending.push(S.modelReports[id].promise);
   }
@@ -1792,15 +1962,14 @@ function modelBreakdown(model){
     return `<div class="trends-empty">${loading?'Loading daily model history…':failed?'Could not load daily model history.':'No saved per-model daily data in this range. Local history is prepared in the background; older records may have no model detail.'}</div>`;
   }
   const totalCost = rows.reduce((a,r)=>a+r.cost,0), allPriced = rows.every(r=>r.costKnown);
-  // Shares are of priced model cost; unpriced models show a dash, as in T3.
-  const pricedCost = rows.filter(r=>r.costKnown).reduce((a,r)=>a+r.cost,0);
+  const pricedCost = totalCost;
   const dailyCost = model.providers.filter(p=>ids.includes(p.id)).reduce((a,p)=>a+p.current.cost,0);
   const drift = Math.abs(totalCost-dailyCost) > Math.max(0.01, dailyCost*0.01);
   const missing = model.rows.filter(r=>!daily.get(r.providerId.toLowerCase()+'\u0000'+r.date)?.models || !Object.keys(daily.get(r.providerId.toLowerCase()+'\u0000'+r.date).models).length).length;
   const pricingDates = [...new Set([...daily.values()].map(r=>r.pricingAsOf).filter(Boolean))].sort();
   let html = `<div class="trends-table-wrap"><table class="u-table"><thead><tr><th>Model</th><th>Cost</th><th>Share of priced cost</th><th>Tokens</th><th>Cached input</th><th>Session-days</th></tr></thead><tbody>`;
   for(const r of rows.slice(0,40)){
-    html+=`<tr><td><span class="u-cell-name">${providerIcon(r.id)}${esc(r.name)}</span></td><td>${recordedCost(r)}</td><td>${r.costKnown?shareText(r.cost,pricedCost):'—'}</td><td>${fmtTok(r.tokens)}</td><td>${fmtTok(r.cached)}</td><td>${r.sessionsKnown?r.sessions.toLocaleString('en-US'):'—'}</td></tr>`;
+    html+=`<tr><td><span class="u-cell-name">${providerIcon(r.id)}${esc(r.name)}</span></td><td>${recordedCost(r)}</td><td>${r.costKnown||r.cost>0?(r.costKnown?'':'≈')+shareText(r.cost,pricedCost):'—'}</td><td>${fmtTok(r.tokens)}</td><td>${fmtTok(r.cached)}</td><td>${r.sessionsKnown?r.sessions.toLocaleString('en-US'):'—'}</td></tr>`;
   }
   html+=`</tbody></table></div><div class="small-note">${loading?'Updating daily model history… ':''}${failed?'Some model history could not be loaded. ':''}Usage is assigned to its actual UTC day. Session-days count a session once on each active day.${missing?` Model detail is missing for ${missing} provider-day${missing===1?'':'s'}.`:''}${drift?` Model costs total ${recordedCost({cost:totalCost,costKnown:allPriced})}; saved daily totals are ${recordedCost(model.current)}. Sources or coverage differ.`:''} Local-log costs use standard API-rate estimates, not subscription charges.${pricingDates.length?` Rates dated ${esc(pricingDates.join(', '))} also apply to historical usage.`:''}</div>`;
   return html;
@@ -1833,7 +2002,7 @@ function monotonePath(pts){
   return d;
 }
 
-function trendsChart(buckets, metric, layers){
+function trendsChart(buckets, metric, layers, group='day'){
   // Keep large imports readable without dropping any totals from the chart.
   const stride = Math.max(1,Math.ceil(buckets.length/180));
   const flag = knownFlag(metric);
@@ -1851,7 +2020,7 @@ function trendsChart(buckets, metric, layers){
   const max = niceMax(Math.max(0,...points.flatMap(p=>p.parts)));
   const x = i => points.length===1 ? L+CW/2 : L+CW*i/(points.length-1);
   const y = v => T+CH*(1-v/max);
-  const fmt = v=>metric==='cost'?'$'+v.toFixed(2):fmtTok(v);
+  const fmt = v=>metric==='cost'?fmtUsd(v):fmtTok(v);
   const axis = v=>metric==='cost'?(v>=1000?'$'+(+(v/1000).toFixed(2))+'K':'$'+(v<10&&v%1?v.toFixed(2):v.toFixed(0))):v>=1e9?+(v/1e9).toFixed(2)+'B':v>=1e6?+(v/1e6).toFixed(1)+'M':v>=1e3?+(v/1e3).toFixed(1)+'K':String(+v.toFixed(1));
   let svg = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(USAGE_METRICS[metric]?.title||'Usage')} by provider; days without a saved record plot as zero" data-l="${L}" data-cw="${CW}" data-n="${points.length}"><title>Recorded ${metric==='cost'?'cost':'usage'} by period. Totals are also available in the breakdown table.</title>`;
   for(let i=0;i<=4;i++){
@@ -1877,13 +2046,10 @@ function trendsChart(buckets, metric, layers){
     svg+=`<circle cx="${x(i).toFixed(1)}" cy="${y(p.parts.reduce((a,v)=>a+v,0)).toFixed(1)}" r="0"><title>${esc(label)}</title></circle>`;
   });
   svg+=`</g>`;
-  const labelEvery = Math.max(1,Math.ceil(points.length/6));
-  points.forEach((p,i)=>{
-    if(i%labelEvery===0 || i===points.length-1){
-      if(i!==points.length-1 && points.length-1-i < labelEvery/2) return;
-      const anchor = i===0?'start':i===points.length-1?'end':'middle';
-      svg+=`<text x="${x(i)}" y="${H-8}" text-anchor="${points.length===1?'middle':anchor}" fill="var(--su)" font-size="10.5" letter-spacing=".04em">${esc(fmtDay(p.start).toUpperCase())}</text>`;
-    }
+  const tickIdx = tickIndices(points.length, 6), tickLabels = periodTickLabels(tickIdx.map(i=>points[i].start), group);
+  tickIdx.forEach((i,k)=>{
+    const anchor = i===0?'start':i===points.length-1?'end':'middle';
+    svg+=`<text x="${x(i)}" y="${H-8}" text-anchor="${points.length===1?'middle':anchor}" fill="var(--su)" font-size="10.5" letter-spacing=".04em">${esc(tickLabels[k])}</text>`;
   });
   svg+=`<line class="u-guide" x1="0" x2="0" y1="${T}" y2="${T+CH}" stroke="var(--mu)" stroke-dasharray="3 3" opacity="0"/>`;
   S.chartPoints = { points, series, metric, max, T, CH };
@@ -1895,8 +2061,9 @@ function wireUsageChart(el){
   const tip = document.getElementById('tip');
   if(!svg || !tip || !svg.getBoundingClientRect) return;
   const guide = svg.querySelector('.u-guide');
-  const inspect=(e,forcedIndex)=>{
-    const data = S.chartPoints; if(!data?.points.length) return;
+  const hideMarks=()=>{ guide.setAttribute('opacity','0'); svg.querySelector('.u-dots').setAttribute('opacity','0'); };
+  const inspect=(e,forcedIndex,pin=false)=>{
+    const data = S.chartPoints; if(!data?.points.length || (TIP.pinned&&!pin)) return;
     const box = svg.getBoundingClientRect(), scale = 960/box.width;
     const L = +svg.dataset.l, CW = +svg.dataset.cw, n = data.points.length;
     const i = forcedIndex??(n===1 ? 0 : Math.max(0, Math.min(n-1, Math.round(((e.clientX-box.left)*scale - L)/CW*(n-1)))));
@@ -1911,15 +2078,14 @@ function wireUsageChart(el){
     }
     const rows = data.series.map((l,li)=>[l,p.parts[li],p.partsKnown[li]]).filter(([,v,k])=>v>0 || k===false).reverse();
     const selected=trendsOptions().provider.toLowerCase(),records=S.dailyRows.filter(r=>r.date>=p.start&&r.date<=p.end&&(!selected||r.providerId.toLowerCase()===selected));
-    tip.innerHTML = detailHtml(dailyDetail(records,p.start===p.end?fmtDay(p.start):fmtDay(p.start)+' → '+fmtDay(p.end)))+
-      (data.series.length>1 ? rows.map(([l,v,k])=>`<div class="tt-row"><span class="u-dot" style="background:${l.color}"></span><span>${esc(l.name)}</span><b>${esc(fmtMetricValue(data.metric,v,k))}</b></div>`).join('') : '')+
-      `<div class="tt-meta">${p.recordedDays}/${p.days} days recorded</div>`;
-    tip.style.display = 'block';
-    positionTooltip(e.clientX,e.clientY);
+    const extra = {meta:[`${p.recordedDays}/${p.days} days recorded`]};
+    if(data.series.length>1) extra.parts = {heading:(USAGE_METRICS[data.metric]?.label||'Series')+' by series',items:rows.map(([l,v,k])=>({color:l.color,label:l.name,value:fmtMetricValue(data.metric,v,k)}))};
+    showDetail(dailyDetail(records,p.start===p.end?fmtDay(p.start):fmtDay(p.start)+' → '+fmtDay(p.end),extra),e.clientX,e.clientY,{pin,origin:svg,onHide:hideMarks});
+    if(pin)pinTipFocus();
   };
-  svg.addEventListener('mousemove',e=>inspect(e));svg.addEventListener('click',e=>inspect(e));
-  wireChartKeyboard(svg,(index,event)=>inspect(event,index),S.chartPoints?.points.length||1);
-  svg.addEventListener('mouseleave', event=>{ if(event.relatedTarget?.closest?.('#tip'))return;tip.style.display='none'; guide.setAttribute('opacity','0'); svg.querySelector('.u-dots').setAttribute('opacity','0'); });
+  svg.addEventListener('mousemove',e=>inspect(e));svg.addEventListener('click',e=>inspect(e,undefined,true));
+  wireChartKeyboard(svg,(index,event,pin)=>inspect(event,index,pin),S.chartPoints?.points.length||1);
+  svg.addEventListener('mouseleave', event=>{ if(event.relatedTarget?.closest?.('#tip'))return;hideDetail(); });
 }
 
 function exportDailyCsv(selectedRows = S.dailyRows, filename){
@@ -2326,11 +2492,37 @@ function debounce(fn, ms){
 }
 
 // ── provider detail ───────────────────────────────────────────────────────────
+// Placeholder shaped like the section it stands in for: analytics, history,
+// cost (the default) or table.
+function loadingSkeleton(label,kind='cost'){
+  const shape=(style='')=>`<span class="sk-shape"${style?` style="${style}"`:''}></span>`;
+  const metrics=(n,boxed)=>`<div class="sk-metrics${boxed?' boxed':''}">${`<div class="sk-metric">${shape()}${shape()}</div>`.repeat(n)}</div>`;
+  const pills=(widths)=>`<div class="sk-row">${widths.map(w=>`<span class="sk-shape sk-pill" style="width:${w}px"></span>`).join('')}</div>`;
+  const axis=`<div class="sk-axis">${shape().repeat(6)}</div>`;
+  const heights=[4,9,22,34,58,30,46,14,24,8,3,6,2,42,6,5,3,30,28,2,2,2,2,2,2,16,10,6,3,2];
+  let body;
+  if(kind==='table'){
+    body=`<div class="sk-rows">${`<div>${shape()}</div>`.repeat(6)}</div>`;
+  } else if(kind==='analytics'){
+    body=`${shape('width:46%')}<div style="height:14px"></div>${metrics(7)}${pills([66,48,58,62,66,74,50])}<div class="sk-split"><div>${shape('width:40%;margin-bottom:14px')}<span class="sk-shape sk-block"></span></div><div>${shape('width:36%;margin-bottom:16px')}${`<div class="sk-mix">${shape()}${shape('height:6px')}${shape()}</div>`.repeat(3)}</div></div><div style="height:20px"></div>`;
+  } else if(kind==='history'){
+    body=`<span class="sk-shape sk-line wide"></span><span class="sk-shape sk-line" style="margin-bottom:18px"></span>${pills([60,56,48,52])}<div class="sk-chart"><span class="sk-shape sk-area"></span></div>${axis}<div style="height:24px"></div>${metrics(6)}<div style="height:12px"></div>`;
+  } else {
+    body=`${metrics(4,true)}${shape('width:34%;margin-bottom:16px')}<div class="sk-chart">${heights.map(h=>shape(`height:${h*1.6}%`)).join('')}</div>${axis}${shape('width:52%;margin:18px 0 28px')}${shape('width:9%;height:14px;margin-bottom:14px')}<div class="sk-rows">${`<div>${shape()}</div>`.repeat(4)}</div>`;
+  }
+  return `<div class="loading-skeleton" role="status" aria-label="${esc(label)}"><span class="sr-only">${esc(label)}</span><div aria-hidden="true">${body}</div></div>`;
+}
+
 async function renderProvider(id){
   const panel = document.getElementById(`panel-${id}`);
   if(!panel) return;
+  const generation=(S.providerGeneration ||= {});
+  const request=generation[id]=(generation[id]||0)+1;
   const snap = S.snapshots.find(s=>s.providerId===id);
   if(!snap){ panel.innerHTML=`<div class="cost-unavail"><strong>No data yet</strong>Waiting for first probe…</div>`; return; }
+  const analytics=S.analyticsPending ||= {};
+  const pending=analytics[id] ||= Promise.all([fetchHistory(id),fetchCost(id),fetchCcusageReports(id),typeof fetch==='function'?ensureModelReports([id]):null])
+    .finally(()=>{delete analytics[id];});
 
   const pace = S.prefs.showPace&&S.prefs.components.includes('pace')?snap.pace:null;
   const primM = snapshotHasError(snap)?null:UsageDashboardSettings.primary(snap,S.prefs);
@@ -2371,7 +2563,7 @@ async function renderProvider(id){
       if(m.resetsAt&&S.prefs.showReset&&S.prefs.components.includes('reset')) html+=`<div class="dm-reset">${fmtReset(m.resetsAt)}</div>`;
       html+=`</div>`;
     } else if(m.type==='text'){
-      html+=`<div class="dmetric"><div class="kv"><span class="mlabel" style="margin:0">${esc(m.label)}</span><span class="kv-val">${esc(m.value||'')}</span></div></div>`;
+      html+=`<div class="dmetric"><div class="kv"><span class="mlabel" style="margin:0">${esc(m.label)}</span><span class="kv-val">${esc(groupDollarText(m.value||''))}</span></div></div>`;
     } else if(m.type==='badge'){
       html+=`<div class="dmetric"><div class="kv"><span class="mlabel" style="margin:0">${esc(m.label)}</span><span class="${pillCls(m.color)}">${esc(m.text||'')}</span></div></div>`;
     } else if(m.type==='barChart'){
@@ -2403,42 +2595,37 @@ async function renderProvider(id){
   }
   html+=`</div>`; // detail-cols
 
+  // Placeholders keep each section's real title and approximate height.
   html+=`<div class="stats-box" id="stats-box-${esc(id)}">`;
-  html+=`<div class="box-title">Deep Statistics</div>`;
-  html+=`<div class="chart-loading" id="stats-loading-${esc(id)}">Loading usage analytics…</div>`;
+  html+=`<div class="box-title">Usage Analytics</div>`;
+  html+=`<div id="stats-loading-${esc(id)}">${loadingSkeleton("Loading usage analytics","analytics")}</div>`;
   html+=`</div>`;
 
-  // cost history
   html+=`<div class="history-box" id="history-box-${esc(id)}">`;
   html+=`<div class="box-title">Usage History</div>`;
-  html+=`<div class="chart-loading" id="history-loading-${esc(id)}">Loading usage history…</div>`;
+  html+=`<div id="history-loading-${esc(id)}">${loadingSkeleton("Loading usage history","history")}</div>`;
   html+=`</div>`;
 
   html+=`<div class="cost-box" id="cost-box-${esc(id)}">`;
-  html+=`<div class="box-title">Cost History</div>`;
-  html+=`<div class="chart-loading" id="cost-loading-${esc(id)}">Loading cost data…</div>`;
+  html+=`<div class="sk-head"><div class="box-title" style="margin:0">Cost History · Last 30 Days</div><div class="sk-row" aria-hidden="true">${'<span class="sk-shape sk-pill"></span>'.repeat(5)}</div></div>`;
+  html+=`<div id="cost-loading-${esc(id)}">${loadingSkeleton("Loading cost history","cost")}</div>`;
   html+=`</div>`;
 
   html+=`</div>`; // detail
+  // First visits can show the snapshot immediately. Refreshes keep the entire
+  // existing panel until all replacement analytics are ready.
+  if(!panel.innerHTML){ panel.innerHTML = html; animateBarsAndArcs(panel); animateCompareBars(panel); }
+  const [history,cost,reports] = await pending;
+  if(generation[id]!==request)return;
   panel.innerHTML = html;
 
   // animate bars
-  animateBarsAndArcs(panel);
-  animateCompareBars(panel);
+  animateBarsAndArcs(panel, false);
+  animateCompareBars(panel, false);
 
-  // Load history first so deeper usage graphs do not wait on slower external
-  // cost scanners.
-  const history = await fetchHistory(id);
-  renderStatsSection(id, snap, history, null);
-  renderHistorySection(id, history, snap);
-  const reportsPromise = fetchCcusageReports(id).then(reports=>{
-    renderStatsSection(id, snap, history, reports);
-    renderHistorySection(id, history, snap, reports);
-    return reports;
-  });
-  const cost = await fetchCost(id);
+  renderStatsSection(id, snap, history, reports);
+  renderHistorySection(id, history, snap, reports);
   renderCostSection(id, cost, history);
-  await reportsPromise.catch(()=>null);
 }
 
 function renderStatsSection(id, snap, rawHistory, reports){
@@ -2449,6 +2636,7 @@ function renderStatsSection(id, snap, rawHistory, reports){
   box.querySelectorAll('.cal-scroll').forEach(el=>{ el.scrollLeft = el.scrollWidth; });
   box.querySelectorAll('.usage-tab').forEach(btn=>{
     btn.addEventListener('click',()=>{
+      (S.analyticsTabs ||= {})[id]=btn.dataset.panel;
       box.querySelectorAll('.usage-tab').forEach(b=>b.classList.toggle('active', b===btn));
       box.querySelectorAll('.usage-panel').forEach(p=>p.classList.toggle('active', p.dataset.panel===btn.dataset.panel));
       const report = btn.dataset.panel==='sessions' ? 'session' : btn.dataset.panel==='blocks' ? 'blocks' : null;
@@ -2456,17 +2644,22 @@ function renderStatsSection(id, snap, rawHistory, reports){
       const pane = box.querySelector(`.usage-panel[data-panel="${btn.dataset.panel}"]`);
       if(pane.dataset.loaded) return;
       pane.dataset.loaded = 'loading';
-      pane.innerHTML = '<div class="chart-loading">Loading local usage…</div>';
+      const current=dataRequest('detail:'+id+':'+report);
+      if(!reports?.[report])pane.innerHTML = loadingSkeleton('Loading local usage','table');
       fetch(`/v1/local-usage/${encodeURIComponent(id)}/${report}?limit=80`).then(r=>r.ok?r.json():Promise.reject())
         .then(data=>{
+          if(!current())return;
           if(data?.error) throw new Error('unavailable');
+          ((S.localReports ||= {})[id] ||= {})[report]=data;
           const rows = reportRows(data,report);
           pane.innerHTML = rows.length ? (report==='session'?sessionTable(rows):blockTable(rows)) : emptyUsage('No local usage in this report');
           if(data.totalRows>rows.length) pane.innerHTML += `<div class="small-note">Showing ${rows.length} of ${data.totalRows.toLocaleString('en-US')} rows.</div>`;
           pane.dataset.loaded = 'yes';
-        }).catch(()=>{ pane.innerHTML=emptyUsage('Could not load local usage. Select this tab to retry.'); delete pane.dataset.loaded; });
+        }).catch(()=>{if(!current())return;if(!reports?.[report])pane.innerHTML=emptyUsage('Could not load local usage. Select this tab to retry.');delete pane.dataset.loaded;});
     });
   });
+  const selected=S.analyticsTabs?.[id] || 'summary';
+  box.querySelectorAll('.usage-tab').forEach(btn=>{if(btn.dataset.panel===selected)btn.click();});
 }
 
 function buildUsageAnalytics(id, snap, rawHistory, reports){
@@ -2527,7 +2720,7 @@ function buildUsageAnalytics(id, snap, rawHistory, reports){
 
   html+=`<div class="usage-panel active" data-panel="summary">`;
   html+=`<div class="usage-split"><div>`;
-  html+=`<div class="u-h" style="margin-bottom:10px">Activity · last 26 weeks</div>${renderHeatmap(fallbackDaily)}`;
+  html+=heatmapSectionHtml(id, fallbackDaily);
   html+=`</div><div>`;
   html+=`<div class="u-h" style="margin-bottom:10px">Model mix · last 30 days</div><div id="model-mix-${esc(id)}">${savedModelMix(id) || renderModelMix(models, totals.totalTokens)}</div>`;
   html+=`</div></div>`;
@@ -2581,80 +2774,127 @@ function formatScalar(value, format){
   return `${fmtNum(n)} ${format?.suffix||''}`.trim();
 }
 
+// Usage History plots two sources: polled quota samples (Quotas) and saved
+// local daily usage (Tokens, Cost, Cache). Polling snapshots carry no token
+// counters for log-backed providers, so token views never read them.
+const HISTORY_RANGES=[['1','24h'],['7','7d'],['30','30d'],['90','90d'],['all','All']];
+const HISTORY_GROUPS=[['raw','Raw'],['hour','Hourly'],['day','Daily'],['week','Weekly'],['month','Monthly']];
+const USAGE_GROUPS=new Set(['day','week','month']);
+function historyRangeDays(range){ return range==='all' ? null : Number(range); }
+function historyGroupFor(mode,bucket){ return mode==='quota' || USAGE_GROUPS.has(bucket) ? bucket : 'day'; }
+
 function renderHistorySection(id, raw, snap, reports){
   const box = document.getElementById(`history-box-${id}`);
   if(!box) return;
   box.innerHTML = `<div class="box-title">Usage History</div>`;
   const records = normalizeHistory(raw).filter(r=>r.providerId===id)
     .sort((a,b)=>new Date(a.ts)-new Date(b.ts));
+  const reportDaily = reportRows(reports?.daily, 'daily');
+  const usageRows = (reportDaily.length ? reportDaily : S.dailyRows.filter(r=>r.providerId.toLowerCase()===id.toLowerCase())).map(normalizeCostRow).filter(r=>r.date);
 
-  if(!records.length){
+  if(!records.length && !usageRows.length){
     box.insertAdjacentHTML('beforeend', `<div class="cost-unavail"><strong>No usage history yet</strong>Keep the daemon running, or probe with <code style="font-size:12px;color:var(--teal)">usagestat usage --save</code>, to build charts.</div>`);
     return;
   }
 
-  const recent = lastWindow(records, 30);
-  const latest = recent[recent.length-1] || records[records.length-1];
-  const first = recent[0] || records[0];
-  const activeDays = new Set(recent.map(r=>String(r.ts).slice(0,10))).size;
-  const reportDaily = reportRows(reports?.daily, 'daily');
-  const localDaily = (reportDaily.length ? reportDaily : S.dailyRows.filter(r=>r.providerId.toLowerCase()===id.toLowerCase())).map(normalizeCostRow).filter(r=>r.date);
-  const summaryRows = localDaily.length ? calendarWindow(localDaily, 30) : [];
-  const summaryTotals = summaryRows.length ? usageTotals(summaryRows) : null;
-  const summaryActiveDays = summaryRows.length ? summaryRows.filter(r=>rowCost(r)>0 || rowTotalTokens(r)>0).length : activeDays;
-  const summaryInput = summaryTotals ? summaryTotals.inputTokens : latest.inputTokens;
-  const summaryOutput = summaryTotals ? summaryTotals.outputTokens : latest.outputTokens;
-  const summaryCacheRead = summaryTotals ? summaryTotals.cacheReadTokens : latest.cacheReadTokens;
-  const summaryCacheCreate = summaryTotals ? summaryTotals.cacheCreationTokens : latest.cacheCreationTokens;
-  const summaryCost = summaryTotals ? summaryTotals.cost : latest.cost;
-
-  let html = `<div class="trends-sub" style="margin-bottom:16px">Charts show hourly polling summaries for the last 30 days, with peak quota and the last reported counters in each bucket. For daily totals and period comparisons, open History.</div><div class="history-grid">`;
-  html+=`<div>`;
-  html+=`<div class="history-controls">`;
-  html+=`<div class="history-tabs" id="history-tabs-${esc(id)}">`;
-  html+=historyTab(id,'quota','Quotas',true);
-  html+=historyTab(id,'tokens','Tokens',false);
-  html+=historyTab(id,'cost','Cost',false);
-  html+=historyTab(id,'cache','Cache',false);
-  html+=`</div><div class="history-tabs" id="history-buckets-${esc(id)}">`;
-  html+=bucketTab('raw','Raw',true);
-  html+=bucketTab('hour','Hourly',false);
-  html+=bucketTab('day','Daily',false);
-  html+=bucketTab('week','Weekly',false);
-  html+=`</div></div><div class="history-chart" id="history-chart-${esc(id)}"></div></div>`;
-  html+=`<div><div class="insight-grid">`;
-  html+=insight(`${fmtPct(latest.primaryPercent)}`, 'latest usage');
-  html+=insight(fmtPct((latest.primaryPercent||0)-(first.primaryPercent||0), true), 'window change');
-  html+=insight(fmtTok(summaryInput), summaryTotals?'30d input tokens':'latest input tokens');
-  html+=insight(fmtTok(summaryOutput), summaryTotals?'30d output tokens':'latest output tokens');
-  html+=insight(summaryCost>0?fmtUsd(summaryCost):'—', summaryTotals?'30d recorded cost':'latest reported cost');
-  html+=insight(summaryRows.length?`${summaryActiveDays}/${summaryRows.length}`:String(activeDays), summaryTotals?'30d active days':'days sampled');
-  html+=`</div>`;
-  html+=`<div style="margin-top:14px">`;
-  html+=seriesRow('Uncached input', summaryInput, '#7289da', fmtTok);
-  html+=seriesRow('Cached input', summaryCacheRead, '#9b87f5', fmtTok);
-  html+=seriesRow('Cache writes', summaryCacheCreate, '#eaca8b', fmtTok);
-  html+=seriesRow('Output', summaryOutput, '#43b581', fmtTok);
-  html+=`</div></div></div>`;
-
-  box.insertAdjacentHTML('beforeend', html);
-  const state = { mode:'quota', bucket:'raw', records:recent, snap };
+  const previous=S.historyViews?.[id];
+  const state = { mode:previous?.mode || (records.length?'quota':'tokens'), bucket:previous?.bucket || 'raw', range:previous?.range || '30', records, usageRows, snap };
+  (S.historyViews ||= {})[id]=state;
   box._historyState = state;
-  box.querySelectorAll('#history-tabs-'+CSS.escape(id)+' .history-tab').forEach(btn=>{
-    btn.addEventListener('click',()=>{
-      state.mode = btn.dataset.mode;
-      box.querySelectorAll('#history-tabs-'+CSS.escape(id)+' .history-tab').forEach(b=>b.classList.toggle('active',b===btn));
-      buildHistoryChart(`history-chart-${id}`, state.records, state.mode, state.bucket);
+
+  let html = `<div class="trends-sub" style="margin-bottom:16px">Quotas plot polled samples (peak per group). Tokens, cost and cache plot saved local usage summed per UTC day, week or month. For period comparisons, open History.</div><div class="history-grid">`;
+  html+=`<div><div class="history-controls">`;
+  html+=`<div class="history-tabs" id="history-tabs-${esc(id)}" role="group" aria-label="Metric">`;
+  html+=historyTab(id,'quota','Quotas',false)+historyTab(id,'tokens','Tokens',false)+historyTab(id,'cost','Cost',false)+historyTab(id,'cache','Cache',false);
+  html+=`</div><div class="history-tabs" id="history-ranges-${esc(id)}" role="group" aria-label="Time span">`;
+  html+=HISTORY_RANGES.map(([v,l])=>`<button class="history-tab" type="button" data-range="${v}">${l}</button>`).join('');
+  html+=`</div><div class="history-tabs" id="history-buckets-${esc(id)}" role="group" aria-label="Group by">`;
+  html+=HISTORY_GROUPS.map(([v,l])=>bucketTab(v,l,false)).join('');
+  html+=`</div></div><div class="history-chart" id="history-chart-${esc(id)}"></div></div>`;
+  html+=`<div id="history-summary-${esc(id)}"></div></div>`;
+  box.insertAdjacentHTML('beforeend', html);
+
+  const redraw=()=>drawHistoryView(id, box, state);
+  box.querySelectorAll('[data-mode]').forEach(btn=>btn.addEventListener('click',()=>{ state.mode=btn.dataset.mode; redraw(); }));
+  box.querySelectorAll('[data-bucket]').forEach(btn=>btn.addEventListener('click',()=>{ state.bucket=btn.dataset.bucket; redraw(); }));
+  box.querySelectorAll('[data-range]').forEach(btn=>btn.addEventListener('click',()=>{
+    state.range=btn.dataset.range; redraw();
+    // Quota samples load 30 days up front; wider spans fetch on demand.
+    const days=historyRangeDays(state.range), loaded=loadedHistoryDays(id);
+    if(loaded!==null && (days===null || days>loaded)) fetchHistory(id, days).then(data=>{
+      if(box.isConnected && box._historyState===state){ state.records=normalizeHistory(data).filter(r=>r.providerId===id).sort((a,b)=>new Date(a.ts)-new Date(b.ts)); redraw(); }
     });
+  }));
+  redraw();
+}
+
+function drawHistoryView(id, box, state){
+  const group = historyGroupFor(state.mode, state.bucket);
+  box.querySelectorAll('[data-mode]').forEach(b=>b.classList.toggle('active',b.dataset.mode===state.mode));
+  box.querySelectorAll('[data-range]').forEach(b=>b.classList.toggle('active',b.dataset.range===state.range));
+  box.querySelectorAll('[data-bucket]').forEach(b=>{
+    const usable = state.mode==='quota' || USAGE_GROUPS.has(b.dataset.bucket);
+    b.disabled = !usable;
+    b.title = usable ? '' : 'Saved usage is daily; choose Daily, Weekly or Monthly';
+    b.classList.toggle('active', b.dataset.bucket===group);
   });
-  box.querySelectorAll('#history-buckets-'+CSS.escape(id)+' .history-tab').forEach(btn=>{
-    btn.addEventListener('click',()=>{
-      state.bucket = btn.dataset.bucket;
-      box.querySelectorAll('#history-buckets-'+CSS.escape(id)+' .history-tab').forEach(b=>b.classList.toggle('active',b===btn));
-      buildHistoryChart(`history-chart-${id}`, state.records, state.mode, state.bucket);
-    });
-  });
-  buildHistoryChart(`history-chart-${id}`, recent, 'quota', 'raw');
+  const days = historyRangeDays(state.range);
+  const chartId = `history-chart-${id}`;
+  if(state.mode==='quota'){
+    const end = state.records.length ? +new Date(state.records[state.records.length-1].ts) : Date.now();
+    const recs = days===null ? state.records : state.records.filter(r=>+new Date(r.ts)>=end-days*86400000);
+    buildHistoryChart(chartId, recs, 'quota', group);
+  } else {
+    buildHistoryChart(chartId, usageHistoryRecords(usageRangeRows(state.usageRows, days), group), state.mode, group);
+  }
+  const summary = box.querySelector(`#history-summary-${CSS.escape(id)}`);
+  if(summary) summary.innerHTML = historySummaryHtml(state, days);
+}
+
+// Saved daily rows inside the span, with idle days filled as zero so lines
+// drop to zero instead of bridging quiet days.
+function usageRangeRows(rows, days){
+  if(!rows.length) return [];
+  const end = todayUtcDate();
+  const start = days===null ? parseDateOnly(rows.map(r=>r.date).sort()[0]) : addDays(end, -(days-1));
+  return calendarRange(rows, start, end);
+}
+
+// Daily usage is additive, so groups sum their days (unlike polled counters).
+function usageHistoryRecords(rows, group){
+  const map = new Map();
+  for(const r of rows){
+    const key = bucketKey(r.date+'T00:00:00Z', group);
+    if(!map.has(key)) map.set(key, { ts:key.length===10?key+'T00:00:00Z':key, inputTokens:0, outputTokens:0, reasoningTokens:0, cacheReadTokens:0, cacheCreationTokens:0, totalTokens:0, cost:0, source:r.source||null, usage:true, _days:0 });
+    const b = map.get(key);
+    b.inputTokens += rowInput(r); b.outputTokens += rowOutput(r); b.reasoningTokens += rowReasoning(r);
+    b.cacheReadTokens += rowCacheRead(r); b.cacheCreationTokens += rowCacheCreate(r);
+    b.totalTokens += rowTotalTokens(r); b.cost += rowCost(r); b._days++;
+    if(r.source) b.source = r.source;
+  }
+  return [...map.values()].map(({_days,...b})=>b).sort((a,b)=>a.ts.localeCompare(b.ts));
+}
+
+function historySummaryHtml(state, days){
+  const span = days===null ? 'all-time' : days===1 ? 'today' : `${days}d`;
+  const rows = usageRangeRows(state.usageRows, days);
+  const t = rows.length ? usageTotals(rows) : null;
+  const end = state.records.length ? +new Date(state.records[state.records.length-1].ts) : 0;
+  const recs = days===null ? state.records : state.records.filter(r=>+new Date(r.ts)>=end-days*86400000);
+  const latest = recs[recs.length-1], first = recs[0];
+  let html = `<div class="insight-grid">`;
+  html+=insight(latest?fmtPct(latest.primaryPercent):'—', 'latest quota');
+  html+=insight(latest&&first?fmtPct((latest.primaryPercent||0)-(first.primaryPercent||0), true):'—', `${span} quota change`);
+  html+=insight(t?fmtTok(t.totalTokens):'—', `${span} total tokens`);
+  html+=insight(t?fmtTok(t.outputTokens):'—', `${span} output tokens`);
+  html+=insight(t&&t.cost>0?fmtUsd(t.cost):'—', `${span} recorded cost`);
+  html+=insight(rows.length?`${rows.filter(r=>rowCost(r)>0||rowTotalTokens(r)>0).length}/${rows.length}`:'—', `${span} active days`);
+  html+=`</div><div style="margin-top:14px">`;
+  html+=seriesRow('Uncached input', t?.inputTokens||0, '#7289da', fmtTok);
+  html+=seriesRow('Cached input', t?.cacheReadTokens||0, '#9b87f5', fmtTok);
+  html+=seriesRow('Cache writes', t?.cacheCreationTokens||0, '#eaca8b', fmtTok);
+  html+=seriesRow('Output', t?.outputTokens||0, '#43b581', fmtTok);
+  return html+`</div>`;
 }
 
 function renderCostSection(id, raw, history){
@@ -2704,25 +2944,25 @@ function renderCostSection(id, raw, history){
 }
 
 function costHeaderHtml(id){
-  return `<div class="cost-head"><div class="box-title">Cost History · Last 30 Days</div><div class="cost-range" id="cost-range-${esc(id)}">
-    <button class="cost-tab active" type="button" data-range="30">30D</button>
-    <button class="cost-tab" type="button" data-range="month">Month</button>
-    <button class="cost-tab" type="button" data-range="90">90D</button>
-    <button class="cost-tab" type="button" data-range="365">Year</button>
-    <button class="cost-tab" type="button" data-range="all">All</button>
+  const tabs=(attr,items)=>items.map(([v,l])=>`<button class="cost-tab" type="button" data-${attr}="${v}">${l}</button>`).join('');
+  return `<div class="cost-head"><div class="box-title">Cost History · Last 30 Days</div><div class="cost-controls">
+    <div class="cost-range" id="cost-range-${esc(id)}" role="group" aria-label="Time span">${tabs('range',[['7','7D'],['30','30D'],['month','Month'],['90','90D'],['365','Year'],['all','All']])}</div>
+    <div class="cost-range" id="cost-group-${esc(id)}" role="group" aria-label="Group by">${tabs('group',[['auto','Auto'],['day','Daily'],['week','Weekly'],['month','Monthly']])}</div>
   </div></div>`;
 }
 
 function setupCostRange(box, id, daily){
-  const state = { daily: daily.map(normalizeCostRow).filter(d=>d.date).sort((a,b)=>a.date.localeCompare(b.date)), range:'30' };
+  const state = { daily: daily.map(normalizeCostRow).filter(d=>d.date).sort((a,b)=>a.date.localeCompare(b.date)), range:S.costRanges?.[id] || '30', group:S.costGroups?.[id] || 'auto' };
   box._costState = state;
+  const mark=()=>box.querySelectorAll('.cost-tab').forEach(b=>b.classList.toggle('active', b.dataset.range ? b.dataset.range===state.range : b.dataset.group===state.group));
   box.querySelectorAll('.cost-tab').forEach(btn=>{
     btn.addEventListener('click',()=>{
-      state.range = btn.dataset.range;
-      box.querySelectorAll('.cost-tab').forEach(b=>b.classList.toggle('active', b===btn));
-      updateCostView(id, state);
+      if(btn.dataset.range){ state.range = btn.dataset.range; (S.costRanges ||= {})[id]=state.range; }
+      else { state.group = btn.dataset.group; (S.costGroups ||= {})[id]=state.group; }
+      mark(); updateCostView(id, state);
     });
   });
+  mark();
   updateCostView(id, state);
 }
 
@@ -2741,12 +2981,13 @@ function updateCostView(id, state){
       <div class="cstat"><div class="cstat-val">${activeDays}/${rows.length}</div><div class="cstat-lbl">active days</div></div>
       <div class="cstat"><div class="cstat-val">${fmtTok(totals.totalTokens)}</div><div class="cstat-lbl">total tokens</div></div>`;
   }
-  buildChart(`chart-${id}`, rows, id);
+  buildChart(`chart-${id}`, rows, id, state.group);
   updateModelTable(id, rows);
 }
 
 function rangeLabel(range){
   if(range==='month') return 'Month to Date';
+  if(range==='7') return 'Last 7 Days';
   if(range==='30') return 'Last 30 Days';
   if(range==='90') return 'Last 90 Days';
   if(range==='365') return 'Year';
@@ -2780,12 +3021,12 @@ function updateModelTable(id, rows){
     el.innerHTML = report?.status==='loading' || !report ? `<div class="small-note">Loading model history…</div>` : '';
     return;
   }
-  const priced = models.filter(m=>m.costKnown).reduce((a,m)=>a+m.cost,0);
+  const priced = models.reduce((a,m)=>a+m.cost,0);
   let html = `<div class="u-sechead"><span class="u-h">Models</span></div><div class="trends-table-wrap"><table class="u-table"><thead><tr><th>Model</th><th>Cost</th><th>Share of priced cost</th><th>Tokens</th><th>Cached input</th></tr></thead><tbody>`;
   for(const m of models.slice(0,20)){
-    html+=`<tr><td><span class="u-cell-name">${providerIcon(id)}${esc(m.name)}</span></td><td class="${m.costKnown?'':'u-muted'}">${m.costKnown?fmtUsd(m.cost):m.cost>0?fmtUsd(m.cost)+'+':'Unpriced'}</td><td>${m.costKnown?shareText(m.cost,priced):'—'}</td><td>${fmtTok(m.tokens)}</td><td>${fmtTok(m.cached)}</td></tr>`;
+    html+=`<tr><td><span class="u-cell-name">${providerIcon(id)}${esc(m.name)}</span></td><td class="${m.costKnown?'':'u-muted'}">${m.costKnown?fmtUsd(m.cost):m.cost>0?fmtUsd(m.cost)+'+':'Unpriced'}</td><td>${m.costKnown||m.cost>0?(m.costKnown?'':'≈')+shareText(m.cost,priced):'—'}</td><td>${fmtTok(m.tokens)}</td><td>${fmtTok(m.cached)}</td></tr>`;
   }
-  el.innerHTML = html+`</tbody></table></div><div class="small-note">From saved daily model history (local logs at standard API rates); totals can differ from the reported cost above. Shares are of priced model cost.</div>`;
+  el.innerHTML = html+`</tbody></table></div><div class="small-note">From saved daily model history (local logs at standard API rates); totals can differ from the reported cost above. Shares include every known cost amount; ≈ marks a partial model. Retained daily estimates without request detail use base API rates.</div>`;
 }
 
 function historyPrimary(row){
@@ -3052,15 +3293,41 @@ function blockTable(rows){
   return html;
 }
 
+const HEATMAP_SPANS=[['13','3M'],['26','6M'],['52','1Y'],['all','All']];
+// Earliest saved day decides how many weeks "All" covers.
+function heatmapWeeks(rows, span){
+  if(span!=='all') return Number(span)||26;
+  const first=rows.map(rowDate).filter(Boolean).sort()[0];
+  if(!first) return 26;
+  const end=todayUtcDate(), start=parseDateOnly(first);
+  return Math.max(1, Math.floor((end-start)/864e5/7)+2);
+}
+function heatmapTitle(span){return span==='all'?'Activity · all saved days':`Activity · last ${({13:'3 months',26:'6 months',52:'year'})[span]||span+' weeks'}`;}
+function heatmapSectionHtml(id, rows){
+  (S.heatmapRows ||= {})[id]=rows;
+  const span=S.heatmapSpans?.[id]||'26';
+  const tabs=HEATMAP_SPANS.map(([v,l])=>`<button class="cost-tab${v===span?' active':''}" type="button" data-heatmap-span="${v}" aria-pressed="${v===span}" onclick="setHeatmapSpan('${esc(id)}','${v}')">${l}</button>`).join('');
+  const weeks=heatmapWeeks(rows, span);
+  return `<div class="heatmap-section${weeks>26?' wide':''}" id="heatmap-${esc(id)}"><div class="heatmap-head"><div class="u-h">${esc(heatmapTitle(span))}</div><div class="cost-range" role="group" aria-label="Time span">${tabs}</div></div>${renderHeatmap(rows, weeks)}</div>`;
+}
+function setHeatmapSpan(id, span){
+  (S.heatmapSpans ||= {})[id]=span;
+  const el=document.getElementById('heatmap-'+id);
+  if(!el) return;
+  el.outerHTML=heatmapSectionHtml(id, S.heatmapRows?.[id]||[]);
+  const scroller=document.getElementById('heatmap-'+id)?.querySelector('.cal-scroll');
+  if(scroller) scroller.scrollLeft=scroller.scrollWidth;
+}
+
 // GitHub-style calendar: one column per week (Mon–Sun), one hue by volume.
-function renderHeatmap(rows){
+function renderHeatmap(rows, weeks=26){
   const byDay = new Map();
   for(const r of rows){
     const d = rowDate(r), day = byDay.get(d) || { totalTokens:0, tokensKnown:true };
     day.totalTokens += rowTotalTokens(r); day.tokensKnown &&= r.tokensKnown !== false;
     byDay.set(d, day);
   }
-  const end = todayUtcDate(), weeks = 26;
+  const end = todayUtcDate();
   const start = addDays(end, -((end.getUTCDay()+6)%7) - (weeks-1)*7);
   const days = [];
   for(let d = start; d <= end; d = addDays(d,1)) days.push(dateKey(d));
@@ -3072,9 +3339,9 @@ function renderHeatmap(rows){
   days.forEach((d,i)=>{
     const day = byDay.get(d), v = day?.totalTokens||0, level = !v ? 0 : v<=cuts[0] ? 1 : v<=cuts[1] ? 2 : v<=cuts[2] ? 3 : 4;
     cells+=`<div class="cal-cell l${level}" style="grid-column:${Math.floor(i/7)+1};grid-row:${i%7+1}" title="${esc(fmtDay(d))}: ${day?esc(recordedTokens(day))+' tokens':'no record'}" ${chartDetailAttribute(dailyDetail(rows.filter(r=>rowDate(r)===d),fmtDay(d)))}></div>`;
-    if(i%7===0 && (i===0 || d.slice(8)<='07') && i/7-lastLabel>=3 && (lastLabel=i/7)>=0) months+=`<span style="grid-column:${i/7+1}">${esc(parseDateOnly(d).toLocaleDateString('en-US',{month:'short',timeZone:'UTC'}))}</span>`;
+    if(i%7===0 && (i===0 || d.slice(8)<='07') && i/7-lastLabel>=3 && (lastLabel=i/7)>=0) months+=`<span style="grid-column:${i/7+1}">${esc(parseDateOnly(d).toLocaleDateString('en-US',{month:'short',timeZone:'UTC'})+(weeks>52&&(i===0||d.slice(5,7)==='01')?` '${d.slice(2,4)}`:''))}</span>`;
   });
-  return `<div class="cal-scroll"><div class="cal" style="--weeks:${weeks}"><div class="cal-months">${months}</div><div class="cal-days"><span style="grid-row:1">Mon</span><span style="grid-row:3">Wed</span><span style="grid-row:5">Fri</span></div><div class="cal-grid">${cells}</div></div></div><div class="cal-legend">Less<span class="cal-cell l0"></span><span class="cal-cell l1"></span><span class="cal-cell l2"></span><span class="cal-cell l3"></span><span class="cal-cell l4"></span>More</div>`;
+  return `<div class="cal-scroll"><div class="cal" style="--weeks:${weeks};--cal-gap:${weeks>40?2:weeks>20?3:4}px"><div class="cal-months">${months}</div><div class="cal-days"><span style="grid-row:1">Mon</span><span style="grid-row:3">Wed</span><span style="grid-row:5">Fri</span></div><div class="cal-grid">${cells}</div></div></div><div class="cal-legend">Less<span class="cal-cell l0"></span><span class="cal-cell l1"></span><span class="cal-cell l2"></span><span class="cal-cell l3"></span><span class="cal-cell l4"></span>More</div>`;
 }
 
 // Model mix from saved daily model history, matching the History Model view.
@@ -3097,11 +3364,11 @@ function savedModelMix(id){
   }
   const all = [...map.values()].sort((a,b)=>b.cost-a.cost || b.tokens-a.tokens);
   if(!all.length) return '';
-  const priced = all.filter(m=>m.costKnown).reduce((a,m)=>a+m.cost,0), models = all.slice(0,8);
+  const priced = all.reduce((a,m)=>a+m.cost,0), models = all.slice(0,8);
   let html = `<div class="model-mix">`;
   for(const m of models){
-    const share = m.costKnown && priced>0 ? m.cost/priced*100 : 0;
-    html+=`<div class="model-row" ${chartDetailAttribute({title:m.model,rows:[['Tokens',exactNumber(m.tokens)],['Cost · USD',detailedCost(m)]],note:'Share of this report. Local log costs are API-equivalent amounts, separate from subscription charges.'})}><div class="model-label">${esc(m.model)}</div><div class="pressure-value">${m.costKnown?shareText(m.cost,priced):'—'}</div><div class="model-bar"><div style="width:${share.toFixed(1)}%"></div></div><div class="pressure-value">${recordedCost(m)}</div></div>`;
+    const share = priced>0 ? m.cost/priced*100 : 0;
+    html+=`<div class="model-row" ${chartDetailAttribute({title:m.model,rows:[['Tokens',exactNumber(m.tokens)],['Cost · USD',tipCost(m)]],note:'Share of this report. Local log costs are API-equivalent amounts, separate from subscription charges.'})}><div class="model-label">${esc(m.model)}</div><div class="pressure-value">${m.costKnown||m.cost>0?(m.costKnown?'':'≈')+shareText(m.cost,priced):'—'}</div><div class="model-bar"><div style="width:${share.toFixed(1)}%"></div></div><div class="pressure-value">${recordedCost(m)}</div></div>`;
   }
   return html+`</div><div class="small-note">Share of priced cost · local logs at API rates</div>`;
 }
@@ -3135,7 +3402,7 @@ function renderModelMix(models, totalTokens){
   let html = `<div class="model-mix">`;
   for(const m of models){
     const share = totalTokens>0 ? m.tokens/totalTokens*100 : 0;
-    html+=`<div class="model-row" ${chartDetailAttribute({title:m.model,rows:[['Tokens',exactNumber(m.tokens)],['Cost · USD',detailedCost(m)]],note:'Share of this report. Local log costs are API-equivalent amounts, separate from subscription charges.'})}><div class="model-label">${esc(m.model)}</div><div class="pressure-value">${share.toFixed(1)}%</div><div class="model-bar"><div style="width:${share.toFixed(1)}%"></div></div><div class="pressure-value">${m.costKnown===false?recordedCost(m):m.cost>0?'$'+m.cost.toFixed(2):fmtTok(m.tokens)}</div></div>`;
+    html+=`<div class="model-row" ${chartDetailAttribute({title:m.model,rows:[['Tokens',exactNumber(m.tokens)],['Cost · USD',tipCost(m)]],note:'Share of this report. Local log costs are API-equivalent amounts, separate from subscription charges.'})}><div class="model-label">${esc(m.model)}</div><div class="pressure-value">${share.toFixed(1)}%</div><div class="model-bar"><div style="width:${share.toFixed(1)}%"></div></div><div class="pressure-value">${m.costKnown===false?recordedCost(m):m.cost>0?fmtUsd(m.cost):fmtTok(m.tokens)}</div></div>`;
   }
   html+=`</div>`;
   return html;
@@ -3164,6 +3431,7 @@ function bucketKey(ts, bucket){
     u.setUTCDate(u.getUTCDate() - day + 1);
     return u.toISOString().slice(0,10);
   }
+  if(bucket==='month') return d.toISOString().slice(0,7)+'-01';
   return ts;
 }
 
@@ -3243,7 +3511,7 @@ function historySeries(records, mode){
   if(mode==='tokens') return [
     { key:'inputTokens', label:'Input', color:'#7289da', fmt:fmtTok },
     { key:'outputTokens', label:'Output', color:'#43b581', fmt:fmtTok },
-    { key:'totalTokens', label:'Total', color:'#859bee', fmt:fmtTok, line:true },
+    { key:'totalTokens', label:'Total', color:'#4fb4a8', fmt:fmtTok, line:true },
   ];
   if(mode==='cost') return [
     { key:'cost', label:'Cost', color:'#7289da', fmt:fmtUsd, line:true },
@@ -3280,6 +3548,7 @@ function buildHistoryChart(containerId, sourceRecords, mode, bucket){
     axis: v=>axisValue(v,mode),
     peak: mode==='quota',
     when: t=>fmtWhen(t, bucket||'raw'),
+    bucket: bucket||'raw',
   });
 }
 
@@ -3287,6 +3556,7 @@ function fmtWhen(t, bucket){
   const d = new Date(t);
   if(bucket==='day') return d.toLocaleDateString('en-US',{month:'short',day:'numeric',timeZone:'UTC'});
   if(bucket==='week') return 'Week of '+d.toLocaleDateString('en-US',{month:'short',day:'numeric',timeZone:'UTC'});
+  if(bucket==='month') return d.toLocaleDateString('en-US',{month:'long',year:'numeric',timeZone:'UTC'});
   return d.toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit',timeZone:'UTC'})+' UTC';
 }
 
@@ -3329,7 +3599,28 @@ function timeLineChart(container, series, opts){
     const v = max*i/4, yy = y(v);
     svg+=`<line x1="${L}" y1="${yy}" x2="${W-R}" y2="${yy}" stroke="var(--bd)"/><text x="${L-8}" y="${yy+4}" text-anchor="end" fill="var(--su)" font-size="10.5">${esc(opts.axis(v))}</text>`;
   }
+  // Spans where no series has a sample get a hatched "No data" band, so a
+  // break reads as missing data rather than a drop to zero.
+  const covered = reduced.flatMap(s=>s.segments.map(seg=>[seg[0].t, seg[seg.length-1].t])).sort((a,b)=>a[0]-b[0]);
+  const merged = [];
+  for(const [a0,a1] of covered){ const last = merged[merged.length-1]; if(last && a0<=last[1]) last[1] = Math.max(last[1],a1); else merged.push([a0,a1]); }
+  const noData = merged.slice(1).map((m,i)=>[merged[i][1], m[0]]).filter(([g0,g1])=>x(g1)-x(g0)>=8);
+  if(noData.length){
+    svg+=`<defs><pattern id="tl-gap-${uid}" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="6" stroke="var(--mu)" stroke-width="1" opacity=".22"/></pattern></defs><g class="tl-gaps" pointer-events="none">`;
+    for(const [g0,g1] of noData){
+      const gx = x(g0), gw = x(g1)-gx;
+      svg+=`<rect x="${gx.toFixed(1)}" y="${T}" width="${gw.toFixed(1)}" height="${CH}" fill="url(#tl-gap-${uid})"/>`;
+      if(gw>=56) svg+=`<text x="${(gx+gw/2).toFixed(1)}" y="${T+12}" text-anchor="middle" fill="var(--mu)" font-size="9.5" letter-spacing=".06em">NO DATA</text>`;
+    }
+    svg+=`</g>`;
+  }
   reduced.forEach((s,i)=>{
+    // A faint dashed bridge keeps each series readable across a gap without
+    // presenting the missing stretch as measured values.
+    s.segments.slice(1).forEach((seg,k)=>{
+      const p = s.segments[k][s.segments[k].length-1], q = seg[0];
+      svg+=`<line class="tl-bridge" x1="${x(p.t).toFixed(1)}" y1="${y(p.v).toFixed(1)}" x2="${x(q.t).toFixed(1)}" y2="${y(q.v).toFixed(1)}" stroke="${s.color}" stroke-width="1.2" stroke-dasharray="2 4" opacity=".45"/>`;
+    });
     for(const seg of s.segments){
       const pts = seg.map(p=>[x(p.t), y(p.v)]);
       if(pts.length===1){ svg+=`<circle cx="${pts[0][0].toFixed(1)}" cy="${pts[0][1].toFixed(1)}" r="2.5" fill="${s.color}"/>`; continue; }
@@ -3338,12 +3629,11 @@ function timeLineChart(container, series, opts){
       svg+=`<path d="M${line.slice(1)}" fill="none" stroke="${s.color}" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"/>`;
     }
   });
-  const span = t1-t0, ticks = 6;
-  for(let i=0;i<ticks;i++){
-    const t = t0 + span*i/(ticks-1), d = new Date(t);
-    const label = span < 2*86400000 ? d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',timeZone:'UTC'}) : d.toLocaleDateString('en-US',{month:'short',day:'numeric',timeZone:'UTC'});
-    svg+=`<text x="${x(t).toFixed(1)}" y="${H-6}" text-anchor="${i===0?'start':i===ticks-1?'end':'middle'}" fill="var(--su)" font-size="10.5">${esc(label.toUpperCase())}</text>`;
-  }
+  // About one date label per 70px so narrow charts never overlap labels.
+  const span = t1-t0, ticks = Math.max(2, Math.min(6, Math.floor(CW/70)+1));
+  const anchorAt = t=>x(t)<L+24?'start':x(t)>W-R-24?'end':'middle';
+  const marks = timeAxisTicks(t0, t1, opts.bucket, ticks);
+  for(const m of marks) svg+=`<text x="${x(m.t).toFixed(1)}" y="${H-6}" text-anchor="${anchorAt(m.t)}" fill="var(--su)" font-size="10.5">${esc(m.label)}</text>`;
   svg+=`<line class="tl-guide" x1="0" x2="0" y1="${T}" y2="${T+CH}" stroke="var(--mu)" stroke-dasharray="3 3" opacity="0"/>`;
   svg+=`<g class="tl-dots" opacity="0">${reduced.map(s=>`<circle r="4" fill="${s.color}" stroke="var(--s0)" stroke-width="2"/>`).join('')}</g></svg>`;
   const legend = reduced.length>1 ? `<div class="chart-legend">${reduced.map(s=>`<span class="legend-item"><span class="legend-dot" style="background:${s.color}"></span>${esc(s.label)}</span>`).join('')}</div>` : '';
@@ -3351,7 +3641,9 @@ function timeLineChart(container, series, opts){
 
   const el = container.querySelector('svg'), tip = document.getElementById('tip');
   const guide = el.querySelector('.tl-guide'), dots = [...el.querySelector('.tl-dots').children];
-  const inspect=(e,forcedTime)=>{
+  const hideMarks=()=>{ guide.setAttribute('opacity','0'); el.querySelector('.tl-dots').setAttribute('opacity','0'); };
+  const inspect=(e,forcedTime,pin=false)=>{
+    if(TIP.pinned&&!pin) return;
     const box = el.getBoundingClientRect();
     const t = forcedTime??(t0 + ((e.clientX-box.left)*W/box.width - L)/CW*(t1-t0));
     // Nearest reduced point per series, ignoring series that have a gap here.
@@ -3364,18 +3656,18 @@ function timeLineChart(container, series, opts){
       return s.breaks.some(b=>b>lo && b<hi) ? null : best;
     });
     const anchor = hits.filter(Boolean).sort((a,b)=>Math.abs(a.t-t)-Math.abs(b.t-t))[0];
-    if(!anchor){ tip.style.display='none'; guide.setAttribute('opacity','0'); el.querySelector('.tl-dots').setAttribute('opacity','0'); return; }
+    if(!anchor){ hideDetail(); return; }
     const gx = x(anchor.t);
     guide.setAttribute('x1',gx); guide.setAttribute('x2',gx); guide.setAttribute('opacity','.7');
     el.querySelector('.tl-dots').setAttribute('opacity','1');
     hits.forEach((p,i)=>{ dots[i].style.display = p ? '' : 'none'; if(p){ dots[i].setAttribute('cx',x(p.t)); dots[i].setAttribute('cy',y(p.v)); } });
-    tip.innerHTML = detailHtml(historyDetail(anchor.record,opts.when(anchor.t)))+reduced.map((s,i)=>hits[i]?`<div class="tt-row"><span class="u-dot" style="background:${s.color}"></span><span>${esc(s.label)}</span><b>${esc(s.fmt(hits[i].v))}</b></div>`:'').join('');
-    tip.style.display = 'block';
-    positionTooltip(e.clientX,e.clientY);
+    const parts = {heading:'Charted values',items:reduced.map((s,i)=>hits[i]?{color:s.color,label:s.label,value:s.fmt(hits[i].v)}:null).filter(Boolean)};
+    showDetail(historyDetail(anchor.record,opts.when(anchor.t),parts),e.clientX,e.clientY,{pin,origin:el,onHide:hideMarks});
+    if(pin)pinTipFocus();
   };
-  el.addEventListener('mousemove',e=>inspect(e));el.addEventListener('click',e=>inspect(e));
-  const times=[...new Set(reduced.flatMap(s=>s.pts.map(p=>p.t)))].sort((a,b)=>a-b);wireChartKeyboard(el,(index,event)=>inspect(event,times[index]),times.length);
-  el.addEventListener('mouseleave', event=>{ if(event.relatedTarget?.closest?.('#tip'))return;tip.style.display='none'; guide.setAttribute('opacity','0'); el.querySelector('.tl-dots').setAttribute('opacity','0'); });
+  el.addEventListener('mousemove',e=>inspect(e));el.addEventListener('click',e=>inspect(e,undefined,true));
+  const times=[...new Set(reduced.flatMap(s=>s.pts.map(p=>p.t)))].sort((a,b)=>a-b);wireChartKeyboard(el,(index,event,pin)=>inspect(event,times[index],pin),times.length);
+  el.addEventListener('mouseleave', event=>{ if(event.relatedTarget?.closest?.('#tip'))return;hideDetail(); });
 }
 
 function axisValue(v,mode){
@@ -3420,7 +3712,7 @@ function costParts(row, weights){
   return { tokens, exact:false, cost: { ...Object.fromEntries(split.map(p=>[p.key, cost*units[p.key]/sumUnits])), unallocated:0 } };
 }
 
-function buildChart(containerId, daily, providerId){
+function buildChart(containerId, daily, providerId, grouping='auto'){
   const container = document.getElementById(containerId);
   if(!container) return;
   daily = daily.map(normalizeCostRow);
@@ -3429,8 +3721,8 @@ function buildChart(containerId, daily, providerId){
     container.innerHTML=`<div class="chart-loading">${unpriced?'Usage in this range is unpriced':'No daily cost data recorded'}</div>`; return;
   }
 
-  // Keep bars readable: coarsen long ranges to weeks or months.
-  const group = daily.length>70*7 ? 'month' : daily.length>70 ? 'week' : 'day';
+  // Auto keeps bars readable by coarsening long ranges to weeks or months.
+  const group = ['day','week','month'].includes(grouping) ? grouping : daily.length>70*7 ? 'month' : daily.length>70 ? 'week' : 'day';
   const buckets = [];
   for(const d of daily){
     const key = group==='day' ? d.date : group==='month' ? d.date.slice(0,7) : dateKey(addDays(parseDateOnly(d.date), -((parseDateOnly(d.date).getUTCDay()+6)%7)));
@@ -3462,7 +3754,7 @@ function buildChart(containerId, daily, providerId){
   buckets.forEach((b,i)=>{
     const x = L+i*step+(step-barW)/2;
     let acc = 0;
-    svg+=`<g class="cost-col" data-i="${i}" tabindex="0" aria-label="${esc(b.start)} cost details"><rect x="${(L+i*step).toFixed(1)}" y="${T}" width="${step.toFixed(1)}" height="${CH}" fill="transparent"/>`;
+    svg+=`<g class="cost-col" data-i="${i}" tabindex="0" aria-describedby="tip" aria-label="${esc(b.start)} cost details; Enter pins details"><rect x="${(L+i*step).toFixed(1)}" y="${T}" width="${step.toFixed(1)}" height="${CH}" fill="transparent"/>`;
     shown.forEach((p,pi)=>{
       const v = b.cost[p.key]; if(!(v>0)) return;
       const y1 = y(acc+v), h = Math.max(.5, y(acc)-y1);
@@ -3472,11 +3764,10 @@ function buildChart(containerId, daily, providerId){
     });
     svg+=`</g>`;
   });
-  const every = Math.max(1, Math.ceil(buckets.length/8));
-  buckets.forEach((b,i)=>{
-    if(i%every && i!==buckets.length-1) return;
-    if(i!==buckets.length-1 && buckets.length-1-i < every/2) return;
-    svg+=`<text x="${(L+(i+.5)*step).toFixed(1)}" y="${H-6}" text-anchor="middle" fill="var(--su)" font-size="10.5">${esc((group==='month'?new Date(b.start+'T00:00:00Z').toLocaleDateString('en-US',{month:'short',year:'2-digit',timeZone:'UTC'}):fmtDay(b.start)).toUpperCase())}</text>`;
+  const tickIdx = tickIndices(buckets.length, Math.max(2, Math.min(8, Math.floor(CW/58))));
+  const tickLabels = periodTickLabels(tickIdx.map(i=>buckets[i].start), group);
+  tickIdx.forEach((i,k)=>{
+    svg+=`<text x="${(L+(i+.5)*step).toFixed(1)}" y="${H-6}" text-anchor="middle" fill="var(--su)" font-size="10.5">${esc(tickLabels[k])}</text>`;
   });
   svg+=`</svg>`;
   const totals = Object.fromEntries(shown.map(p=>[p.key, buckets.reduce((a,b)=>a+b.cost[p.key],0)]));
@@ -3488,21 +3779,21 @@ function buildChart(containerId, daily, providerId){
   const note = `<div class="small-note">${group!=='day'?`Grouped by ${group}. `:''}${split}</div>`;
   container.innerHTML = legend + svg + note;
 
-  const tip = document.getElementById('tip');
   container.querySelectorAll('.cost-col').forEach(g=>{
-    const inspect=()=>{
+    const inspect=(event,pin=false)=>{
       const b = buckets[+g.dataset.i];
       const when = b.start===b.end ? fmtDay(b.start) : `${fmtDay(b.start)} → ${fmtDay(b.end)}`;
-      tip.innerHTML = detailHtml(dailyDetail(b.rows,when))+
-        shown.slice().reverse().filter(p=>b.tokens[p.key]>0 || b.cost[p.key]>0).map(p=>`<div class="tt-row"><span class="u-dot" style="background:${p.color}"></span><span>${esc(p.label)} <i>${esc(fmtTok(b.tokens[p.key]))}</i></span><b>${b.estimated?'≈':''}${esc(detailedUsd(b.cost[p.key]))}</b></div>`).join('')+(b.estimated?`<div class="tt-meta">split estimated from price ratios</div>`:'');
-      tip.style.display='block';
-      g.classList.add('hover');const box=g.getBoundingClientRect();positionTooltip(box.left+box.width/2,box.top+box.height/2);
+      const items = shown.slice().reverse().filter(p=>b.tokens[p.key]>0 || b.cost[p.key]>0).map(p=>({color:p.color,label:p.label,sub:b.tokens[p.key]>0?fmtTok(b.tokens[p.key]):'',value:tipUsd(b.cost[p.key])}));
+      const detail = dailyDetail(b.rows,when,{parts:{heading:'Cost by token type',estimated:!!b.estimated,items}});
+      const box=g.getBoundingClientRect(),x=event?.clientX??box.left+box.width/2,y=event?.clientY??box.top+box.height/2;
+      if(showDetail(detail,x,y,{pin,origin:g,onHide:()=>g.classList.remove('hover')}))g.classList.add('hover');
+      if(pin)pinTipFocus();
     };
-    g.addEventListener('mouseenter',inspect);g.addEventListener('focus',inspect);g.addEventListener('click',inspect);g.addEventListener('blur',hideDetail);
-    g.addEventListener('mousemove',e=>{
-      positionTooltip(e.clientX,e.clientY);
-    });
-    g.addEventListener('mouseleave',event=>{ if(event.relatedTarget?.closest?.('#tip'))return;tip.style.display='none'; g.classList.remove('hover'); });
+    g.addEventListener('mouseenter',e=>inspect(e));g.addEventListener('focus',()=>inspect(null));g.addEventListener('click',e=>inspect(e.detail?e:null,true));
+    g.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();inspect(null,true);}});
+    g.addEventListener('blur',e=>{if(!e.relatedTarget?.closest?.('#tip'))hideDetail();});
+    g.addEventListener('mousemove',e=>{ if(!TIP.pinned)positionTooltip(e.clientX,e.clientY); });
+    g.addEventListener('mouseleave',event=>{ if(event.relatedTarget?.closest?.('#tip'))return;hideDetail(); });
   });
 }
 
@@ -3542,7 +3833,7 @@ function barChartMetricHtml(m, compact){
   }).join('');
   const readout = compact ? formatChartValue(latest) : `${formatChartValue(latest)} latest · ${formatChartValue(peak)} peak`;
   const note = m.note ? `<div class="spark-note">${esc(m.note)}</div>` : '';
-  return `<div class="${cls}"><div class="spark"><div class="spark-head"><span class="spark-title">${esc(m.label||'History')}</span><span class="spark-readout">${esc(readout)}</span></div><div class="spark-bars" aria-label="${esc(m.label||'History')}">${bars}</div>${note}</div></div>`;
+  return `<div class="${cls}"><div class="spark"><div class="spark-head"><span class="spark-title">${esc(m.label||'History')}</span><span class="spark-readout">${esc(readout)}</span></div><div class="spark-bars" role="img" aria-label="${esc(m.label||'History')}">${bars}</div>${note}</div></div>`;
 }
 function formatChartValue(point){
   if(point?.valueLabel) return String(point.valueLabel);
@@ -3594,64 +3885,154 @@ function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').repl
 // token/cost records never borrow a current quota or turn missing data into zero.
 function chartDetailAttribute(detail){return `tabindex="0" data-chart-detail="${esc(JSON.stringify(detail))}" aria-describedby="tip" aria-label="${esc(detail.title)}; focus or tap for details"`;}
 function exactNumber(value){return Number.isFinite(Number(value))?(Math.abs(Number(value))>0&&Math.abs(Number(value))<1e-20?String(value):Number(value).toLocaleString(undefined,{maximumFractionDigits:20})):'Unknown';}
-function detailedUsd(value){const number=Number(value)||0;return '$'+(number!==0&&Math.abs(number)<1e-12?String(number):number.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:12}));}
-function detailedCost(row){const cost=rowCost(row);return row.costKnown===false?(cost>0?detailedUsd(cost)+'+':'Unpriced'):detailedUsd(cost);}
-function dailyDetail(rows,title='Recorded usage'){
+// Displayed money is cents precision everywhere in tooltips (tiny positive
+// amounts read "<$0.01"); token counts stay exact. Stored values are untouched.
+function tipUsd(value){const n=Number(value)||0;return n>0&&n<.005?'<$0.01':fmtUsd(n);}
+function tipCost(row){const cost=rowCost(row);return row.costKnown===false?(cost>0?tipUsd(cost)+'+':'Unpriced'):tipUsd(cost);}
+function tipNumber(value,digits=1){const n=Number(value);return Number.isFinite(n)?n.toLocaleString('en-US',{maximumFractionDigits:digits}):'Unknown';}
+function dailyDetail(rows,title='Recorded usage',extra={}){
   if(!rows.length)return {title,rows:[['Usage','No record'],['Tokens','Unknown'],['Cost','Unknown']],note:'No saved record for this period. An empty plot is not measured zero usage.'};
   const normalized=rows.map(r=>({...r,providerId:r.providerId||'report',date:rowDate(r),inputTokens:rowInput(r),outputTokens:rowOutput(r),cacheReadTokens:rowCacheRead(r),cacheCreationTokens:rowCacheCreate(r),reasoningOutputTokens:rowReasoning(r),totalTokens:rowTotalTokens(r),cost:rowCost(r)}));
   const t=UsageTrends.totals(normalized),known=t.tokensKnown;
   const token=n=>known?exactNumber(n):n>0?exactNumber(n)+'+ · partial':'Unknown';
+  const short=n=>known?fmtTok(n):n>0?fmtTok(n)+'+':'Unknown';
   const sources=[...new Set(rows.map(r=>r.costSource||r.source).filter(Boolean))];
   const prices=[...new Set(rows.map(r=>r.pricingAsOf).filter(Boolean))];
-  const detail={title,rows:[['Total tokens',token(t.totalTokens)],['Input tokens',token(t.inputTokens)],['Output tokens',token(t.outputTokens)],['Reasoning tokens',token(t.reasoningOutputTokens)],['Cache reads',token(t.cacheReadTokens)],['Cache writes',token(t.cacheCreationTokens)],['Cost · USD',detailedCost(t)+(t.costKnown?'':' · partial / unpriced')]],note:'Local log costs use API-equivalent rates where indicated; they do not represent subscription charges. Reasoning may already be included in output tokens.'};
-  if(t.costComponentsKnown)for(const [label,key] of [['Input cost','inputCostUsd'],['Cache read cost','cacheReadCostUsd'],['Cache write cost','cacheWriteCostUsd'],['Output cost','outputCostUsd']])detail.rows.push([label,detailedUsd(t[key])]);
-  if(t.sessionsKnown)detail.rows.push(['Sessions',exactNumber(t.sessions)]);
-  if(t.cacheSavingsKnown)detail.rows.push(['Cache savings · estimate',detailedUsd(t.cacheSavingsUsd)]);
-  detail.rows.push(['Saved records',String(rows.length)]);
-  if(sources.length)detail.rows.push(['Cost / usage source',sources.join(', ')]);
-  if(prices.length)detail.rows.push(['Pricing as of',prices.join(', ')]);
+  const detail={title,rows:[['Total tokens',token(t.totalTokens),'Tokens'],['Input tokens',token(t.inputTokens),'Tokens'],['Output tokens',token(t.outputTokens),'Tokens'],['Reasoning tokens',token(t.reasoningOutputTokens),'Tokens'],['Cache reads',token(t.cacheReadTokens),'Tokens'],['Cache writes',token(t.cacheCreationTokens),'Tokens'],['Cost · USD',tipCost(t)+(t.costKnown?'':' · partial / unpriced'),'Cost']],
+    note:'Local log costs are API-equivalent rates, not subscription charges.'+(t.reasoningOutputTokens>0?' Reasoning may already be counted in output.':'')};
+  detail.headline={value:tipCost(t),label:t.costKnown?'':'partial / unpriced',sub:short(t.totalTokens)+' tokens'};
+  const components=[['Uncached input','inputTokens','inputCostUsd','#7289da'],['Cached input','cacheReadTokens','cacheReadCostUsd','#9b87f5'],['Cache writes','cacheCreationTokens','cacheWriteCostUsd','#eaca8b'],['Output','outputTokens','outputCostUsd','#43b581']];
+  detail.parts=extra.parts||{heading:t.costComponentsKnown?'Tokens and cost by type':'Tokens by type',items:components.filter(([,tk,ck])=>t[tk]>0||(t.costComponentsKnown&&t[ck]>0)).reverse().map(([label,tk,ck,color])=>({color,label,sub:t.costComponentsKnown?short(t[tk]):'',value:t.costComponentsKnown?tipUsd(t[ck]):short(t[tk])}))};
+  detail.summary=[];
+  if(t.reasoningOutputTokens>0)detail.summary.push(['Reasoning tokens',short(t.reasoningOutputTokens)]);
+  if(t.costComponentsKnown)for(const [label,key] of [['Input cost','inputCostUsd'],['Cache read cost','cacheReadCostUsd'],['Cache write cost','cacheWriteCostUsd'],['Output cost','outputCostUsd']])detail.rows.push([label,tipUsd(t[key]),'Cost']);
+  if(t.cacheSavingsKnown){detail.rows.push(['Cache savings (est.)',tipUsd(t.cacheSavingsUsd),'Savings']);detail.summary.push(['Cache savings (est.)',tipUsd(t.cacheSavingsUsd)]);}
+  if(t.sessionsKnown){detail.rows.push(['Sessions',exactNumber(t.sessions),'Records']);detail.headline.sub+=' · '+tipNumber(t.sessions,0)+(t.sessions===1?' session':' sessions');}
+  detail.rows.push(['Saved records',String(rows.length),'Records']);
+  if(sources.length)detail.rows.push(['Cost / usage source',sources.join(', '),'Records']);
+  if(prices.length)detail.rows.push(['Pricing as of',prices.join(', '),'Records']);
+  detail.meta=[rows.length===1?'1 saved record':rows.length+' saved records',...sources,...prices.map(p=>'prices '+p),...(extra.meta||[])];
   return detail;
 }
 function snapshotDetail(s,selected){
   const rows=[['Provider',providerName(s.providerId)],['Source',s.source||'Unknown'],['State',s.state|| (snapshotHasError(s)?'Unavailable':'Not reported')],['Observed',s.fetchedAt?new Date(s.fetchedAt).toLocaleString():'Unknown']];
   if(s.plan)rows.push(['Plan',s.plan]);
-  const metrics=selected?[selected]:UsageDashboardSettings.metrics(s,S.prefs);
+  const metrics=selected?[selected]:UsageDashboardSettings.metrics(s,S.prefs),summary=[];let headline=null;
   for(const m of metrics){
     if(m.type==='progress'){
       const suffix=m.format?.kind==='dollars'?' USD':m.format?.suffix?' '+m.format.suffix:'';
-      rows.push([m.label+' · used',exactNumber(m.used)+suffix],[m.label+' · limit',m.limit>0?exactNumber(m.limit)+suffix:'Unknown']);
-      if(m.limit>0)rows.push(['Remaining',exactNumber(Math.max(0,m.limit-m.used))+suffix],['Used / remaining',exactNumber(m.used/m.limit*100)+'% / '+exactNumber(Math.max(0,100-m.used/m.limit*100))+'%']);
-      if(m.resetsAt)rows.push(['Reset',new Date(m.resetsAt).toLocaleString()]);
+      const amount=v=>m.format?.kind==='dollars'?tipUsd(v):tipNumber(v)+suffix;
+      const exact=v=>m.format?.kind==='dollars'?tipUsd(v):exactNumber(v)+suffix;
+      rows.push([m.label+' · used',exact(m.used)],[m.label+' · limit',m.limit>0?exact(m.limit):'Unknown']);
+      if(m.limit>0){
+        rows.push(['Remaining',exact(Math.max(0,m.limit-m.used))],['Used / remaining',exactNumber(m.used/m.limit*100)+'% / '+exactNumber(Math.max(0,100-m.used/m.limit*100))+'%']);
+        const pct=tipNumber(m.used/m.limit*100)+'% used';
+        if(metrics.length===1)headline={value:pct,label:selected?'':m.label,sub:amount(Math.max(0,m.limit-m.used))+' left of '+amount(m.limit)};
+        else summary.push([m.label,pct]);
+      }else summary.push([m.label,amount(m.used)+' used']);
+      if(m.resetsAt){rows.push(['Reset',new Date(m.resetsAt).toLocaleString()]);summary.push([metrics.length===1?'Resets':m.label+' resets',new Date(m.resetsAt).toLocaleString(undefined,{dateStyle:'medium',timeStyle:'short'})]);}
       if(m.periodDurationMs)rows.push(['Window',exactNumber(m.periodDurationMs/3600000)+' hours']);
-      if(m.detail)rows.push(['Details',String(m.detail)]);
-    }else if(m.type==='text'||m.type==='badge')rows.push([m.label,String(m.value||m.text||'Unknown')]);
+      if(m.detail){rows.push(['Details',String(m.detail)]);summary.push(['Details',String(m.detail)]);}
+    }else if(m.type==='text'||m.type==='badge'){rows.push([m.label,String(m.value||m.text||'Unknown')]);summary.push([m.label,String(m.value||m.text||'Unknown')]);}
   }
-  if(s.pace&&S.prefs.showPace)rows.push(['Pace',stageLbl(s.pace.stage)],['Expected usage',exactNumber(s.pace.expectedUsedPercent)+'%'],['Actual usage',exactNumber(s.pace.actualUsedPercent)+'%'],['Quota ETA',fmtEta(s.pace.etaSeconds,s.pace.stage)]);
-  return{title:selected?.label||providerName(s.providerId),rows,note:snapshotHasError(s)?'This observation is unavailable. Retained measurements are historical and do not establish fresh quota.':'Quota is a provider observation, separate from token/cost accounting.'};
+  if(s.pace&&S.prefs.showPace){rows.push(['Pace',stageLbl(s.pace.stage)],['Expected usage',exactNumber(s.pace.expectedUsedPercent)+'%'],['Actual usage',exactNumber(s.pace.actualUsedPercent)+'%'],['Quota ETA',fmtEta(s.pace.etaSeconds,s.pace.stage)]);summary.push(['Pace',stageLbl(s.pace.stage)+' · '+tipNumber(s.pace.actualUsedPercent)+'% vs '+tipNumber(s.pace.expectedUsedPercent)+'% expected'],['Quota ETA',fmtEta(s.pace.etaSeconds,s.pace.stage)]);}
+  if(s.plan)summary.push(['Plan',s.plan]);
+  const state=s.state||(snapshotHasError(s)?'Unavailable':'');
+  return{title:selected?.label||providerName(s.providerId),headline,summary,rows,meta:[providerName(s.providerId),s.source||'unknown source',...(state&&state!=='ready'?[state]:[]),'observed '+(s.fetchedAt?new Date(s.fetchedAt).toLocaleString(undefined,{dateStyle:'medium',timeStyle:'short'}):'unknown')],note:snapshotHasError(s)?'This observation is unavailable. Retained measurements are historical and do not establish fresh quota.':'Quota is a provider observation, separate from token/cost accounting.'};
 }
-function historyDetail(record,title){
-  if(!record)return{title,rows:[],note:'Only the selected series was recorded.'};
+function historyDetail(record,title,parts){
+  if(!record)return{title,rows:[],parts,note:'Only the selected series was recorded.'};
   const rows=[];
   for(const [label,key] of [['Primary quota','primaryPercent'],['Input tokens','inputTokens'],['Output tokens','outputTokens'],['Reasoning tokens','reasoningTokens'],['Cache reads','cacheReadTokens'],['Cache writes','cacheCreationTokens'],['Total tokens','totalTokens'],['Cost · USD','cost']]){
-    if(record[key]!=null)rows.push([label,key==='cost'?detailedUsd(record[key]):exactNumber(record[key])+(key==='primaryPercent'?'%':'')]);
+    if(record[key]!=null)rows.push([label,key==='cost'?tipUsd(record[key]):exactNumber(record[key])+(key==='primaryPercent'?'%':'')]);
   }
   for(const m of record.recordedProgress?.length?record.recordedProgress:record.progress||[]){rows.push([m.label,exactNumber(m.used)+' / '+(m.limit>0?exactNumber(m.limit):'Unknown')]);if(m.resetsAt)rows.push([m.label+' · reset',new Date(m.resetsAt).toLocaleString()]);}
-  rows.push(['Tokens / cost',record.totalTokens==null&&record.cost==null?'Unknown':'Recorded fields shown above']);
+  if(!record.usage)rows.push(['Tokens / cost',record.totalTokens==null&&record.cost==null?'Unknown':'Recorded fields shown above']);
   if(record.state)rows.push(['State',record.state]);if(record.source)rows.push(['Source',record.source]);
-  return{title,rows,note:(record.state&&record.state!=='ready'?'Unavailable observation. Retained fields are historical. ':'')+'Values belong to this recorded timestamp or bucket. Grouped plots retain peak quota and the latest sampled counters. Missing token, cost or quota fields remain unknown.'};
+  return{title,rows,parts,meta:[record.source,record.state&&record.state!=='ready'?record.state:''].filter(Boolean),note:(record.state&&record.state!=='ready'?'Unavailable observation. Retained fields are historical. ':'')+(record.usage?'Saved local usage summed over this UTC period. Costs are API-rate estimates.':'Values belong to this recorded timestamp or bucket; grouped plots keep peak quota and the latest sampled counters. Missing fields stay unknown.')};
 }
-function detailHtml(detail){return `<div class="tt-date">${esc(detail.title)}</div>`+(detail.rows||[]).map(([label,value])=>`<div class="tt-row"><span>${esc(label)}</span><b>${esc(value)}</b></div>`).join('')+(detail.note?`<div class="tt-meta">${esc(detail.note)}</div>`:'');}
-function positionTooltip(x,y){const tip=document.getElementById('tip');tip.style.left=Math.max(8,Math.min(x+16,innerWidth-tip.offsetWidth-8))+'px';tip.style.top=Math.max(8,Math.min(y+12,innerHeight-tip.offsetHeight-8))+'px';}
-function showDetail(detail,x,y){const tip=document.getElementById('tip');tip.innerHTML=detailHtml(detail);tip.style.display='block';positionTooltip(x,y);}
-function hideDetail(){document.getElementById('tip').style.display='none';}
-function applyCardComponents(root){root.querySelectorAll('[data-card-component]').forEach(el=>{const key=el.dataset.cardComponent;el.hidden=!S.prefs.components.includes(key);el.style.order=S.prefs.components.indexOf(key);});}
+// Tooltip layout: title + headline, readable summary, one breakdown, provenance,
+// then grouped detail rows (exact tokens, cents) behind a disclosure so nothing is lost.
+const TIP={pinned:false,origin:null,exactOpen:false,onHide:null};
+const DETAIL_TOTALS=new Set(['Total tokens','Cost · USD']);
+function detailHtml(detail,pinned=TIP.pinned){
+  const structured=!!(detail.headline||detail.summary?.length||detail.parts?.items?.length);
+  const kv=([label,value])=>`<div class="tt-row"><span>${esc(label)}</span><b>${esc(value)}</b></div>`;
+  let html=`<div class="tt-head"><div class="tt-date">${esc(detail.title)}</div>`;
+  if(detail.headline)html+=`<div class="tt-hero"><b>${esc(detail.headline.value)}</b>${detail.headline.label?`<span>${esc(detail.headline.label)}</span>`:''}</div>${detail.headline.sub?`<div class="tt-sub">${esc(detail.headline.sub)}</div>`:''}`;
+  html+=`</div>`;
+  const parts=detail.parts;
+  if(parts?.items?.length)html+=`<div class="tt-sec">${parts.heading?`<div class="tt-sec-h">${esc(parts.heading)}${parts.estimated?' <i>≈ estimated split</i>':''}</div>`:''}<div class="tt-parts">${parts.items.map(p=>`<div class="tt-part">${p.color?`<span class="u-dot" style="background:${esc(p.color)}"></span>`:'<span></span>'}<span class="tt-part-l">${esc(p.label)}</span><span class="tt-part-s">${esc(p.sub||'')}</span><b>${parts.estimated&&p.value?'≈':''}${esc(p.value)}</b></div>`).join('')}</div></div>`;
+  if(detail.summary?.length)html+=`<div class="tt-sec tt-kv">${detail.summary.map(kv).join('')}</div>`;
+  if(!structured&&detail.rows?.length)html+=`<div class="tt-sec tt-kv">${detail.rows.map(kv).join('')}</div>`;
+  if(detail.meta?.length)html+=`<div class="tt-prov">${detail.meta.map(m=>`<span class="tt-prov-i">${esc(m)}</span>`).join('<span aria-hidden="true"> · </span>')}</div>`;
+  // Hover stays to the numbers; explanatory notes appear once pinned.
+  if(detail.note&&pinned)html+=`<p class="tt-meta">${esc(detail.note)}</p>`;
+  if(structured&&detail.rows?.length){
+    // Rows may name a group; groups render in first-seen order, each led by its total.
+    const groups=new Map();for(const row of detail.rows){const g=row[2]||'';if(!groups.has(g))groups.set(g,[]);groups.get(g).push(row);}
+    // Totals lead their group; text values (sources, dates) skip tabular figures
+    // and long ones stack under their label instead of squeezing it.
+    const row=([label,value])=>{const text=String(value),cls=['tt-row'];if(DETAIL_TOTALS.has(label))cls.push('tt-total');if(!/^[<≈]?\$?[\d,.]+(\+| · |%|$)/.test(text)){cls.push('tt-text');if(text.length>24)cls.push('tt-long');}return `<div class="${cls.join(' ')}"><span>${esc(label)}</span><b>${esc(text)}</b></div>`;};
+    const body=[...groups].map(([name,rows])=>`<div class="tt-grp tt-kv">${name?`<div class="tt-grp-h">${esc(name)}</div>`:''}${rows.map(row).join('')}</div>`).join('');
+    html+=`<details class="tt-exact"${TIP.exactOpen?' open':''}><summary>Details <span>· ${detail.rows.length} fields</span></summary>${body}</details>`;
+  }
+  return html;
+}
+function tipFooter(){return TIP.pinned?`<div class="tt-foot"><span>Pinned · Esc closes</span><button type="button" class="tt-close" aria-label="Close details">Close</button></div>`:'';}
+function positionTooltip(x,y){
+  const tip=document.getElementById('tip'),pad=8,gap=16,vw=innerWidth,vh=innerHeight;
+  tip.style.maxHeight='';const w=tip.offsetWidth;let h=tip.offsetHeight;
+  if(h>vh-pad*2){tip.style.maxHeight=(vh-pad*2)+'px';h=tip.offsetHeight;}
+  const clampX=v=>Math.max(pad,Math.min(v,vw-w-pad)),clampY=v=>Math.max(pad,Math.min(v,vh-h-pad));
+  let left,top;
+  // Beside the pointer keeps the hovered mark and its neighbours visible.
+  if(x+gap+w<=vw-pad||x-gap-w>=pad){left=x+gap+w<=vw-pad?x+gap:x-gap-w;top=clampY(y-Math.min(48,h/3));}
+  // Narrow screens: above or below, whichever side has more room.
+  else{left=clampX(x-w/2);const below=vh-pad-(y+gap),above=y-gap-pad;
+    if(h<=below||below>=above){if(h>below&&below>=160){tip.style.maxHeight=below+'px';h=tip.offsetHeight;}top=clampY(y+gap);}
+    else{if(h>above&&above>=160){tip.style.maxHeight=above+'px';h=tip.offsetHeight;}top=clampY(y-gap-h);}}
+  tip.style.left=Math.round(left)+'px';tip.style.top=Math.round(top)+'px';
+}
+function showTipHtml(html,x,y,{pin=false,origin=null,onHide=null,label=''}={}){
+  if(TIP.pinned&&!pin)return false;
+  // Closing a pinned detail returns focus to its source without reopening it.
+  if(TIP.skipFocus){const skip=TIP.skipFocus===origin;TIP.skipFocus=null;if(skip&&!pin)return false;}
+  const tip=document.getElementById('tip');
+  if(TIP.onHide&&TIP.onHide!==onHide){const done=TIP.onHide;TIP.onHide=null;done();}
+  TIP.pinned=pin;TIP.origin=origin||TIP.origin;TIP.onHide=onHide;
+  tip.innerHTML=html+tipFooter();tip.dataset.pinned=pin?'true':'false';
+  tip.setAttribute('role',pin?'dialog':'tooltip');if(pin&&label)tip.setAttribute('aria-label',label+' details');else tip.removeAttribute('aria-label');
+  tip.style.display='block';positionTooltip(x,y);
+  tip.querySelector('.tt-exact')?.addEventListener('toggle',event=>{TIP.exactOpen=event.target.open;if(TIP.lastPoint)positionTooltip(TIP.lastPoint.x,TIP.lastPoint.y);});
+  tip.querySelector('.tt-close')?.addEventListener('click',()=>hideDetail(true,true));
+  TIP.lastPoint={x,y};return true;
+}
+function showDetail(detail,x,y,opts={}){return showTipHtml(detailHtml(detail,!!opts.pin),x,y,{label:detail.title,...opts});}
+function hideDetail(force=false,restoreFocus=false){
+  if(TIP.pinned&&!force)return;
+  const tip=document.getElementById('tip'),origin=TIP.origin,hadFocus=tip.contains?.(document.activeElement);
+  tip.style.display='none';tip.dataset.pinned='false';TIP.pinned=false;TIP.origin=null;
+  if(TIP.onHide){const done=TIP.onHide;TIP.onHide=null;done();}
+  if((restoreFocus||hadFocus)&&origin?.isConnected&&typeof origin.focus==='function'){TIP.skipFocus=origin;origin.focus({preventScroll:true});if(TIP.skipFocus===origin)setTimeout(()=>{if(TIP.skipFocus===origin)TIP.skipFocus=null;},0);}
+}
+function pinTipFocus(){const tip=document.getElementById('tip');if(TIP.pinned&&typeof tip.focus==='function')tip.focus({preventScroll:true});}
+// Provider-specific readouts (credits, daily totals, trends) are not
+// configurable components; keep them with the quota bars they explain rather
+// than letting order 0 lift them above the primary quota.
+function applyCardComponents(root){
+  const order=S.prefs.components;
+  root.querySelectorAll('[data-card-component]').forEach(el=>{const key=el.dataset.cardComponent;el.hidden=!order.includes(key);el.style.order=order.indexOf(key);});
+  const readoutOrder=Math.max(0,order.indexOf('quota'));
+  root.querySelectorAll('.card-body>.metric:not([data-card-component])').forEach(el=>{el.style.order=readoutOrder;});
+}
 function wireChartKeyboard(svg,show,count){
-  svg.setAttribute('tabindex','0');svg.setAttribute('aria-describedby','tip');svg.setAttribute('aria-label','Usage chart. Arrow keys inspect recorded points; Escape closes details.');
+  svg.setAttribute('tabindex','0');svg.setAttribute('aria-describedby','tip');svg.setAttribute('aria-label','Usage chart. Arrow keys inspect recorded points; Enter pins details; Escape closes details.');
   let index=Math.max(0,count-1);
-  const inspect=()=>{const box=svg.getBoundingClientRect();show(index,{clientX:box.left+box.width*(count>1?index/(count-1):.5),clientY:box.top+box.height/2});};
-  svg.addEventListener('focus',inspect);
-  svg.addEventListener('keydown',event=>{if(event.key==='Escape'){hideDetail();return;}if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;event.preventDefault();index=event.key==='Home'?0:event.key==='End'?count-1:Math.max(0,Math.min(count-1,index+(event.key==='ArrowRight'?1:-1)));inspect();});
-  svg.addEventListener('blur',hideDetail);
+  const inspect=(pin=false)=>{const box=svg.getBoundingClientRect();show(index,{clientX:box.left+box.width*(count>1?index/(count-1):.5),clientY:box.top+box.height/2},pin);};
+  svg.addEventListener('focus',()=>inspect());
+  svg.addEventListener('keydown',event=>{if(event.key==='Escape'){hideDetail(true);return;}if(event.key==='Enter'||event.key===' '){event.preventDefault();inspect(true);return;}if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;event.preventDefault();index=event.key==='Home'?0:event.key==='End'?count-1:Math.max(0,Math.min(count-1,index+(event.key==='ArrowRight'?1:-1)));hideDetail(true);inspect();});
+  svg.addEventListener('blur',event=>{if(!event.relatedTarget?.closest?.('#tip'))hideDetail();});
 }
 
 function arcSvg(p,color,detail){
@@ -3659,34 +4040,42 @@ function arcSvg(p,color,detail){
   return `<div class="arc" data-card-component="percent" ${detail?chartDetailAttribute(detail):''}><svg width="48" height="48" viewBox="0 0 52 52"><circle class="arc-bg" cx="26" cy="26" r="${r}"/><circle class="arc-fill" cx="26" cy="26" r="${r}" stroke="${color}" stroke-dasharray="${c}" stroke-dashoffset="${c}" data-off="${off}"/></svg><div class="arc-num">${Math.round(p)}%</div></div>`;
 }
 
-function animateBarsAndArcs(root){
-  requestAnimationFrame(()=>requestAnimationFrame(()=>{
-    root.querySelectorAll('.bar[data-w],.dm-bar[data-w]').forEach(el=>{el.style.width=el.dataset.w});
+function animateBarsAndArcs(root, animate=true){
+  const paint=()=>{
+    root.querySelectorAll('.bar[data-w],.dm-bar[data-w]').forEach(el=>{if(!animate)el.style.transition='none';el.style.width=el.dataset.w;});
     root.querySelectorAll('.arc-fill[data-off]').forEach(el=>{
-      el.style.transition='stroke-dashoffset .9s cubic-bezier(.4,0,.2,1)';
+      el.style.transition=animate?'stroke-dashoffset .9s cubic-bezier(.4,0,.2,1)':'none';
       el.style.strokeDashoffset=el.dataset.off;
     });
-  }));
+  };
+  if(animate&&typeof requestAnimationFrame==='function')requestAnimationFrame(()=>requestAnimationFrame(paint));else paint();
 }
-function animateCompareBars(root){
-  requestAnimationFrame(()=>requestAnimationFrame(()=>{
-    root.querySelectorAll('.compare-fill[data-w]').forEach(el=>{
-      el.style.transition='width .9s cubic-bezier(.4,0,.2,1)';
-      el.style.width=el.dataset.w;
-    });
-  }));
+function animateCompareBars(root, animate=true){
+  const paint=()=>root.querySelectorAll('.compare-fill[data-w]').forEach(el=>{
+    el.style.transition=animate?'width .9s cubic-bezier(.4,0,.2,1)':'none';
+    el.style.width=el.dataset.w;
+  });
+  if(animate&&typeof requestAnimationFrame==='function')requestAnimationFrame(()=>requestAnimationFrame(paint));else paint();
 }
 
 // ── init ──────────────────────────────────────────────────────────────────────
 applyAppearance();
 if(typeof document.addEventListener==='function'){
-  const inspect=event=>{const target=event.target?.closest?.('[data-chart-detail]');if(!target)return;try{const box=target.getBoundingClientRect();showDetail(JSON.parse(target.dataset.chartDetail),event.clientX??box.left+box.width/2,event.clientY??box.top+box.height/2);}catch{hideDetail();}};
-  document.addEventListener('mousemove',inspect);document.addEventListener('focusin',inspect);document.addEventListener('click',event=>{if(!event.target?.closest?.('[data-chart-detail],svg,#tip'))hideDetail();else inspect(event);});
-  document.getElementById('tip').addEventListener('mouseleave',hideDetail);
+  // Hover/focus previews a detail; click, tap or Enter pins it so the exact
+  // values disclosure can be reached. Escape or an outside click closes it.
+  const inspect=(event,pin=false)=>{const target=event.target?.closest?.('[data-chart-detail]');if(!target)return;try{const box=target.getBoundingClientRect(),fromPointer=event.clientX!=null&&event.detail!==0;const x=fromPointer?event.clientX:box.right,y=fromPointer?event.clientY:box.top+box.height/2;showDetail(JSON.parse(target.dataset.chartDetail),x,y,{pin,origin:target});if(pin)pinTipFocus();}catch{hideDetail(true);}};
+  document.addEventListener('mousemove',event=>inspect(event));
+  document.addEventListener('focusin',event=>{if(event.target?.closest?.('#tip'))return;if(TIP.pinned&&event.target!==TIP.origin)hideDetail(true);inspect(event);});
+  // Background refresh re-selects tabs with element.click(); only a real
+  // outside click/tap closes a pinned detail.
+  document.addEventListener('click',event=>{if(event.target?.closest?.('#tip'))return;if(!event.target?.closest?.('[data-chart-detail],[aria-describedby="tip"]')){if(event.isTrusted!==false)hideDetail(true);}else inspect(event,true);});
+  document.getElementById('tip').addEventListener('mouseleave',event=>{if(!event.relatedTarget?.closest?.('[data-chart-detail],[aria-describedby="tip"]'))hideDetail();});
   document.addEventListener('mouseout',event=>{if(event.target?.closest?.('[data-chart-detail]')&&!event.relatedTarget?.closest?.('[data-chart-detail],#tip'))hideDetail();});
-  document.addEventListener('focusout',event=>{if(event.target?.closest?.('[data-chart-detail]'))hideDetail();});
+  document.addEventListener('focusout',event=>{if(event.target?.closest?.('[data-chart-detail]')&&!event.relatedTarget?.closest?.('#tip'))hideDetail();});
   document.addEventListener('keydown',event=>{
-    if(event.key==='Escape'){hideDetail();return;}
+    if(event.key==='Escape'&&document.getElementById('tip').style.display==='block'){hideDetail(true,true);return;}
+    if((event.key==='Enter'||event.key===' ')&&event.target?.matches?.('[data-chart-detail]')){event.preventDefault();inspect(event,true);return;}
+    if(event.key==='Escape'){hideDetail(true);return;}
     if(event.ctrlKey||event.metaKey||event.altKey||event.target?.closest?.('input,textarea,select,[contenteditable="true"]'))return;
     const shortcuts=S.prefs.shortcuts,key=event.key.toLowerCase();if(!key)return;
     if(key===shortcuts.overview)switchTab('overview');else if(key===shortcuts.settings)switchTab('settings');else if(key===shortcuts.refresh)doRefresh();
@@ -3701,10 +4090,26 @@ if(typeof window!=='undefined')window.addEventListener('storage',event=>{
   if(event.key!==UsageDashboardSettings.STORAGE_KEY)return;
   try{S.prefs=cleanPreferences(event.newValue?JSON.parse(event.newValue):{});applyAppearance();quotaDisplay.value=S.prefs.quotaDisplay;buildTabs();applyTabVisibility();renderActive();startTick();}catch{}
 });
+// Provider charts are drawn at their container's width so axis text keeps its
+// size. Redraw them from their saved view state after a real width change.
+let chartViewportWidth=typeof innerWidth==='number'?innerWidth:0;
+if(typeof window!=='undefined')window.addEventListener('resize',debounce(()=>{
+  if(Math.abs(innerWidth-chartViewportWidth)<40)return;
+  chartViewportWidth=innerWidth;
+  const id=S.active;
+  if(STATIC_TABS.includes(id))return;
+  const historyBox=document.getElementById(`history-box-${id}`);
+  if(historyBox?._historyState)drawHistoryView(id,historyBox,historyBox._historyState);
+  const cost=document.getElementById(`cost-box-${id}`)?._costState;
+  if(cost)updateCostView(id,cost);
+},200));
+// A provider hash is accepted before the first load; load() falls back to
+// Overview if that provider turns out not to exist.
 function openDashboardHash(){
   if(typeof location==='undefined')return;
-  const tab=location.hash.slice(1);
-  if(['overview','settings','history'].includes(tab))switchTab(tab);
+  let tab=location.hash.slice(1);
+  try{tab=decodeURIComponent(tab);}catch{return;}
+  if(STATIC_TABS.includes(tab)||(tab&&!S.loadedAt)||S.providers.some(p=>p.id===tab))switchTab(tab);
 }
 if(typeof window!=='undefined')window.addEventListener('hashchange',openDashboardHash);
 openDashboardHash();

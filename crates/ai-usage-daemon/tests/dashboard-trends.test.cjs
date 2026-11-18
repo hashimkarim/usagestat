@@ -131,7 +131,7 @@ function dashboard(rows = [], prefs = {}) {
   const elements = new Map();
   const element = id => {
     if (!elements.has(id)) elements.set(id, { style: {}, innerHTML: '',
-      querySelector: selector => element(selector),
+      querySelector: selector => element(selector), querySelectorAll: () => [],
       addEventListener: (event, fn) => { element(id)[event] = fn; } });
     return elements.get(id);
   };
@@ -280,10 +280,11 @@ test('History controls persist through rerenders and export only the selected da
   const ui = dashboard([row(today, 10, 0), row(today, 30, 1, 'claude'), row('2026-01-01', 90)], { range: '7' });
   ui.run('renderTrends()');
   ui.element('#trends-provider').change({ target: { value: 'codex' } });
-  ui.element('#trends-group').change({ target: { value: 'week' } });
+  ui.element('panel-history').onclick({ target: { closest: () => ({ dataset: { set: 'group', value: 'week' } }) } });
   ui.run('renderTrends(); downloadText = (name, content) => { fixture = { name, content }; };');
   assert.match(ui.element('panel-history').innerHTML, /value="codex" selected/);
-  assert.match(ui.element('panel-history').innerHTML, /value="week" selected/);
+  assert.match(ui.element('panel-history').innerHTML, /data-set="group" data-value="week" aria-pressed="true"/);
+  assert.match(ui.element('panel-history').innerHTML, /Weekly/, 'the chart honours the chosen grouping');
   ui.element('#trends-export').click();
   const exported = ui.run('fixture');
   assert.equal(exported.name, 'usagestat-history-2026-08-31-2026-09-06.csv');
@@ -412,7 +413,7 @@ test('saved model mix excludes future dates, escapes names, and retains partial 
   assert.match(html,/\$2\.00\+/);
 });
 
-test('saved model mix clears stale output after an empty or failed refresh',async()=>{
+test('saved model mix clears an empty response but retains saved data after a failed refresh',async()=>{
   for(const ok of [true,false]){
     const ui=dashboard();let finish;
     ui.context.fetch=()=>new Promise(resolve=>{finish=resolve;});
@@ -421,8 +422,8 @@ test('saved model mix clears stale output after an empty or failed refresh',asyn
     assert.match(ui.element('model-mix-codex').innerHTML,/old/);
     finish({ok,json:async()=>({daily:[]})});
     await new Promise(resolve=>setImmediate(resolve));
-    assert.doesNotMatch(ui.element('model-mix-codex').innerHTML,/model-label">old/);
-    assert.match(ui.element('model-mix-codex').innerHTML,ok?/No saved model history/:/Could not load saved model history/);
+    if(ok){assert.doesNotMatch(ui.element('model-mix-codex').innerHTML,/model-label">old/);assert.match(ui.element('model-mix-codex').innerHTML,/No saved model history/);}
+    else assert.match(ui.element('model-mix-codex').innerHTML,/model-label">old/);
   }
 });
 
@@ -434,6 +435,23 @@ test('heatmap distinguishes missing, known zero, unknown and partial token count
   assert.match(html,/Sep 5: 10\+ tokens/);
   assert.match(html,/Sep 4: 0 tokens/);
   assert.match(html,/Sep 3: no record/);
+});
+
+test('heatmap span controls change the calendar width and persist per provider',()=>{
+  const ui=dashboard();
+  ui.run(`todayUtcDate=()=>new Date('2026-09-06T00:00:00Z');`);
+  const rows="[{date:'2025-06-02',totalTokens:5,tokensKnown:true},{date:'2026-09-05',totalTokens:10,tokensKnown:true}]";
+  const weeks=html=>Number(html.match(/--weeks:(\d+)/)[1]);
+  const six=ui.run(`heatmapSectionHtml('codex',${rows})`);
+  assert.equal(weeks(six),26);
+  assert.match(six,/Activity · last 6 months/);
+  assert.match(six,/data-heatmap-span="26" aria-pressed="true"/);
+  assert.equal(weeks(ui.run(`S.heatmapSpans={codex:'52'};heatmapSectionHtml('codex',${rows})`)),52);
+  const all=ui.run(`S.heatmapSpans={codex:'all'};heatmapSectionHtml('codex',${rows})`);
+  assert.ok(weeks(all)>=66,'All reaches the earliest saved day');
+  assert.match(all,/Jun 2: 5 tokens/);
+  assert.match(all,/Jan '26/);
+  assert.equal(weeks(ui.run(`heatmapSectionHtml('claude',${rows})`)),26,'other providers keep the default');
 });
 
 test('timeline gradient identifiers cannot inject markup and series labels are escaped',()=>{
@@ -567,4 +585,181 @@ test('inactive providers are hidden until the user chooses to show them',()=>{
   assert.equal(ui.run('visibleSnapshots().length'),3);
   assert.equal(ui.run('hiddenInactive().length'),0);
   assert.equal(ui.run("cleanPreferences({inactive:'show'}).inactive"),'show');
+});
+
+test('provider refresh retains the previous panel while new analytics are pending', async()=>{
+ const ui=dashboard();
+ ui.element('panel-codex').innerHTML='<article>Existing cost $12</article>';
+ ui.run(`S.snapshots=[{providerId:'codex',metrics:[]}];fetchHistory=()=>new Promise(()=>{});fetchCost=()=>new Promise(()=>{});fetchCcusageReports=()=>new Promise(()=>{});renderProvider('codex');`);
+ assert.equal(ui.element('panel-codex').innerHTML,'<article>Existing cost $12</article>');
+});
+
+test('partial model amounts contribute to the priced-cost share denominator',()=>{
+ const ui=dashboard();ui.element('model-table-codex').dataset={};
+ ui.run(`S.modelReports={codex:{status:'ok',at:Date.now(),rows:[{date:'${today}',models:{astra:{costUsd:80,costKnown:true},sol:{costUsd:20,costKnown:false}}}]}}; updateModelTable('codex',[{date:'${today}'}]);`);
+ const html=ui.element('model-table-codex').innerHTML;
+ assert.match(html,/80\.0%/);assert.match(html,/≈20\.0%/);assert.doesNotMatch(html,/100\.0%/);
+});
+
+test('failed cost and history refreshes preserve their last successful responses',async()=>{
+ const ui=dashboard();ui.context.fetch=async()=>({ok:false});
+ ui.run(`S.costs.codex={daily:[{date:'${today}',costUsd:3}]};S.histories.codex=[{ts:'${today}',value:5}];`);
+ await ui.run(`Promise.all([fetchCost('codex'),fetchHistory('codex')])`);
+ assert.equal(ui.run('S.costs.codex.daily[0].costUsd'),3);
+ assert.equal(ui.run('S.histories.codex[0].value'),5);
+});
+
+test('History keeps the previous populated totals when a refresh fails',()=>{
+ const ui=dashboard([row(today,10,12)]);
+ ui.run('S.dailyError=true;renderTrends()');
+ assert.match(ui.element('panel-history').innerHTML,/\$12\.00/);
+ assert.match(ui.element('panel-history').innerHTML,/showing the last successful data/);
+});
+
+test('an older cost response cannot replace a newer retained response',async()=>{
+ const ui=dashboard(),pending=[];ui.context.fetch=()=>new Promise(resolve=>pending.push(resolve));
+ const old=ui.run("fetchCost('codex')"), fresh=ui.run("fetchCost('codex')");
+ pending[1]({ok:true,json:async()=>({value:20})});await fresh;
+ pending[0]({ok:true,json:async()=>({value:10})});await old;
+ assert.equal(ui.run('S.costs.codex.value'),20);
+});
+
+test('a first provider visit shows its snapshot while analytics are pending',()=>{
+ const ui=dashboard();
+ ui.run(`S.snapshots=[{providerId:'codex',metrics:[]}];fetchHistory=()=>new Promise(()=>{});fetchCost=()=>new Promise(()=>{});fetchCcusageReports=()=>new Promise(()=>{});renderProvider('codex');`);
+ assert.match(ui.element('panel-codex').innerHTML,/Current Usage/);
+});
+
+test('a missing snapshot invalidates an earlier pending provider render',async()=>{
+ const ui=dashboard();let finish;ui.context.dataReady=new Promise(resolve=>{finish=resolve;});
+ const pending=ui.run(`S.snapshots=[{providerId:'codex',metrics:[]}];fetchHistory=()=>dataReady.then(()=>[]);fetchCost=()=>dataReady.then(()=>null);fetchCcusageReports=()=>dataReady.then(()=>({}));renderProvider('codex');`);
+ await ui.run(`S.snapshots=[];renderProvider('codex')`);
+ finish();await pending;
+ assert.match(ui.element('panel-codex').innerHTML,/No data yet/);
+ assert.doesNotMatch(ui.element('panel-codex').innerHTML,/Current Usage/);
+});
+
+test('overlapping provider refreshes share the pending analytics request',()=>{
+ const ui=dashboard();let scans=0;
+ ui.context.pendingAnalytics=()=>{scans++;return new Promise(()=>{});};
+ ui.run(`S.snapshots=[{providerId:'codex',metrics:[]}];fetchHistory=pendingAnalytics;fetchCost=pendingAnalytics;fetchCcusageReports=pendingAnalytics;renderProvider('codex');renderProvider('codex');`);
+ assert.equal(scans,3);
+ assert.match(ui.element('panel-codex').innerHTML,/Current Usage/);
+});
+
+test('initial analytics use accessible skeletons rather than empty loading text',()=>{
+ const ui=dashboard();
+ const html=ui.run("loadingSkeleton('Loading cost history')");
+ assert.match(html,/role="status"/);assert.match(html,/aria-hidden="true"/);
+ assert.match(html,/sk-chart/);assert.match(html,/sk-metrics/);
+ assert.match(ui.run("loadingSkeleton('Loading usage analytics','analytics')"),/sk-split/);
+ assert.match(ui.run("loadingSkeleton('Loading usage history','history')"),/sk-area/);
+ assert.match(ui.run("loadingSkeleton('Loading local usage','table')"),/sk-rows/);
+});
+
+test('pending provider sections keep the titles of the sections they become',()=>{
+ const ui=dashboard();
+ ui.run(`S.snapshots=[{providerId:'codex',metrics:[]}];fetchHistory=()=>new Promise(()=>{});fetchCost=()=>new Promise(()=>{});fetchCcusageReports=()=>new Promise(()=>{});renderProvider('codex');`);
+ const html=ui.element('panel-codex').innerHTML;
+ assert.match(html,/Usage Analytics/);assert.match(html,/Usage History/);assert.match(html,/Cost History · Last 30 Days/);
+ assert.doesNotMatch(html,/Deep Statistics/);
+});
+
+test('cost range survives a refreshed cost response',()=>{
+ const ui=dashboard();ui.element('cost-box-codex').querySelectorAll=()=>[];ui.run("S.costRanges={codex:'90'};updateCostView=()=>{};setupCostRange(document.getElementById('cost-box-codex'),'codex',[])");
+ assert.equal(ui.element('cost-box-codex')._costState.range,'90');
+});
+
+test('model history participates in the background refresh barrier',async()=>{
+ const ui=dashboard();ui.element('panel-codex').innerHTML='<article>Existing models</article>';
+ ui.context.fetch=()=>{};
+ ui.run(`S.snapshots=[{providerId:'codex',metrics:[]}];fetchHistory=async()=>[];fetchCost=async()=>null;fetchCcusageReports=async()=>({});ensureModelReports=()=>new Promise(()=>{});renderProvider('codex');`);
+ await new Promise(resolve=>setImmediate(resolve));
+ assert.equal(ui.element('panel-codex').innerHTML,'<article>Existing models</article>');
+});
+
+test('background redraw paints quota bars immediately instead of collapsing to zero',()=>{
+ const ui=dashboard(),bar={style:{},dataset:{w:'70%'}};
+ ui.context.barRoot={querySelectorAll:selector=>selector.startsWith('.bar')?[bar]:[]};
+ ui.run('animateBarsAndArcs(barRoot,false)');
+ assert.equal(bar.style.width,'70%');assert.equal(bar.style.transition,'none');
+});
+
+test('usage history charts tokens from saved daily usage, summed per group', () => {
+  const ui = dashboard();
+  ui.context.days = [row('2026-08-31', 10, 1), row('2026-09-02', 20, 2), row(today, 40, 4), row('2026-08-01', 5, .5)];
+  ui.run(`fixture=null;timeLineChart=(container,series)=>{fixture=series};
+    buildHistoryChart('weekly', usageHistoryRecords(usageRangeRows(days.map(normalizeCostRow), 7), 'week'), 'tokens', 'week')`);
+  const total = ui.run("fixture.find(s=>s.key==='totalTokens').pts.map(p=>p.v)");
+  assert.deepEqual([...total], [70], 'week of Aug 31 sums its days; days outside the span are excluded');
+  const daily = ui.run("usageHistoryRecords(usageRangeRows(days.map(normalizeCostRow), 7), 'day').map(r=>r.totalTokens)");
+  assert.deepEqual([...daily], [10, 0, 20, 0, 0, 0, 40], 'idle days plot as zero instead of bridging');
+  const monthly = ui.run("usageHistoryRecords(usageRangeRows(days.map(normalizeCostRow), null), 'month').map(r=>[r.ts.slice(0,7),r.cost])");
+  assert.deepEqual(JSON.parse(JSON.stringify(monthly)), [['2026-08', 1.5], ['2026-09', 6]]);
+});
+
+test('usage history token views fall back to daily groups and quota keeps raw samples', () => {
+  const ui = dashboard();
+  assert.equal(ui.run("historyGroupFor('tokens','raw')"), 'day');
+  assert.equal(ui.run("historyGroupFor('cost','month')"), 'month');
+  assert.equal(ui.run("historyGroupFor('quota','raw')"), 'raw');
+});
+
+test('wider history spans request older quota samples', async () => {
+  const ui = dashboard();
+  const urls = [];
+  ui.context.fetch = async url => { urls.push(url); return { ok: true, json: async () => [] }; };
+  await ui.run("fetchHistory('codex', 90)");
+  await ui.run("fetchHistory('codex', null)");
+  assert.equal(urls[0], '/v1/history/codex?since=2026-06-09&group=hour&view=chart');
+  assert.equal(urls[1], '/v1/history/codex?group=hour&view=chart');
+});
+
+test('cost history honours an explicit grouping over automatic coarsening', () => {
+  const ui = dashboard();
+  ui.context.days = Array.from({ length: 10 }, (_, i) => row(`2026-08-${String(20 + i).padStart(2, '0')}`, 10, 1));
+  ui.run("buildChart('cost', days, 'codex', 'week')");
+  assert.equal((ui.element('cost').innerHTML.match(/class="cost-col"/g) || []).length, 2);
+  assert.match(ui.element('cost').innerHTML, /Grouped by week/);
+  ui.run("buildChart('cost', days, 'codex', 'auto')");
+  assert.equal((ui.element('cost').innerHTML.match(/class="cost-col"/g) || []).length, 10);
+});
+
+test('grouped chart axes label period starts and add the year across years', () => {
+  const ui = dashboard();
+  const months = ui.run("periodTickLabels(['2025-11-01','2025-12-01','2026-01-01'],'month')");
+  assert.deepEqual([...months], ["NOV '25", 'DEC', "JAN '26"]);
+  assert.deepEqual([...ui.run("periodTickLabels(['2026-08-31','2026-09-07'],'week')")], ['AUG 31', 'SEP 7']);
+  assert.deepEqual([...ui.run('tickIndices(10, 4)')], [0, 3, 6, 9]);
+  ui.context.samples = ['2026-05-01', '2026-06-01', '2026-07-01'].map((d, i) => ({ providerId: 'codex', ts: d + 'T00:00:00Z', primaryPercent: 10 * i }));
+  // The DOM stub cannot wire hover handlers; the markup is written before that.
+  ui.run("try{buildHistoryChart('monthly', normalizeHistory(samples), 'quota', 'month')}catch{}");
+  const ticks = [...ui.element('monthly').innerHTML.matchAll(/font-size="10.5">([^<]+)<\/text>/g)].map(m => m[1]).filter(t => !/%$/.test(t));
+  assert.deepEqual(ticks, ['MAY', 'JUN', 'JUL']);
+  const marks = ui.run("timeAxisTicks(Date.UTC(2025,10,20), Date.UTC(2026,4,3), 'month', 6).map(m=>m.label)");
+  assert.deepEqual([...marks], ['JAN', 'MAR', 'MAY'], 'month ticks align to calendar steps');
+  const years = ui.run("timeAxisTicks(Date.UTC(2025,8,1), Date.UTC(2026,10,16), 'month', 6).map(m=>m.label)");
+  assert.deepEqual([...years], ["OCT '25", "JAN '26", 'APR', 'JUL', 'OCT'], 'ticks crossing a year carry it');
+  const days = ui.run("timeAxisTicks(Date.UTC(2026,10,9,17), Date.UTC(2026,10,16,17), 'hour', 6).map(m=>m.label)");
+  assert.deepEqual([...days], ['NOV 11', 'NOV 13', 'NOV 15'], 'multi-day samples tick on evenly spaced UTC midnights');
+});
+
+test('timeline gaps are bridged faintly and marked as missing data',()=>{
+  const ui=dashboard();
+  ui.context.chart={id:'g',clientWidth:860,innerHTML:'',querySelector:()=>({setAttribute(){},addEventListener(){},querySelector:()=>({children:[],setAttribute(){}}),getBoundingClientRect:()=>({left:0,width:860})})};
+  const hour=3600000, t0=Date.UTC(2026,8,1);
+  ui.context.pts=[...Array.from({length:10},(_,i)=>({t:t0+i*hour,v:10+i})),...Array.from({length:10},(_,i)=>({t:t0+(100+i)*hour,v:30}))];
+  ui.run(`timeLineChart(chart,[{label:'Quota',color:'#123',fmt:String,pts}],{max:100,axis:String,when:String})`);
+  const html=ui.context.chart.innerHTML;
+  assert.equal([...html.matchAll(/stroke="#123" stroke-width="1.8"/g)].length,2,'measured runs stay separate');
+  assert.equal([...html.matchAll(/class="tl-bridge"/g)].length,1,'one dashed bridge spans the gap');
+  assert.match(html,/NO DATA/);
+});
+
+test('hover details keep to the numbers; notes appear once pinned', () => {
+  const ui = dashboard();
+  ui.context.d = { title: 'Day', headline: { value: '$1.00' }, rows: [['Cost · USD', '$1.00']], note: 'Explanatory note.' };
+  assert.doesNotMatch(ui.run('detailHtml(d,false)'), /Explanatory note/);
+  assert.match(ui.run('detailHtml(d,true)'), /Explanatory note/);
+  assert.doesNotMatch(ui.run('TIP.pinned=false;tipFooter()'), /press Enter/);
 });
