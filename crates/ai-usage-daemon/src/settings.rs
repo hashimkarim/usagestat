@@ -9,6 +9,7 @@ use std::sync::{
     Arc, Mutex,
     atomic::{AtomicBool, Ordering},
 };
+use toml_edit::{ArrayOfTables, DocumentMut, InlineTable, Item, Table, TableLike};
 use usagestat_core::{AppConfig, LoadedProvider, paths, storage};
 use usagestat_plugins::discover_providers;
 
@@ -303,18 +304,88 @@ fn response_data(
         "pluginDirs":config.plugin_dirs,"providers":entries,"catalog":catalog})
 }
 
-fn json_to_toml(value: &Value) -> Result<toml::Value, ()> {
+fn json_to_toml(value: &Value) -> Result<toml_edit::Value, ()> {
     match value {
-        Value::String(s) if s.len() <= 16384 && !s.contains('\0') => {
-            Ok(toml::Value::String(s.clone()))
-        }
-        Value::Bool(v) => Ok(toml::Value::Boolean(*v)),
+        Value::String(s) if s.len() <= 16384 && !s.contains('\0') => Ok(s.as_str().into()),
+        Value::Bool(v) => Ok((*v).into()),
         Value::Number(v) => v
             .as_i64()
-            .map(toml::Value::Integer)
-            .or_else(|| v.as_f64().filter(|v| v.is_finite()).map(toml::Value::Float))
+            .map(toml_edit::Value::from)
+            .or_else(|| {
+                v.as_f64()
+                    .filter(|v| v.is_finite())
+                    .map(toml_edit::Value::from)
+            })
             .ok_or(()),
         _ => Err(()),
+    }
+}
+
+/// Replace a value in place, keeping its position and surrounding comments.
+fn set_value(table: &mut dyn TableLike, key: &str, mut value: toml_edit::Value) {
+    match table.get_mut(key).and_then(Item::as_value_mut) {
+        Some(existing) => {
+            *value.decor_mut() = existing.decor().clone();
+            *existing = value;
+        }
+        None => {
+            table.insert(key, Item::Value(value));
+        }
+    }
+}
+
+fn text_of(table: &dyn TableLike, key: &str) -> Option<String> {
+    table.get(key).and_then(Item::as_str).map(str::to_owned)
+}
+
+/// Provider entries may be written as `[[providers]]` tables or as an inline array.
+fn provider_entries(doc: &mut DocumentMut) -> Result<Vec<&mut dyn TableLike>, ()> {
+    match doc.get_mut("providers") {
+        None => Ok(Vec::new()),
+        Some(Item::ArrayOfTables(tables)) => {
+            Ok(tables.iter_mut().map(|t| t as &mut dyn TableLike).collect())
+        }
+        Some(Item::Value(toml_edit::Value::Array(array))) => array
+            .iter_mut()
+            .map(|v| {
+                v.as_inline_table_mut()
+                    .map(|t| t as &mut dyn TableLike)
+                    .ok_or(())
+            })
+            .collect(),
+        Some(_) => Err(()),
+    }
+}
+
+fn push_provider(doc: &mut DocumentMut, id: &str) -> Result<(), ()> {
+    match doc
+        .entry("providers")
+        .or_insert(Item::ArrayOfTables(ArrayOfTables::new()))
+    {
+        Item::ArrayOfTables(tables) => {
+            let mut table = Table::new();
+            table.insert("id", toml_edit::value(id));
+            table.insert("enabled", toml_edit::value(false));
+            tables.push(table);
+        }
+        Item::Value(toml_edit::Value::Array(array)) => {
+            let mut table = InlineTable::new();
+            table.insert("id", id.into());
+            table.insert("enabled", false.into());
+            array.push(table);
+        }
+        _ => return Err(()),
+    }
+    Ok(())
+}
+
+fn remove_provider(doc: &mut DocumentMut, index: usize) {
+    match doc.get_mut("providers") {
+        Some(Item::ArrayOfTables(tables)) => tables.remove(index),
+        Some(Item::Value(toml_edit::Value::Array(array))) => {
+            array.remove(index);
+        }
+        _ => {}
     }
 }
 
@@ -336,39 +407,34 @@ fn apply_patch(
     }) {
         return Err(());
     }
-    let mut doc: toml::Value = toml::from_str(raw).map_err(|_| ())?;
-    let doc = doc.as_table_mut().ok_or(())?;
+    // Edit the document in place so user ordering and comments survive a save.
+    let mut doc: DocumentMut = raw.parse().map_err(|_| ())?;
     if let Some(value) = patch.get("refreshSec") {
         let seconds = value
             .as_u64()
             .filter(|v| (5..=86400).contains(v))
             .ok_or(())?;
-        doc.insert("refreshSec".into(), toml::Value::Integer(seconds as i64));
+        set_value(doc.as_table_mut(), "refreshSec", (seconds as i64).into());
     }
     if let Some(value) = patch.get("pluginDirs") {
         let paths = value.as_array().filter(|v| v.len() <= 32).ok_or(())?;
-        let paths: Vec<_> = paths
+        let paths: toml_edit::Array = paths
             .iter()
             .map(|p| {
                 p.as_str()
                     .filter(|p| !p.is_empty() && p.len() <= 4096 && !p.contains('\0'))
-                    .map(|p| toml::Value::String(p.into()))
                     .ok_or(())
             })
             .collect::<Result<_, _>>()?;
-        doc.insert("pluginDirs".into(), toml::Value::Array(paths));
+        set_value(doc.as_table_mut(), "pluginDirs", paths.into());
     }
     if let Some(id) = patch.get("removeProvider") {
         let id = id.as_str().ok_or(())?;
-        let entries = doc
-            .get_mut("providers")
-            .and_then(toml::Value::as_array_mut)
-            .ok_or(())?;
-        let index = entries
+        let index = provider_entries(&mut doc)?
             .iter()
-            .position(|p| p.get("instanceId").and_then(toml::Value::as_str) == Some(id))
+            .position(|p| text_of(&**p, "instanceId").as_deref() == Some(id))
             .ok_or(())?;
-        entries.remove(index);
+        remove_provider(&mut doc, index);
     }
     if let Some(provider) = patch.get("provider") {
         let fields = provider.as_object().ok_or(())?;
@@ -396,27 +462,30 @@ fn apply_patch(
             Some(value) => Some(value.as_str().filter(|s| valid_id(s)).ok_or(())?),
             None => None,
         };
-        let entries = doc
-            .entry("providers")
-            .or_insert(toml::Value::Array(Vec::new()))
-            .as_array_mut()
-            .ok_or(())?;
-        let index = entries.iter().position(|p| {
-            p.get("id").and_then(toml::Value::as_str) == Some(id)
-                && p.get("instanceId").and_then(toml::Value::as_str) == instance
-        });
-        if index.is_none() {
-            entries.push(toml::Value::try_from(json!({"id":id,"enabled":false})).map_err(|_| ())?);
-        }
-        let index = index.unwrap_or(entries.len() - 1);
-        let entry = entries[index].as_table_mut().ok_or(())?;
+        let find = |doc: &mut DocumentMut| -> Result<Option<usize>, ()> {
+            Ok(provider_entries(doc)?.iter().position(|p| {
+                text_of(&**p, "id").as_deref() == Some(id)
+                    && text_of(&**p, "instanceId").as_deref() == instance
+            }))
+        };
+        let index = match find(&mut doc)? {
+            Some(index) => index,
+            None => {
+                push_provider(&mut doc, id)?;
+                provider_entries(&mut doc)?.len() - 1
+            }
+        };
+        let mut entries = provider_entries(&mut doc)?;
+        let entry = &mut *entries[index];
         for (key, value) in fields {
             if key == "settings" {
                 let settings = value.as_object().filter(|s| s.len() <= 128).ok_or(())?;
+                if entry.get(key).is_none() {
+                    entry.insert(key, Item::Value(InlineTable::new().into()));
+                }
                 let target = entry
-                    .entry(key.clone())
-                    .or_insert(toml::Value::Table(Default::default()))
-                    .as_table_mut()
+                    .get_mut(key)
+                    .and_then(Item::as_table_like_mut)
                     .ok_or(())?;
                 for (name, value) in settings {
                     if !valid_id(name)
@@ -427,7 +496,7 @@ fn apply_patch(
                     if value.is_null() {
                         target.remove(name);
                     } else {
-                        target.insert(name.clone(), json_to_toml(value)?);
+                        set_value(target, name, json_to_toml(value)?);
                     }
                 }
                 continue;
@@ -448,10 +517,10 @@ fn apply_patch(
                     return Err(());
                 }
             }
-            entry.insert(key.clone(), json_to_toml(value)?);
+            set_value(entry, key, json_to_toml(value)?);
         }
     }
-    let text = toml::to_string_pretty(doc).map_err(|_| ())?;
+    let text = doc.to_string();
     if text.len() > MAX_CONFIG {
         return Err(());
     }
@@ -488,4 +557,83 @@ fn apply_patch(
         }
     }
     Ok((text, config))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn loaded(id: &str) -> LoadedProvider {
+        LoadedProvider {
+            manifest: serde_json::from_value(json!({"id": id, "name": id, "entry": "plugin.js"}))
+                .unwrap(),
+            dir: PathBuf::from("."),
+            entry_script: String::new(),
+        }
+    }
+
+    const CONFIG: &str = r#"# Poll often while testing.
+refreshSec = 60 # seconds
+
+[[providers]]
+enabled = true
+id = "claude" # primary account
+
+# Kept for later.
+[[providers]]
+id = "codex"
+enabled = false
+"#;
+
+    #[test]
+    fn saves_edit_values_in_place_and_keep_comments_and_order() {
+        let providers = [loaded("claude"), loaded("codex"), loaded("zed")];
+        let (text, config) = apply_patch(
+            CONFIG,
+            &json!({"refreshSec": 90, "provider": {"id": "codex", "enabled": true, "region": "eu"}}),
+            &providers,
+        )
+        .unwrap();
+        assert_eq!(config.refresh_sec, 90);
+        assert_eq!(
+            text,
+            CONFIG
+                .replace("refreshSec = 60 #", "refreshSec = 90 #")
+                .replace(
+                    "id = \"codex\"\nenabled = false\n",
+                    "id = \"codex\"\nenabled = true\nregion = \"eu\"\n"
+                )
+        );
+
+        let (text, _) = apply_patch(
+            &text,
+            &json!({"provider": {"id": "zed", "settings": {"quota": 27}}}),
+            &providers,
+        )
+        .unwrap();
+        assert!(text.starts_with("# Poll often while testing.\nrefreshSec = 90 # seconds\n"));
+        assert!(text.contains("id = \"claude\" # primary account"));
+        assert!(
+            text.ends_with(
+                "[[providers]]\nid = \"zed\"\nenabled = false\nsettings = { quota = 27 }\n"
+            ),
+            "{text}"
+        );
+    }
+
+    #[test]
+    fn inline_provider_arrays_are_edited_without_rewriting_the_file() {
+        let raw = "providers = [{ id = \"claude\", enabled = true }] # inline\n";
+        let (text, config) = apply_patch(
+            raw,
+            &json!({"provider": {"id": "claude", "enabled": false}, "pluginDirs": ["/opt/plugins"]}),
+            &[loaded("claude")],
+        )
+        .unwrap();
+        assert!(!config.providers[0].enabled);
+        assert_eq!(
+            text,
+            "providers = [{ id = \"claude\", enabled = false }] # inline\npluginDirs = [\"/opt/plugins\"]\n"
+        );
+    }
 }

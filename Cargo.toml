@@ -40,3 +40,4 @@ signal-hook = "0.3"
 tabled = { version = "0.17", features = ["std"] }
 thiserror = "2"
 toml = "0.8"
+toml_edit = "0.22"
