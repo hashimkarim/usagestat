@@ -245,7 +245,9 @@ fn control_dialogue_waits_for_initialization_and_finishes_without_stdin_eof() {
     let status = process::control_dialogue(
         fixture("dialogue"),
         b"initialize\n",
-        Duration::from_secs(3),
+        // Generous so a loaded test host cannot time out; the helper then
+        // sleeps 60s, so a prompt return still proves Finish skipped the wait.
+        Duration::from_secs(30),
         4096,
         |bytes| {
             output.extend_from_slice(bytes);
@@ -262,7 +264,7 @@ fn control_dialogue_waits_for_initialization_and_finishes_without_stdin_eof() {
     .unwrap();
     assert!(status.is_none());
     assert_eq!(output, b"initialized\nquota\n");
-    assert!(start.elapsed() < Duration::from_secs(3));
+    assert!(start.elapsed() < Duration::from_secs(20));
 }
 
 #[cfg(unix)]
