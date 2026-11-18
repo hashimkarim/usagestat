@@ -1,5 +1,33 @@
 # Changelog
 
+## Unreleased
+
+- Add time span and grouping controls to dashboard charts. Usage History plots saved local tokens, cost and cache summed per day, week or month; Cost History, the History page and the activity heatmap gain span controls.
+- Align chart axis ticks to calendar periods, adding years where ticks cross one. Mark missing data in line charts with hatched bands and dashed bridges.
+- Reprice saved local requests on pricing upgrades without discarding token counters. Add GPT-5 Codex, GPT-5.2 and GPT-5.4 mini rates and Haiku prompt-length tiers. Retained daily rows whose logs are gone fill missing model costs at base rates, labelled `api-rate-aggregate-estimate`.
+- Attribute Codex turns whose model is recorded later from that exact turn's metadata; ambiguous turns stay unattributed.
+- Add spend alerts: an optional monthly API-equivalent budget and a daily spike alert relative to the 30-day average, shown on the Overview and optionally as browser notifications. The Overview and month-to-date Cost History show a projected month total.
+- Add CSV export to Cost History and Usage History, matching each chart's span and grouping. Exported text that a spreadsheet would run as a formula is kept inert.
+- Collection settings saves now edit `config.toml` in place, keeping key order and comments.
+- Fix the systemd unit's `EnvironmentFile=` line, which was quoted and so ignored `daemon.env`. Re-running `daemon enable` repairs existing units.
+- Rebrand the dashboard as usagestat. Tooltip explanations appear only in pinned details. Collection settings explain when the backend runs without polling or on a non-local address.
+
+## 2.2.0 - 2026-11-15
+
+- Add GPT-6.1 Sol API-equivalent cost estimates, including cached input, cache writes and long-context rates. Saved local transcripts are reparsed for the new pricing; retained billing charges remain authoritative.
+- Add opt-in SiliconFlow, Tripo, OpenDesign and Google Developer providers (124 total). Update Helmcode, TypeSafe, MuseAI, Trae and WorkBuddy readbacks from reviewed upstream sources.
+- Improve Cursor encrypted-token handling and read-only stable CLI fallback, Perplexity manual-session readback, Codex monthly windows, Kimi monthly breakdowns, OpenCode credentials and Synthetic weekly plans. JetBrains gains modern quota parsing and optional bounded local observations.
+
+See [release notes](docs/releases/v2.2.0.md) and the [publication record](docs/releases/v2.2.0-publication.md).
+
+## 2.1.0 - 2026-10-26
+
+- Add 20 opt-in providers (120 total): Abliteration, Aerostack, Chatbox, Claude Platform, Cosmic, Exa, Fal, Flora, FutureAGI, Langdock, Linkup, Munito, Parallel, Sail Research, Sofya, Soniox, Tavily, TinyAPI, Trae CN and X API. Vercel personal budgets and QwenCloud Team Token Plan become explicit alternative sources.
+- Correct quota and accounting for OpenCode Go credential migration, Claude reset grants and cloud credits, Cursor unified weekly pools and native billing events, Antigravity merged hosts and Argon weekly pool, Ollama balances, Kimi ratio pools and xAI invoice previews.
+- Carry upstream transport and parsing fixes for existing bundled definitions, including Helmcode routing, Hyper source labels and WorkBuddy billing cycles.
+
+See [release notes](docs/releases/v2.1.0.md) and the [publication record](docs/releases/v2.1.0-publication.md).
+
 ## 2.0.2 - 2026-10-04
 
 - Adopt Antigravity's Hub request identity, keeping permission denial distinct from expired authentication.
