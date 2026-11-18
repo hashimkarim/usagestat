@@ -576,6 +576,11 @@ header{
 .hour-grid{display:grid;grid-template-columns:auto repeat(24,minmax(0,1fr));gap:3px;align-items:center;max-width:720px}
 .hour-grid .cal-cell{width:100%;height:auto;aspect-ratio:1;border-radius:min(3px,22%)}
 .hour-day{font:10.5px var(--sans);color:var(--su);padding-right:6px}
+.account-row{padding:8px 0;border-top:1px solid var(--bd)}
+.account-row:first-child{border-top:0;padding-top:0}
+.account-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px}
+.account-name{background:none;border:0;padding:0;color:var(--hi);font:600 13px var(--sans);cursor:pointer}
+.account-name:hover{text-decoration:underline}
 .heatmap-head{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px}
 .cal-months{grid-column:2;display:grid;grid-template-columns:repeat(var(--weeks),minmax(0,1fr));column-gap:var(--cal-gap,4px);white-space:nowrap}
 .cal-days{grid-column:1;grid-row:2;position:sticky;left:0;z-index:1;background:var(--s0);padding-right:4px;display:grid;grid-template-rows:repeat(7,minmax(0,1fr));row-gap:var(--cal-gap,4px)}
@@ -1078,7 +1083,9 @@ function renderOverview(){
     return;
   }
   let html='';
-  overview.forEach((s,i)=>{
+  for(const group of accountGroups(overview)){
+    if(group.length>1){ html+=combinedCardHtml(group); continue; }
+    const s=group[0];
     const isErr=snapshotHasError(s);
     const pace=S.prefs.showPace&&S.prefs.components.includes('pace')?s.pace:null;
     const primM=isErr?null:UsageDashboardSettings.primary(s,S.prefs);
@@ -1134,9 +1141,49 @@ function renderOverview(){
     if(S.prefs.showDashboardLinks){const provider=S.allProviders.find(p=>p.id===s.providerId),link=safeWebUrl(provider?.usageDashboardUrl||provider?.webUrl);if(link)html+=`<a class="slink" href="${esc(link)}" target="_blank" rel="noreferrer">usage ↗</a>`;}
     if(safeWebUrl(s.statusPageUrl)&&S.prefs.showStatusLinks) html+=`<a class="slink" href="${esc(s.statusPageUrl)}" target="_blank" rel="noreferrer"><svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="5" cy="5" r="3.5"/><circle cx="5" cy="5" r="1.2"/></svg>status</a>`;
     html+=`</div></div>`;
-  });
+  }
   grid.innerHTML=html;applyCardComponents(grid);
   animateBarsAndArcs(grid, false);
+}
+
+// With "Combine accounts" on, instances of one provider plugin share a card.
+function accountGroups(snaps){
+  if(!S.prefs.combineAccounts) return snaps.map(s=>[s]);
+  const groups = new Map();
+  for(const s of snaps){
+    const base = S.allProviders.find(p=>p.id===s.providerId)?.pluginId || s.providerId;
+    if(!groups.has(base)) groups.set(base, []);
+    groups.get(base).push(s);
+  }
+  return [...groups.values()];
+}
+function combinedCardHtml(group){
+  const base = S.allProviders.find(p=>p.id===group[0].providerId)?.pluginId || group[0].providerId;
+  const rows = group.map(s=>{ const err=snapshotHasError(s); return {s, err, m:err?null:UsageDashboardSettings.primary(s,S.prefs)}; });
+  const top = rows.filter(r=>r.m).sort((a,b)=>pct(b.m)-pct(a.m))[0];
+  const topP = top ? pct(top.m) : null;
+  let html = `<div class="card combined-card" style="--accent:${topP!=null?barCol(topP):'#484f58'}">`;
+  html+=`<div class="card-head"><div class="card-meta"><div class="card-name"><span data-card-component="logo">${providerIcon(base)}</span><span data-card-component="name">${esc(S.allProviders.find(p=>p.id===base)?.name||providerName(group[0].providerId))}</span></div>`;
+  html+=`<div class="card-tags"><span class="badge">${group.length} accounts</span></div></div>`;
+  if(topP!=null) html+=arcSvg(displayPct(topP),barCol(topP),snapshotDetail(top.s,top.m));
+  html+=`</div><div class="card-body">`;
+  let cost = 0, tokens = 0;
+  for(const r of rows){
+    html+=`<div class="account-row"><div class="account-head"><button type="button" class="account-name" onclick="switchTab('${esc(r.s.providerId)}')">${esc(providerName(r.s.providerId))}</button>${r.s.plan?`<span class="plan-tag">${esc(r.s.plan)}</span>`:''}${r.err?`<span class="badge">Usage unavailable · ${esc(r.s.state||'failed')}</span>`:''}</div>`;
+    for(const m of r.err?[]:UsageDashboardSettings.metrics(r.s,S.prefs).filter(m=>m.type==='progress')){
+      const p=pct(m);
+      html+=`<div class="metric" data-card-component="quota" ${chartDetailAttribute(snapshotDetail(r.s,m))}><div class="kv"><span class="mlabel" style="margin:0">${esc(m.label)}</span><span class="prog-val">${esc(fmtMetric(m))}</span></div>`;
+      html+=`<div class="track"><div class="bar" style="background:${barCol(p)}" data-w="${displayPct(p).toFixed(2)}%"></div></div>`;
+      if(m.resetsAt&&S.prefs.showReset&&S.prefs.components.includes('reset')) html+=`<div class="resets">${fmtReset(m.resetsAt)}</div>`;
+      html+=`</div>`;
+    }
+    const roll = providerWindowTotals(r.s.providerId, 30); cost += roll.cost; tokens += roll.totalTokens;
+    html+=`</div>`;
+  }
+  if(cost>0||tokens>0) html+=`<div class="metric" data-card-component="cost"><div class="kv"><span class="mlabel" style="margin:0">30d all accounts</span><span class="kv-val">${esc(fmtUsd(cost))} · ${esc(fmtTok(tokens))}</span></div></div>`;
+  const latest = group.map(s=>s.fetchedAt).filter(Boolean).sort().at(-1);
+  html+=`</div><div class="card-foot"><span class="foot-ts">${latest?fmtAgo(latest):''}</span></div></div>`;
+  return html;
 }
 
 function renderOverviewControls(){
@@ -2414,6 +2461,7 @@ function displayAdvancedHtml(){return `<section class="settings-section" aria-la
     ${preferenceSelect('resetTimeFormat','Reset time format',[['smart','Smart'],['relative','Time remaining'],['absolute','Date and time'],['both','Both']])}
     ${preferenceCheck('showStatusLinks','Provider status links')}${preferenceCheck('showDashboardLinks','Provider usage links')}
     ${preferenceCheck('scrollToSwitch','Scroll on provider tabs to switch')}
+    ${preferenceCheck('combineAccounts','Combine accounts of the same provider')}
     <details><summary>Card components and order</summary><div class="settings-note">${S.prefs.components.concat(UsageDashboardSettings.COMPONENTS.filter(c=>!S.prefs.components.includes(c))).map((key,index)=>`<div class="setting-row"><label><input type="checkbox" id="setting-component-${key}" data-component="${key}"${S.prefs.components.includes(key)?' checked':''}> ${esc(key)}</label><span><button class="action-btn" data-component-move="${key}" data-direction="-1">↑</button> <button class="action-btn" data-component-move="${key}" data-direction="1">↓</button></span></div>`).join('')}</div></details>
     <details><summary>Dashboard keyboard shortcuts</summary><p class="settings-note">Shortcuts apply while this page is active and never intercept typing in a form.</p>${Object.entries(S.prefs.shortcuts).map(([key,value])=>`<div class="setting-row"><label for="shortcut-${key}">${esc(key)}</label><input class="ctrl-input" maxlength="1" id="shortcut-${key}" data-shortcut="${key}" value="${esc(value)}"></div>`).join('')}</details>
   </section><section class="settings-section" aria-labelledby="threshold-heading"><h2 id="threshold-heading">Usage thresholds</h2><p>Set names, percentages used, colours and crossing notifications. Notifications use fresh quota observations only.</p>

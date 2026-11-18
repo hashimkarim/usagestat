@@ -836,3 +836,21 @@ test('local analytics spans keep only rows inside the chosen UTC window',()=>{
   assert.equal(ui.run(`inLocalSpan(rows,'7').length`),2);
   assert.equal(ui.run(`inLocalSpan(rows,'all').length`),3);
 });
+
+test('combined account cards group plugin instances and show each account',()=>{
+  const ui=dashboard();
+  ui.run(`S.allProviders=[{id:'claude',name:'Claude'},{id:'claude-work',pluginId:'claude',name:'Claude Work'},{id:'codex',name:'Codex'}];
+    S.snapshots=[{providerId:'claude',displayName:'Claude',plan:'Max',fetchedAt:'2026-09-06T00:00:00Z',state:'ready',metrics:[{type:'progress',label:'Session',used:20,limit:100,format:{kind:'percent'}}]},
+      {providerId:'claude-work',displayName:'Claude <Work>',fetchedAt:'2026-09-06T00:00:00Z',state:'ready',metrics:[{type:'progress',label:'Session',used:80,limit:100,format:{kind:'percent'}}]},
+      {providerId:'codex',displayName:'Codex',fetchedAt:'2026-09-06T00:00:00Z',state:'ready',metrics:[]}];`);
+  assert.equal(ui.run('accountGroups(S.snapshots).length'),3,'off by default');
+  ui.run('S.prefs.combineAccounts=true');
+  assert.equal(ui.run('accountGroups(S.snapshots).map(g=>g.length).join()'),'2,1');
+  const html=ui.run('combinedCardHtml(accountGroups(S.snapshots)[0])');
+  assert.match(html,/2 accounts/);
+  assert.match(html,/Claude &lt;Work&gt;/);
+  assert.match(html,/switchTab\('claude-work'\)/);
+  assert.equal((html.match(/class="metric" data-card-component="quota"/g)||[]).length,2);
+  assert.equal(settings.normalize({combineAccounts:true}).combineAccounts,true);
+  assert.equal(settings.normalize({}).combineAccounts,false);
+});

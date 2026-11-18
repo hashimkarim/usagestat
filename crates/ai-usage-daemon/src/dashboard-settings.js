@@ -27,7 +27,7 @@
       showPace:true, showReset:true, showStatusLinks:true, showDashboardLinks:true,
       resetTimeFormat:'smart', metricLayout:'vertical', providerSpacing:16,
       components:COMPONENTS.slice(), thresholds:DEFAULT_THRESHOLDS.map(t=>({...t})),
-      notifications:false, scrollToSwitch:false, spendBudgetUsd:0, spendSpikeMultiple:0, spendNotify:false, shortcuts:{overview:'o',previous:'[',next:']',refresh:'r',settings:'s'},
+      notifications:false, scrollToSwitch:false, combineAccounts:false, spendBudgetUsd:0, spendSpikeMultiple:0, spendNotify:false, shortcuts:{overview:'o',previous:'[',next:']',refresh:'r',settings:'s'},
     };
     if (typeof value.search === 'string') result.search = value.search.slice(0, 256);
     if (['all','live','attention','near','tracked'].includes(value.status)) result.status = value.status;
@@ -37,7 +37,7 @@
     if (THEMES.includes(value.theme)) result.theme = value.theme;
     if (Object.hasOwn(ACCENTS, value.accent)) result.accent = value.accent;
     if (value.density === 'compact') result.density = 'compact';
-    for (const key of ['icons','summary','showPace','showReset','showStatusLinks','showDashboardLinks','notifications','scrollToSwitch']) if (typeof value[key] === 'boolean') result[key] = value[key];
+    for (const key of ['icons','summary','showPace','showReset','showStatusLinks','showDashboardLinks','notifications','scrollToSwitch','combineAccounts']) if (typeof value[key] === 'boolean') result[key] = value[key];
     if(['monochrome','color'].includes(value.iconStyle))result.iconStyle=value.iconStyle;
     if(['full','usage'].includes(value.iconFill))result.iconFill=value.iconFill;
     if(['smart','relative','absolute','both'].includes(value.resetTimeFormat))result.resetTimeFormat=value.resetTimeFormat;
