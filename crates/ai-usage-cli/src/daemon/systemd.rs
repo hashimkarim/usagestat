@@ -154,6 +154,15 @@ pub(super) fn unit_quote(value: &str, exec: bool) -> Result<String> {
     ))
 }
 
+/// `EnvironmentFile=` takes the raw path: systemd does not unquote it, so a
+/// quoted value reads as a relative path and the file is silently ignored.
+pub(super) fn unit_file_path(value: &str) -> Result<String> {
+    if !value.starts_with('/') || value.chars().any(|c| c.is_control()) || value.trim() != value {
+        bail!("service file paths must be absolute without control characters or edge whitespace");
+    }
+    Ok(value.replace('%', "%%"))
+}
+
 pub(super) fn path_arg(path: &Path) -> Result<String> {
     unit_quote(
         path.to_str().context("service paths must be valid UTF-8")?,
@@ -192,11 +201,10 @@ pub(super) fn render_unit(
         }
     }
     let env_file = paths::config_dir()?.join("daemon.env");
-    let env_file = unit_quote(
+    let env_file = unit_file_path(
         env_file
             .to_str()
             .context("environment file path must be UTF-8")?,
-        false,
     )?;
     Ok(format!(
         "{MARKER}[Unit]\nDescription=usagestat usage backend\n\n[Service]\nType=exec\nExecStart={command}\nWorkingDirectory=%h\n{environment}EnvironmentFile=-{env_file}\nUnsetEnvironment=USAGESTAT_MANAGEMENT_KEY\nRestart=on-failure\nRestartSec=5\nUMask=0077\n\n[Install]\nWantedBy=default.target\n"
@@ -340,8 +348,18 @@ fn managed_unit(unit: &str, binary: &Path, settings: &Path) -> Result<String> {
     );
     let mut updated = String::new();
     for line in unit.lines() {
+        // Earlier releases quoted this path, which systemd reads as relative.
+        let env_file = match line.strip_prefix("EnvironmentFile=-\"") {
+            Some(rest) if rest.ends_with('"') => Some(format!(
+                "EnvironmentFile=-{}",
+                unit_file_path(&decoded_word(&line["EnvironmentFile=-".len()..], false)?)?
+            )),
+            _ => None,
+        };
         updated.push_str(if line.starts_with("ExecStart=") {
             &command
+        } else if let Some(env_file) = &env_file {
+            env_file
         } else {
             line
         });
@@ -507,9 +525,18 @@ mod migration_tests {
             Path::new("/new settings/daemon.json"),
         )
         .unwrap();
-        for line in old.lines().filter(|line| !line.starts_with("ExecStart=")) {
+        for line in old
+            .lines()
+            .filter(|line| !line.starts_with("ExecStart=") && !line.starts_with("EnvironmentFile="))
+        {
             assert!(updated.lines().any(|other| other == line));
         }
+        let quoted = "[Service]\nExecStart=/d --bind 127.0.0.1:1\nEnvironmentFile=-\"/home/a b/100%%/daemon.env\"\n";
+        let repaired = managed_unit(quoted, Path::new("/d"), Path::new("/s.json")).unwrap();
+        assert!(
+            repaired.contains("\nEnvironmentFile=-/home/a b/100%%/daemon.env\n"),
+            "{repaired}"
+        );
         assert!(updated.contains("--service-settings \"/new settings/daemon.json\""));
         let directory = usagestat_core::storage::temporary_directory().unwrap();
         let path = directory.path().join("daemon.json");

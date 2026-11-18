@@ -933,6 +933,21 @@ mod tests {
         assert!(unit.contains("--management-key-file \"/key\""));
         assert!(unit_enables_t3(&unit, Path::new("/key")).unwrap());
         assert!(unit.contains("WantedBy=default.target"));
+        let env_line = unit
+            .lines()
+            .find(|l| l.starts_with("EnvironmentFile="))
+            .unwrap();
+        assert!(
+            env_line.starts_with("EnvironmentFile=-/"),
+            "systemd does not unquote: {env_line}"
+        );
+        assert!(env_line.ends_with("/daemon.env"));
+        assert_eq!(
+            unit_file_path("/a b/100%/daemon.env").unwrap(),
+            "/a b/100%%/daemon.env"
+        );
+        assert!(unit_file_path("relative/daemon.env").is_err());
+        assert!(unit_file_path("/x\nExecStart=/evil").is_err());
     }
 
     #[test]
