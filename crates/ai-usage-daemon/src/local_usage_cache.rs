@@ -10,8 +10,8 @@ use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{Duration, Instant, SystemTime};
 use usagestat_core::{paths, provider_paths, usage_daily};
 
-// v8 reparses unchanged transcripts with GPT-6.1 Sol pricing.
-const VERSION: u32 = 8;
+// v9 resolves unknown Codex models from later metadata for the same turn.
+const VERSION: u32 = 9;
 const TTL: Duration = Duration::from_secs(30);
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -37,6 +37,8 @@ struct CachedFile {
 #[derive(Default, Serialize, Deserialize)]
 struct Cache {
     version: u32,
+    #[serde(default)]
+    pricing_as_of: String,
     files: BTreeMap<PathBuf, CachedFile>,
     #[serde(skip)]
     checked: Option<Instant>,
@@ -51,17 +53,63 @@ impl Cache {
         mut scan: impl FnMut(&Path) -> Result<Vec<LocalUsageEvent>>,
     ) -> Result<bool> {
         let mut changed = self.version != VERSION;
-        if changed {
+        let migrate_models = self.version == 8;
+        let migrate_prices = self.pricing_as_of != super::pricing::AS_OF;
+        if changed && !migrate_models {
             self.files.clear();
         }
-        self.version = VERSION;
         let before = self.files.len();
         let files: std::collections::BTreeSet<_> = files.into_iter().collect();
         self.files.retain(|path, _| files.contains(path));
         changed |= before != self.files.len();
-        // Clear serialized reports even when an I/O error interrupts a refresh.
         self.reports.clear();
+        if migrate_models {
+            let mut unsupported = Vec::new();
+            for (path, file) in &mut self.files {
+                if !super::codex_usage::recover_cached_models(path, &mut file.events)? {
+                    unsupported.push(path.clone());
+                }
+            }
+            for path in unsupported {
+                self.files.remove(&path);
+            }
+        }
+        if migrate_prices {
+            for (path, file) in &mut self.files {
+                if !file.events.iter().any(super::pricing::needs_reprice) {
+                    continue;
+                }
+                if file.events.iter().any(|event| {
+                    event.codex_identity.is_none() && super::pricing::needs_reprice(event)
+                }) {
+                    // Claude cache rows are compacted. Recover request boundaries
+                    // before applying tiered prompt prices, never price a day as a request.
+                    let stamp = fingerprint(path)?;
+                    let events = compact(scan(path)?);
+                    file.events = events;
+                    file.fingerprint = stamp;
+                } else {
+                    for event in &mut file.events {
+                        if super::pricing::needs_reprice(event) {
+                            super::pricing::apply(event);
+                        }
+                    }
+                }
+            }
+            changed = true;
+        }
+        // Publish corrected historical counters first. A later normal pass
+        // independently handles files appended since the saved fingerprints.
+        if (migrate_models || migrate_prices) && self.files.len() == files.len() {
+            self.version = VERSION;
+            self.pricing_as_of = super::pricing::AS_OF.into();
+            self.checked = Some(Instant::now());
+            return Ok(true);
+        }
         for path in files {
+            if migrate_models && self.files.contains_key(&path) {
+                continue;
+            }
             let stamp = fingerprint(&path)?;
             if self
                 .files
@@ -80,6 +128,8 @@ impl Cache {
             );
             changed = true;
         }
+        self.version = VERSION;
+        self.pricing_as_of = super::pricing::AS_OF.into();
         self.checked = Some(Instant::now());
         Ok(changed)
     }
@@ -177,7 +227,7 @@ pub(super) fn report_limited(provider: &str, report: &str, limit: Option<usize>)
             let cache = std::fs::read(&cache_path)
                 .ok()
                 .and_then(|bytes| serde_json::from_slice::<Cache>(&bytes).ok())
-                .filter(|cache| cache.version == VERSION)
+                .filter(|cache| cache.version == VERSION || cache.version == 8)
                 .unwrap_or_default();
             Arc::new(Mutex::new(cache))
         })
@@ -217,6 +267,220 @@ pub(super) fn report_limited(provider: &str, report: &str, limit: Option<usize>)
 mod tests {
     use super::*;
     use chrono::{TimeZone, Utc};
+
+    #[test]
+    fn failed_scan_after_repricing_keeps_upgrade_pending_for_persistence() {
+        let dir = std::env::temp_dir().join(format!(
+            "usagestat-price-retry-{}",
+            Utc::now().timestamp_nanos_opt().unwrap()
+        ));
+        std::fs::create_dir_all(&dir).unwrap();
+        let known = dir.join("a.jsonl");
+        let vanished = dir.join("z.jsonl");
+        std::fs::write(&known, "saved").unwrap();
+        let mut cache = Cache {
+            version: VERSION,
+            ..Default::default()
+        };
+        cache.files.insert(
+            known.clone(),
+            CachedFile {
+                fingerprint: fingerprint(&known).unwrap(),
+                events: vec![LocalUsageEvent {
+                    model: "gpt-5.4-mini".into(),
+                    input_tokens: 200_000,
+                    codex_identity: Some(
+                        serde_json::from_value(
+                            serde_json::json!({"response_id":"r","row_key":"[]","mirrors":[]}),
+                        )
+                        .unwrap(),
+                    ),
+                    ..Default::default()
+                }],
+            },
+        );
+        assert!(cache
+            .refresh(vec![known.clone(), vanished], |_| panic!(
+                "only saved requests exist"
+            ))
+            .is_err());
+        assert!(
+            cache.pricing_as_of.is_empty(),
+            "failed refresh must not finalize the upgrade"
+        );
+        assert!(
+            cache
+                .refresh(vec![known.clone()], |_| panic!(
+                    "retry must preserve request counters"
+                ))
+                .unwrap(),
+            "successful retry must request persistence"
+        );
+        let restored: Cache = serde_json::from_slice(&serde_json::to_vec(&cache).unwrap()).unwrap();
+        assert_eq!(restored.pricing_as_of, super::super::pricing::AS_OF);
+        assert!((restored.files[&known].events[0].cost_usd - 0.15).abs() < 1e-10);
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn price_upgrade_repairs_cached_requests_and_replays_compacted_claude() {
+        let dir = std::env::temp_dir().join(format!(
+            "usagestat-price-upgrade-{}",
+            Utc::now().timestamp_nanos_opt().unwrap()
+        ));
+        std::fs::create_dir_all(&dir).unwrap();
+        let codex = dir.join("codex.jsonl");
+        let claude = dir.join("claude.jsonl");
+        let mut cache = Cache {
+            version: VERSION,
+            ..Default::default()
+        };
+        for (path, model) in [(&codex, "gpt-5.4-mini"), (&claude, "claude-haiku-5-5")] {
+            std::fs::write(path, "unchanged").unwrap();
+            let mut event = LocalUsageEvent {
+                model: model.into(),
+                input_tokens: 200_000,
+                ..Default::default()
+            };
+            if path == &codex {
+                event.codex_identity = Some(
+                    serde_json::from_value(
+                        serde_json::json!({"response_id":"r","row_key":"[]","mirrors":[]}),
+                    )
+                    .unwrap(),
+                );
+            }
+            cache.files.insert(
+                path.clone(),
+                CachedFile {
+                    fingerprint: fingerprint(path).unwrap(),
+                    events: vec![event],
+                },
+            );
+        }
+        let mut scans = Vec::new();
+        cache
+            .refresh(vec![codex.clone(), claude.clone()], |path| {
+                scans.push(path.to_path_buf());
+                let mut event = LocalUsageEvent {
+                    model: "claude-haiku-5-5".into(),
+                    input_tokens: 200_000,
+                    ..Default::default()
+                };
+                super::super::pricing::apply(&mut event);
+                Ok(vec![event])
+            })
+            .unwrap();
+        assert_eq!(scans, vec![claude.clone()]);
+        assert!((cache.files[&codex].events[0].cost_usd - 0.15).abs() < 1e-10);
+        assert!((cache.files[&claude].events[0].cost_usd - 0.1).abs() < 1e-10);
+        cache
+            .refresh(vec![codex, claude], |_| {
+                panic!("upgrade must be idempotent")
+            })
+            .unwrap();
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn failed_model_migration_retries_without_marking_the_cache_current() {
+        let dir = std::env::temp_dir().join(format!(
+            "usagestat-model-retry-{}",
+            Utc::now().timestamp_nanos_opt().unwrap()
+        ));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("rollout.jsonl");
+        std::fs::write(&path, [255]).unwrap();
+        let identity=serde_json::from_value(serde_json::json!({"response_id":"response","row_key":serde_json::json!([0,null,0,"turn",[100,0,0,0,0],null,"unknown"]).to_string(),"mirrors":[]})).unwrap();
+        let mut cache = Cache {
+            version: 8,
+            ..Default::default()
+        };
+        cache.files.insert(
+            path.clone(),
+            CachedFile {
+                fingerprint: fingerprint(&path).unwrap(),
+                events: vec![LocalUsageEvent {
+                    session_id: "child".into(),
+                    model: "unknown".into(),
+                    input_tokens: 100,
+                    codex_identity: Some(identity),
+                    ..Default::default()
+                }],
+            },
+        );
+        assert!(cache
+            .refresh(vec![path.clone()], |_| panic!(
+                "supported cached request must not be recounted"
+            ))
+            .is_err());
+        assert_eq!(cache.version, 8);
+        std::fs::write(&path,"{\"type\":\"session_meta\",\"payload\":{\"id\":\"child\"}}\n{\"type\":\"turn_context\",\"payload\":{\"turn_id\":\"turn\",\"model\":\"gpt-6.1-sol\"}}").unwrap();
+        assert!(cache
+            .refresh(vec![path.clone()], |_| panic!(
+                "metadata retry must retain counters"
+            ))
+            .unwrap());
+        assert_eq!(cache.version, VERSION);
+        assert_eq!(cache.files[&path].events[0].model, "gpt-6.1-sol");
+        assert_eq!(cache.files[&path].events[0].input_tokens, 100);
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn old_cache_replays_unattributed_files_without_discarding_known_requests() {
+        let dir = std::env::temp_dir().join(format!(
+            "usagestat-model-cache-{}",
+            Utc::now().timestamp_nanos_opt().unwrap()
+        ));
+        std::fs::create_dir_all(&dir).unwrap();
+        let known = dir.join("known.jsonl");
+        let missing = dir.join("missing.jsonl");
+        std::fs::write(&known, "known").unwrap();
+        std::fs::write(&missing, "missing").unwrap();
+        let mut cache = Cache {
+            version: 8,
+            ..Default::default()
+        };
+        for (path, model) in [(&known, "gpt-6-astra"), (&missing, "unknown")] {
+            cache.files.insert(
+                path.clone(),
+                CachedFile {
+                    fingerprint: fingerprint(path).unwrap(),
+                    events: vec![LocalUsageEvent {
+                        cost_known: model != "unknown",
+                        model: model.into(),
+                        input_tokens: 100,
+                        ..Default::default()
+                    }],
+                },
+            );
+        }
+        let mut replayed = Vec::new();
+        cache
+            .refresh(vec![known.clone(), missing.clone()], |path| {
+                replayed.push(path.to_path_buf());
+                Ok(vec![LocalUsageEvent {
+                    model: "gpt-6.1-sol".into(),
+                    input_tokens: 100,
+                    ..Default::default()
+                }])
+            })
+            .unwrap();
+        assert_eq!(replayed, vec![missing.clone()]);
+        assert_eq!(cache.files[&known].events[0].model, "gpt-6-astra");
+        assert_eq!(cache.files[&missing].events[0].model, "gpt-6.1-sol");
+        assert_eq!(
+            cache
+                .files
+                .values()
+                .flat_map(|f| &f.events)
+                .map(|e| e.input_tokens)
+                .sum::<u64>(),
+            200
+        );
+        std::fs::remove_dir_all(dir).unwrap();
+    }
 
     #[test]
     fn unchanged_files_are_not_reparsed_and_appends_deletions_and_restart_invalidate() {

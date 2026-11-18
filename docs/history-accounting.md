@@ -81,8 +81,8 @@ available source with model detail, so inspect its source rather than assuming
 it will always be a local transcript.
 
 Legacy daily totals that exactly equal the exclusive component sum plus reasoning
-are corrected on read. Other reported totals are preserved. Historical costs are
-not silently repriced.
+are corrected on read. Other reported totals are preserved. Historical reported costs are
+not repriced; local API estimates carry the rate schedule used to calculate them.
 
 ## Local report cache
 
@@ -98,7 +98,8 @@ are reused by path, size and modification time, including after restart. Added,
 changed, removed or truncated files invalidate the relevant cached summaries.
 Concurrent requests share the same scan. Serialized report variants are cached
 as well. Deleting the cache is safe; the next pass rebuilds it. Increment the
-cache version when changing parsing or pricing semantics.
+cache version when changing parsing semantics; pricing updates use the separate
+pricing revision so request counters can survive a rate-table update.
 
 Saved historical days remain available after their original logs are removed.
 Older days without model detail cannot be reconstructed from the aggregate daily
@@ -140,15 +141,22 @@ session to its last active day.
 Local `costSource: "api-rate-estimate"` values use standard API rates verified on
 2026-09-27, with Sonnet 5.5 added from its published rates on 2026-09-29.
 GPT-6.1 Sol was added from its official model page on 2026-11-15.
-The table is dated 2026-11-15. Local-cache version 8 reparses unchanged logs to
-include this model; retained billing and ccusage rows are unaffected.
+The rate schedule and its verification date live in
+[`pricing.rs`](../crates/ai-usage-daemon/src/pricing.rs). Price upgrades repair
+cached request estimates without discarding token counters. Compacted Claude
+summaries affected by new rates are replayed from their original logs because
+prompt tiers must be applied before aggregation. Retained daily rows whose logs
+are no longer available can fill missing model costs at base rates, labelled
+`api-rate-aggregate-estimate`; they cannot recover request-specific tier premiums.
+Reported billing and ccusage daily totals remain authoritative.
 The dated current rate schedule is applied to local logs, including
 historical events; it does not reconstruct past price changes. Saved billing and
 ccusage costs are retained. These estimates represent API-equivalent usage, not subscription charges or an
 invoice. `costKnown` means that the model's base rates are available; it does not
 claim knowledge of account discounts, service tiers, region premiums or every
 provider-specific cache-retention modifier. OpenAI long-context multipliers are
-applied per usage event before aggregation. Claude cache writes use the standard
+applied per usage event before aggregation. Haiku prompt-length tiers count all
+input classes, including cached input, and exclude output. Claude cache writes use the standard
 five-minute rate. `cacheSavingsUsd` measures the read discount relative to normal
 input pricing; cache-write premiums remain included in `costUsd`.
 
@@ -164,8 +172,18 @@ Unknown aliases remain unpriced. Sources:
 - [GPT-5.5](https://developers.openai.com/api/docs/models/gpt-5.5)
 - [GPT-5.4](https://developers.openai.com/api/docs/models/gpt-5.4)
 - [GPT-5](https://developers.openai.com/api/docs/models/gpt-5)
+- [GPT-5 Codex](https://developers.openai.com/api/docs/models/gpt-5-codex)
+- [GPT-5.2](https://developers.openai.com/api/docs/models/gpt-5.2)
+- [GPT-5.4 mini](https://developers.openai.com/api/docs/models/gpt-5.4-mini)
+- [Spark research-preview availability](https://help.openai.com/en/articles/11481834-chatgpt-rate-card-business-enterpriseedu/)
 - [Claude pricing](https://platform.claude.com/docs/en/about-claude/pricing)
-- [Claude Sonnet 5.5](https://www.anthropic.com/claude-sonnet-5-5)
+- [Claude Sonnet 5.5](https://platform.claude.com/docs/en/models/sonnet-5-5/overview)
+- [Claude Haiku 5.5](https://platform.claude.com/docs/en/models/haiku-5-5/overview)
+
+No public API price means no automatic dollar estimate: Spark research-preview
+usage remains explicitly unpriced. Other providers' billed costs and quota
+counters are not converted using Claude or OpenAI prices. A percentage, message
+count, or subscription allowance alone cannot establish token cost.
 
 ## Verification
 
@@ -177,3 +195,39 @@ node --test crates/ai-usage-daemon/tests/*.test.cjs
 
 The HTTP integration test uses synthetic transcripts and an isolated daemon
 profile, with a local fixture plugin and no provider network requests.
+
+When an upgrade adds rates, the daemon also repairs retained local daily model
+estimates on startup. Transcript replay retains request-level pricing where the
+original logs remain. For older unpriced model rows whose request detail has
+been removed, backfill uses the saved exclusive token classes at base API rates
+and labels the result `api-rate-aggregate-estimate`. Daily token totals cannot
+reconstruct long-context or service-tier modifiers. Existing priced model costs,
+billing records and reported ccusage day totals are preserved; unknown model IDs
+remain unpriced. A `+` still indicates genuinely incomplete pricing. Model cost
+shares include all known dollar amounts, including partially priced models.
+
+Dashboard refreshes retain their displayed provider analytics until replacement
+history, cost and local reports are ready. Transient fetch failures retain the
+last successful responses; a successful empty response can clear old data.
+
+First visits reserve chart and summary space with accessible skeletons. They
+respect reduced-motion preferences. Refreshes retain selected analytics tabs,
+chart modes and cost ranges, and await model history before replacing a provider
+panel so model sections do not disappear between independent requests. Sessions
+and block tables retain their last successful data while refreshing.
+
+Legacy ccusage imports can report a known day total while leaving individual
+models unpriced. Models with known rates and complete token counters receive a
+base-rate estimate when their recorded model cost is zero. The reported day
+total stays unchanged; `reported-with-api-model-estimates` marks this distinction.
+Already priced or nonzero imported model costs are retained. New imports apply
+the same repair during ingestion, so polling cannot restore the old missing-rate
+flags after startup.
+
+Codex request records can precede their turn metadata. Missing model IDs are
+resolved from later explicit metadata for the same turn, provided that evidence
+is unambiguous and belongs to the session rather than a copied parent prefix.
+Unrelated turns and ambiguous model switches remain unknown. Cache migration
+reads turn metadata to repair previously unattributed cached requests, retaining
+request identities, token counts and already attributed costs. Files appended
+since that saved snapshot are processed by a later normal cache pass.

@@ -132,6 +132,116 @@ fn totals(value: &Value) -> Option<[u64; 5]> {
     ])
 }
 
+type ModelEvidence = (Option<u64>, String, String);
+
+fn turn_model_evidence(value: &Value) -> Option<ModelEvidence> {
+    if value.get("type")?.as_str()? != "turn_context" {
+        return None;
+    }
+    let turn = nonempty(value.pointer("/payload/turn_id"))?;
+    let model = nonempty(value.pointer("/payload/model"))
+        .filter(|m| !m.eq_ignore_ascii_case("unknown"))
+        .or_else(|| {
+            nonempty(value.pointer("/payload/model_slug"))
+                .filter(|m| !m.eq_ignore_ascii_case("unknown"))
+        })?;
+    Some((value.get("ordinal").and_then(Value::as_u64), turn, model))
+}
+
+fn unambiguous_models(
+    evidence: Vec<ModelEvidence>,
+    boundary: Option<u64>,
+) -> HashMap<String, Option<String>> {
+    let mut models = HashMap::new();
+    for (ordinal, turn, name) in evidence {
+        if boundary.is_some_and(|start| ordinal.is_none_or(|at| at < start)) {
+            continue;
+        }
+        models
+            .entry(turn)
+            .and_modify(|model: &mut Option<String>| {
+                if model.as_deref() != Some(name.as_str()) {
+                    *model = None;
+                }
+            })
+            .or_insert(Some(name));
+    }
+    models
+}
+
+/// Cache v8 already retains owned request counters. Recover missing names from
+/// metadata without recounting every request in a multi-gigabyte rollout.
+pub(super) fn recover_cached_models(
+    path: &std::path::Path,
+    events: &mut [LocalUsageEvent],
+) -> anyhow::Result<bool> {
+    let missing =
+        |e: &LocalUsageEvent| e.model.trim().is_empty() || e.model.eq_ignore_ascii_case("unknown");
+    if !events.iter().any(missing) {
+        return Ok(true);
+    }
+    if events
+        .iter()
+        .any(|e| missing(e) && e.codex_identity.is_none())
+    {
+        return Ok(false);
+    }
+    let file = std::fs::File::open(path)?;
+    let mut evidence = Vec::new();
+    let mut boundary = None;
+    let mut metadata = false;
+    for line in std::io::BufReader::with_capacity(1024 * 1024, file).lines() {
+        let line = line?;
+        if !line.contains("\"turn_context\"") && !line.contains("\"session_meta\"") {
+            continue;
+        }
+        let Ok(value) = serde_json::from_str::<Value>(&line) else {
+            continue;
+        };
+        if !metadata && value.get("type").and_then(Value::as_str) == Some("session_meta") {
+            metadata = true;
+            if let Some(owner) = nonempty(value.pointer("/payload/id")) {
+                if events
+                    .iter()
+                    .any(|event| missing(event) && event.session_id != owner)
+                {
+                    return Ok(false);
+                }
+            }
+            boundary = value
+                .pointer("/payload/subagent_history_start_ordinal")
+                .and_then(Value::as_u64);
+        }
+        if let Some(item) = turn_model_evidence(&value) {
+            evidence.push(item);
+        }
+    }
+    let models = unambiguous_models(evidence, boundary);
+    for event in events.iter_mut().filter(|e| missing(e)) {
+        let Some(identity) = event.codex_identity.as_ref() else {
+            continue;
+        };
+        let Ok(mut key) = serde_json::from_str::<Value>(&identity.row_key) else {
+            continue;
+        };
+        let Some(name) = key
+            .get(3)
+            .and_then(Value::as_str)
+            .and_then(|turn| models.get(turn))
+            .and_then(Option::as_ref)
+        else {
+            continue;
+        };
+        event.model = name.clone();
+        if let Some(last) = key.as_array_mut().and_then(|k| k.last_mut()) {
+            *last = Value::String(name.clone());
+        }
+        event.codex_identity.as_mut().unwrap().row_key = key.to_string();
+        super::pricing::apply(event);
+    }
+    Ok(true)
+}
+
 pub(super) fn scan(
     reader: impl BufRead,
     fallback_session: String,
@@ -145,6 +255,7 @@ pub(super) fn scan(
     let mut captured_metadata = false;
     let mut turn = None;
     let mut turn_models = HashMap::new();
+    let mut model_evidence = Vec::new();
     let mut rows = Vec::new();
     for line in reader.lines().map_while(Result::ok) {
         // Most rollout bytes are conversation/tool payloads. These cannot
@@ -197,6 +308,9 @@ pub(super) fn scan(
         if value.get("type").and_then(Value::as_str) == Some("turn_context") {
             if let Some(turn) = &turn {
                 turn_models.insert(turn.clone(), model.clone());
+                if let Some(evidence) = turn_model_evidence(&value) {
+                    model_evidence.push(evidence);
+                }
             }
         }
         if !is_request {
@@ -326,6 +440,9 @@ pub(super) fn scan(
     // malformed/prefixed input puts metadata after a usage record. A prefix-only
     // child contributes nothing; subsequent scans naturally include appended
     // child-owned rows without consulting another account's parent history.
+    // Some native request ledgers precede their turn_context. Resolve missing
+    // names only from explicit, unambiguous evidence for that same owned turn.
+    let late_models = unambiguous_models(model_evidence, boundary);
     let mut previous = None;
     let mut accepted = Vec::new();
     let mut pending: Option<(bool, Vec<String>, usize)> = None;
@@ -373,6 +490,16 @@ pub(super) fn scan(
             row.event.cache_read_tokens = row.usage[2];
             row.event.reasoning_output_tokens = row.usage[3];
             row.event.cache_creation_tokens = row.usage[4];
+        }
+        if row.event.model.trim().is_empty() || row.event.model.eq_ignore_ascii_case("unknown") {
+            if let Some(name) = row
+                .turn
+                .as_ref()
+                .and_then(|turn| late_models.get(turn))
+                .and_then(Option::as_ref)
+            {
+                row.event.model = name.clone();
+            }
         }
         row.event.session_id = session_id.clone();
         let ts = row.event.ts.timestamp_millis();
@@ -493,6 +620,109 @@ mod tests {
             "usage":{"input_tokens":used,"output_tokens":10,"cached_input_tokens":2,"reasoning_output_tokens":3},
             "thread_token_usage":{"input_tokens":total,"output_tokens":20,"cached_input_tokens":4,"reasoning_output_tokens":6},
             "turn_token_usage":{"input_tokens":used,"output_tokens":10,"cached_input_tokens":2,"reasoning_output_tokens":3}}})
+    }
+
+    #[test]
+    fn cached_model_recovery_keeps_owned_request_counters_and_identity() {
+        let rows = [
+            meta(Value::Null),
+            record("cached", 60, 60),
+            json!({"type":"turn_context","payload":{"turn_id":"turn","model":"gpt-6.1-sol"}}),
+        ];
+        let mut events = parse(&rows);
+        let before = (
+            events[0].input_tokens,
+            events[0].cache_read_tokens,
+            events[0].output_tokens,
+            events[0].reasoning_output_tokens,
+        );
+        let response = events[0]
+            .codex_identity
+            .as_ref()
+            .unwrap()
+            .response_id
+            .clone();
+        events[0].model = "unknown".into();
+        events[0].cost_known = false;
+        events[0].cost_usd = 0.0;
+        let path = std::env::temp_dir().join(format!(
+            "codex-model-{}-{}.jsonl",
+            std::process::id(),
+            chrono::Utc::now().timestamp_nanos_opt().unwrap()
+        ));
+        std::fs::write(
+            &path,
+            rows.iter()
+                .map(Value::to_string)
+                .collect::<Vec<_>>()
+                .join("\n"),
+        )
+        .unwrap();
+        assert!(recover_cached_models(&path, &mut events).unwrap());
+        assert_eq!(events[0].model, "gpt-6.1-sol");
+        assert!(events[0].cost_known);
+        assert_eq!(
+            (
+                events[0].input_tokens,
+                events[0].cache_read_tokens,
+                events[0].output_tokens,
+                events[0].reasoning_output_tokens
+            ),
+            before
+        );
+        assert_eq!(
+            events[0].codex_identity.as_ref().unwrap().response_id,
+            response
+        );
+        std::fs::remove_file(path).unwrap();
+    }
+
+    #[test]
+    fn ledger_recovers_model_from_later_metadata_for_its_exact_turn() {
+        let events = parse(&[
+            meta(Value::Null),
+            record("late-context", 60, 60),
+            json!({"type":"turn_context","payload":{"turn_id":"turn","model":"gpt-6.1-sol"}}),
+        ]);
+        assert_eq!(events.len(), 1);
+        assert_eq!(events[0].model, "gpt-6.1-sol");
+        assert!(events[0].cost_known);
+        assert_eq!(events[0].input_tokens, 58);
+        assert_eq!(events[0].cache_read_tokens, 2);
+        assert_eq!(events[0].output_tokens, 10);
+    }
+
+    #[test]
+    fn late_model_recovery_rejects_ambiguous_turns_and_copied_prefix_metadata() {
+        let events = parse(&[
+            meta(Value::Null),
+            record("ambiguous", 60, 60),
+            json!({"type":"turn_context","payload":{"turn_id":"turn","model":"gpt-6-astra"}}),
+            json!({"type":"turn_context","payload":{"turn_id":"turn","model":"gpt-6.1-sol"}}),
+        ]);
+        assert_eq!(events[0].model, "unknown");
+        assert!(!events[0].cost_known);
+        let mut owned = record("owned", 60, 60);
+        owned["ordinal"] = json!(11);
+        let events = parse(&[
+            meta(json!(10)),
+            owned,
+            json!({"type":"turn_context","ordinal":2,"payload":{"turn_id":"turn","model":"gpt-6-astra"}}),
+        ]);
+        assert_eq!(events[0].model, "unknown");
+        assert!(!events[0].cost_known);
+    }
+
+    #[test]
+    fn placeholder_model_does_not_hide_conflicting_slug_evidence() {
+        let events = parse(&[
+            meta(Value::Null),
+            record("conflicting-slug", 60, 60),
+            json!({"type":"turn_context","payload":{"turn_id":"turn","model":"unknown","model_slug":"gpt-6.1-sol"}}),
+            json!({"type":"turn_context","payload":{"turn_id":"turn","model":"gpt-6-astra"}}),
+        ]);
+        assert_eq!(events[0].model, "unknown");
+        assert!(!events[0].cost_known);
     }
 
     #[test]

@@ -141,6 +141,11 @@ fn main() -> Result<()> {
     let cache = UsageCache::load_optional(&cache_path)
         .with_context(|| format!("load cache {}", cache_path.display()))?;
 
+    // Repairs saved counters only; this also applies to ingestion-only previews.
+    if let Err(error) = usagestat_core::usage_daily::backfill_api_estimates(pricing::backfill_daily) {
+        log::warn!("retained estimate backfill failed: {error}");
+    }
+
     let state = Arc::new(Mutex::new(AppState {
         cache,
         providers: if cli.no_poll {

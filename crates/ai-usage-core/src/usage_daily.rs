@@ -259,6 +259,36 @@ struct DailyAccumulator {
     models: BTreeMap<String, UsageModelDaily>,
 }
 
+static WRITE_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+static ESTIMATE_BACKFILL: std::sync::OnceLock<fn(&mut UsageDailyRow) -> bool> = std::sync::OnceLock::new();
+
+fn needs_estimate_backfill(row: &UsageDailyRow) -> bool {
+    (row.source == "local-transcript-v2" && matches!(row.cost_source.as_deref(), Some("api-rate-estimate" | "api-rate-aggregate-estimate")))
+        || (row.source == "ccusage" && row.models.values().any(|m| !m.cost_known && m.tokens_known && m.cost_usd == 0.0) && matches!(row.cost_source.as_deref(), None | Some("api-rate-estimate" | "api-rate-aggregate-estimate" | "reported-with-api-model-estimates")))
+}
+
+/// Repair retained local estimates under the same lock as normal ingestion.
+/// Billing and fully priced imports are never passed to the repair callback.
+/// The same repair is registered for subsequent imported rows.
+pub fn backfill_api_estimates(repair: fn(&mut UsageDailyRow) -> bool) -> Result<(), UsageDailyError> {
+    let _ = ESTIMATE_BACKFILL.set(repair);
+    let _guard = WRITE_LOCK.lock().unwrap_or_else(|error| error.into_inner());
+    let path = paths::usage_daily_file()?;
+    backfill_store(&path, repair)
+}
+
+fn backfill_store(path: &Path, mut repair: impl FnMut(&mut UsageDailyRow) -> bool) -> Result<(), UsageDailyError> {
+    let mut store = read_store(path)?;
+    let mut changed = false;
+    for row in &mut store.rows {
+        if needs_estimate_backfill(row) {
+            changed |= repair(row);
+        }
+    }
+    if changed { write_store(path, &store)?; }
+    Ok(())
+}
+
 pub fn ingest_json(provider_id: &str, payload_json: &str) -> Result<usize, UsageDailyError> {
     let payload: JsonValue = serde_json::from_str(payload_json)?;
     let new_rows = parse_rows(provider_id, &payload);
@@ -266,11 +296,13 @@ pub fn ingest_json(provider_id: &str, payload_json: &str) -> Result<usize, Usage
         return Ok(0);
     }
 
-    static WRITE_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
     let _guard = WRITE_LOCK.lock().unwrap_or_else(|error| error.into_inner());
     let path = paths::usage_daily_file()?;
     let mut store = read_store(&path)?;
-    for row in new_rows {
+    for mut row in new_rows {
+        if needs_estimate_backfill(&row) {
+            if let Some(repair) = ESTIMATE_BACKFILL.get() { repair(&mut row); }
+        }
         upsert_row(&mut store.rows, row);
     }
     prune_rows(&mut store.rows);
@@ -968,6 +1000,25 @@ mod tests {
     use super::*;
 
     #[test]
+    fn backfill_persists_only_owned_local_estimates_and_preserves_other_sources() {
+        let tmp = tempfile::tempdir().unwrap();
+        let path = tmp.path().join("daily.json");
+        let mut local = row("2026-09-01");
+        local.source = "local-transcript-v2".into();
+        local.cost_source = Some("api-rate-estimate".into());
+        let mut billing = local.clone(); billing.source = "billing".into();
+        let mut external = local.clone(); external.source = "ccusage".into();
+        let mut unpriced_import=external.clone();unpriced_import.models.insert("gpt-6.1-sol".into(),UsageModelDaily {cost_known:false,..Default::default()});
+        write_store(&path, &StoredUsageDaily {version:1,rows:vec![local,billing.clone(),external.clone(),unpriced_import]}).unwrap();
+        backfill_store(&path, |row| { row.cost_usd=42.0; row.cost_known=true; true }).unwrap();
+        let stored=read_store(&path).unwrap();
+        assert_eq!(stored.rows[0].cost_usd,42.0);
+        assert_eq!(stored.rows[3].cost_usd,42.0);
+        assert_eq!(serde_json::to_value(&stored.rows[1]).unwrap(),serde_json::to_value(&billing).unwrap());
+        assert_eq!(serde_json::to_value(&stored.rows[2]).unwrap(),serde_json::to_value(&external).unwrap());
+    }
+
+    #[test]
     fn component_costs_survive_storage_and_grouping_without_inventing_missing_costs() {
         let priced = serde_json::json!({"date":"2026-09-01", "costUsd":1.0,
             "inputCostUsd":0.2, "cacheReadCostUsd":0.1, "cacheWriteCostUsd":0.0, "outputCostUsd":0.7});
@@ -1087,14 +1138,41 @@ mod tests {
         legacy.as_object_mut().unwrap().remove("timeZone");
         let restored: UsageDailyRow = serde_json::from_value(legacy).unwrap();
         assert_eq!(restored.time_zone, None);
-        assert!(serde_json::to_value(&restored).unwrap().get("timeZone").is_none());
+        assert!(
+            serde_json::to_value(&restored)
+                .unwrap()
+                .get("timeZone")
+                .is_none()
+        );
         let mut local = rows[0].clone();
         local.source = "local-transcript-v2".into();
         local.time_zone = Some("UTC".into());
         let view = daily_rows_with_sources(vec![restored, local], None);
-        assert!(view[0].source_rows.iter().all(|source| !source.ingested_at.is_empty()));
-        assert_eq!(view[0].source_rows.iter().find(|source| source.selected).unwrap().time_zone.as_deref(), Some("UTC"));
-        assert_eq!(view[0].source_rows.iter().find(|source| !source.selected).unwrap().time_zone, None);
+        assert!(
+            view[0]
+                .source_rows
+                .iter()
+                .all(|source| !source.ingested_at.is_empty())
+        );
+        assert_eq!(
+            view[0]
+                .source_rows
+                .iter()
+                .find(|source| source.selected)
+                .unwrap()
+                .time_zone
+                .as_deref(),
+            Some("UTC")
+        );
+        assert_eq!(
+            view[0]
+                .source_rows
+                .iter()
+                .find(|source| !source.selected)
+                .unwrap()
+                .time_zone,
+            None
+        );
     }
 
     #[test]
@@ -1113,12 +1191,28 @@ mod tests {
         assert_eq!(rows.len(), 2);
         assert_eq!(rows[0].row.source, "billing");
         assert_eq!(rows[0].source_rows.len(), 2);
-        let ccusage = rows[0].source_rows.iter().find(|row| row.source == "ccusage").unwrap();
+        let ccusage = rows[0]
+            .source_rows
+            .iter()
+            .find(|row| row.source == "ccusage")
+            .unwrap();
         assert_eq!(ccusage.cost_usd, 2.0);
         assert!(!ccusage.selected);
-        assert_eq!(rows[0].source_rows.iter().filter(|row| row.selected).count(), 1);
+        assert_eq!(
+            rows[0]
+                .source_rows
+                .iter()
+                .filter(|row| row.selected)
+                .count(),
+            1
+        );
         assert!(rows[1].source_rows.is_empty());
-        assert!(serde_json::to_value(&rows[1]).unwrap().get("sourceRows").is_none());
+        assert!(
+            serde_json::to_value(&rows[1])
+                .unwrap()
+                .get("sourceRows")
+                .is_none()
+        );
         assert!(daily_rows_with_sources(vec![row("2026-09-01")], Some("other")).is_empty());
     }
 
@@ -1138,20 +1232,50 @@ mod tests {
         billing.ingested_at = "2026-09-26".into();
         billing.cost_usd = 5.0;
         assert!(prefer_row(&billing, &local));
-        assert!(prefer_row(&local, &ccusage), "a newer or fully priced ccusage row must not displace local logs");
+        assert!(
+            prefer_row(&local, &ccusage),
+            "a newer or fully priced ccusage row must not displace local logs"
+        );
         let mut billed_local = local.clone();
         billed_local.date = "2026-09-02".into();
         billing.date = billed_local.date.clone();
         let mut fallback = ccusage.clone();
         fallback.date = "2026-09-03".into();
-        let rows = daily_rows_with_sources(vec![ccusage, local, billed_local, billing, fallback], None);
-        assert_eq!(rows.iter().map(|row| row.row.source.as_str()).collect::<Vec<_>>(), vec!["local-transcript-v2", "billing", "ccusage"]);
+        let rows =
+            daily_rows_with_sources(vec![ccusage, local, billed_local, billing, fallback], None);
+        assert_eq!(
+            rows.iter()
+                .map(|row| row.row.source.as_str())
+                .collect::<Vec<_>>(),
+            vec!["local-transcript-v2", "billing", "ccusage"]
+        );
         assert_eq!(rows[0].row.cost_usd, 1.0);
         assert!(!rows[0].row.cost_known);
-        assert_eq!(rows[0].source_rows.len(), 2, "non-selected ccusage provenance is retained");
-        assert!(rows[0].source_rows.iter().find(|row| row.source == "local-transcript-v2").unwrap().selected);
-        assert!(!rows[0].source_rows.iter().find(|row| row.source == "ccusage").unwrap().selected);
-        assert!(rows[2].source_rows.is_empty(), "ccusage-only day remains available");
+        assert_eq!(
+            rows[0].source_rows.len(),
+            2,
+            "non-selected ccusage provenance is retained"
+        );
+        assert!(
+            rows[0]
+                .source_rows
+                .iter()
+                .find(|row| row.source == "local-transcript-v2")
+                .unwrap()
+                .selected
+        );
+        assert!(
+            !rows[0]
+                .source_rows
+                .iter()
+                .find(|row| row.source == "ccusage")
+                .unwrap()
+                .selected
+        );
+        assert!(
+            rows[2].source_rows.is_empty(),
+            "ccusage-only day remains available"
+        );
     }
 
     #[test]
