@@ -91,7 +91,7 @@ function load(id, options = {}) {
   vm.runInContext(fs.readFileSync(path.join(ROOT, 'crates/usagestat-plugins/src/bundled_provider.js'), 'utf8'), sandbox);
   const manifest=JSON.parse(fs.readFileSync(path.join(ROOT,'plugins',id,'plugin.json'),'utf8'));
   vm.runInContext(fs.readFileSync(path.resolve(ROOT, "plugins", id, manifest.entry), "utf8"), sandbox, { filename: id + "/"+manifest.entry });
-  const plugin = sandbox.__usagestat_plugin || sandbox.__ai_usage_plugin || sandbox.__openusage_plugin;
+  const plugin = sandbox.__usagestat_plugin || sandbox.__openusage_plugin;
   return { ctx, requests, ingested, logs, files, plugin,
     probe: () => {
       const result = plugin.probe(ctx);
