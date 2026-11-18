@@ -10,6 +10,7 @@ mod runtime;
 
 pub mod ccusage;
 mod claude_quota;
+pub mod hooks;
 
 pub use host_api::test_https_request;
 pub use loader::{discover_providers, load_provider};

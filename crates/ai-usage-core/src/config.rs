@@ -1,3 +1,4 @@
+use crate::hooks::HookConfig;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::fs;
@@ -13,6 +14,13 @@ pub struct AppConfig {
     pub plugin_dirs: Vec<PathBuf>,
     #[serde(default)]
     pub providers: Vec<ProviderConfig>,
+    /// Event hooks run by the daemon. See `crate::hooks`.
+    #[serde(
+        default,
+        deserialize_with = "crate::hooks::deserialize_hooks",
+        skip_serializing_if = "Vec::is_empty"
+    )]
+    pub hooks: Vec<HookConfig>,
 }
 
 impl Default for AppConfig {
@@ -21,6 +29,7 @@ impl Default for AppConfig {
             refresh_sec: default_refresh_sec(),
             plugin_dirs: Vec::new(),
             providers: Vec::new(),
+            hooks: Vec::new(),
         }
     }
 }

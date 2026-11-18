@@ -353,6 +353,20 @@ and tags are unchanged.
 See [dashboard settings](docs/dashboard-settings.md) and
 [automatic service updates](docs/installation.md#automatic-updates-on-fedora).
 
+### Event hooks
+
+The daemon can run a command or POST a JSON webhook when a quota crosses a
+threshold or resets, or a provider starts failing or recovers:
+
+```toml
+[[hooks]]
+events = ["quota_threshold", "provider_failing"]
+command = ["notify-send", "usagestat"]
+```
+
+Test with `usagestat hooks test quota_threshold`. See
+[event hooks](docs/cli.md#event-hooks) for events, payload and limits.
+
 ## Development
 
 Build and install a separate dev profile with a current stable Rust toolchain

@@ -3,6 +3,7 @@ pub mod capabilities;
 pub mod config;
 pub mod credentials;
 pub mod daemon_settings;
+pub mod hooks;
 pub mod manifest;
 pub mod model;
 pub mod normalized;

@@ -693,6 +693,75 @@ The current probe implementation still selects providers by plugin `id`, so
 multiple instances and source-specific routing are schema-supported but not fully
 executed yet.
 
+## Event hooks
+
+The daemon can run a command and/or POST a webhook when a provider event
+happens, so a headless daemon can alert without the dashboard open. Add one
+`[[hooks]]` table per hook to `config.toml`; edits are picked up on the next
+poll.
+
+```toml
+[[hooks]]
+events = ["quota_threshold", "quota_reset"]
+providers = ["claude", "codex"]          # optional; plugin or instance ids
+thresholds = [80, 95]                    # optional; default 75, 90, 100
+command = ["notify-send", "usagestat"]   # argv, run without a shell
+timeoutSec = 10                          # optional; 1-60, default 10
+
+[[hooks]]
+events = ["provider_failing", "provider_recovered"]
+url = "https://hooks.example.com/usagestat"
+headers = { Authorization = "Bearer ..." }
+```
+
+Events:
+
+```text
+quota_threshold     A quota metric's used percent crossed a threshold upward.
+                    One event names the highest threshold crossed; it fires
+                    again only after usage falls 5 points below it.
+quota_reset         Used percent dropped by 20 points or more, or the reset
+                    time passed and usage fell. Suppresses threshold events
+                    in the same poll.
+provider_failing    A working provider returned an error or auth state.
+provider_recovered  A failing provider returned usable data again.
+```
+
+Events come only from fresh probes. The first observation after daemon start
+(or after a hook is edited) sets a baseline and never fires; cached snapshots,
+`no-data` and `unsupported` states are ignored.
+
+Each event is a JSON document (schema `usagestat.hook-event.v1`) with
+`event`, `providerId`, `pluginId`, `displayName`, `metric`, `usedPercent`,
+`previousPercent`, `threshold`, `resetsAt`, `state`, `previousState` and
+`timestamp`; absent fields are omitted. Webhooks receive it as the POST body
+(`content-type: application/json`, no redirects; any non-2xx status is a
+failure). Commands receive it on stdin (Unix) and in `USAGESTAT_PAYLOAD`, with
+the fields also as `USAGESTAT_EVENT`, `USAGESTAT_PROVIDER`, `USAGESTAT_PLUGIN`,
+`USAGESTAT_METRIC`, `USAGESTAT_USED_PERCENT`, `USAGESTAT_PREVIOUS_PERCENT`,
+`USAGESTAT_THRESHOLD`, `USAGESTAT_RESETS_AT`, `USAGESTAT_STATE`,
+`USAGESTAT_PREVIOUS_STATE` and `USAGESTAT_TIMESTAMP`. Commands otherwise inherit
+the daemon environment, without `USAGESTAT_MANAGEMENT_KEY`. A bare program
+name is looked up in `USAGESTAT_HELPER_PATH` (or `PATH`), which also becomes
+the command's `PATH`; prefer absolute paths under a system service.
+
+Hooks run on two background workers with a bounded queue, so they never delay
+polling; events are dropped with a warning when the queue is full. A command
+that outlives its timeout is killed with its process tree. Failures are logged
+at warn level by hook index and program name; URLs, arguments and header
+values are never logged. An invalid hook entry is skipped with a warning and
+does not affect the rest of the configuration.
+
+Send a sample payload (marked `"test": true`) to every enabled hook
+subscribed to an event:
+
+```bash
+usagestat hooks test quota_threshold
+usagestat hooks test provider_failing --provider claude --json
+```
+
+The command exits non-zero if any hook fails.
+
 ## Provider Authentication
 
 Most providers read credentials from the same local files used by their own

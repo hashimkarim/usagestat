@@ -26,6 +26,7 @@ mod cliproxy;
 mod codex_usage;
 mod control;
 mod history;
+mod hooks;
 mod http_request;
 mod icon_catalog;
 mod local_usage;
@@ -274,6 +275,7 @@ fn start_poller(
     shutdown: Arc<AtomicBool>,
 ) -> thread::JoinHandle<()> {
     thread::spawn(move || {
+        let mut hooks = hooks::Hooks::new();
         while !shutdown.load(Ordering::SeqCst) {
             refresh_flag.swap(false, Ordering::AcqRel);
             let config_modified = std::fs::metadata(&config_path)
@@ -285,6 +287,7 @@ fn start_poller(
                     "provider configuration could not be reloaded; retaining the last valid configuration"
                 ),
             }
+            hooks.sync(&config.hooks);
             let current_dirs = paths::plugin_dirs(&config, &plugin_overrides)
                 .unwrap_or_else(|_| plugin_dirs.clone());
             let mut providers = discover_providers(&current_dirs);
@@ -312,6 +315,8 @@ fn start_poller(
                     if shutdown.load(Ordering::SeqCst) {
                         break;
                     }
+                    // Hooks only see fresh probes; delivery runs on worker threads.
+                    hooks.observe(&provider.manifest.id, &snapshot, Utc::now());
                     let record = history_record_from_snapshot(&snapshot);
                     let mut guard = state.lock().expect("app state poisoned");
                     guard.cache.upsert(snapshot);
