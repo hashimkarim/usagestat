@@ -565,6 +565,17 @@ header{
 .cal-scroll{overflow-x:auto;scrollbar-width:thin;overscroll-behavior-x:contain}
 .cal-scroll>.cal{min-width:calc(var(--weeks)*10px + 30px);max-width:calc(var(--weeks)*18px + 30px)}
 .cal{justify-content:start}
+.project-table td:first-child{max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.project-share{display:inline-block;width:60px;height:6px;border-radius:3px;background:var(--s2);margin-right:8px;vertical-align:middle;overflow:hidden}
+.project-share span{display:block;height:100%;background:var(--blue)}
+.hour-bars{display:grid;grid-template-columns:repeat(24,minmax(0,1fr));gap:3px;align-items:end;height:120px;margin-top:6px}
+.hour-bar{height:100%;display:flex;align-items:flex-end}
+.hour-bar span{display:block;width:100%;min-height:1px;border-radius:3px 3px 0 0;background:color-mix(in srgb,var(--blue) 75%,var(--s2))}
+.hour-axis{display:grid;grid-template-columns:repeat(24,minmax(0,1fr));font:10.5px var(--sans);color:var(--su);margin:4px 0 14px}
+.hour-axis span{white-space:nowrap}
+.hour-grid{display:grid;grid-template-columns:auto repeat(24,minmax(0,1fr));gap:3px;align-items:center;max-width:720px}
+.hour-grid .cal-cell{width:100%;height:auto;aspect-ratio:1;border-radius:min(3px,22%)}
+.hour-day{font:10.5px var(--sans);color:var(--su);padding-right:6px}
 .heatmap-head{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px}
 .cal-months{grid-column:2;display:grid;grid-template-columns:repeat(var(--weeks),minmax(0,1fr));column-gap:var(--cal-gap,4px);white-space:nowrap}
 .cal-days{grid-column:1;grid-row:2;position:sticky;left:0;z-index:1;background:var(--s0);padding-right:4px;display:grid;grid-template-rows:repeat(7,minmax(0,1fr));row-gap:var(--cal-gap,4px)}
@@ -2727,20 +2738,21 @@ function renderStatsSection(id, snap, rawHistory, reports){
       (S.analyticsTabs ||= {})[id]=btn.dataset.panel;
       box.querySelectorAll('.usage-tab').forEach(b=>b.classList.toggle('active', b===btn));
       box.querySelectorAll('.usage-panel').forEach(p=>p.classList.toggle('active', p.dataset.panel===btn.dataset.panel));
-      const report = btn.dataset.panel==='sessions' ? 'session' : btn.dataset.panel==='blocks' ? 'blocks' : null;
+      const report = LOCAL_PANEL_REPORTS[btn.dataset.panel] || null;
       if(!report) return;
       const pane = box.querySelector(`.usage-panel[data-panel="${btn.dataset.panel}"]`);
       if(pane.dataset.loaded) return;
       pane.dataset.loaded = 'loading';
       const current=dataRequest('detail:'+id+':'+report);
       if(!reports?.[report])pane.innerHTML = loadingSkeleton('Loading local usage','table');
-      fetch(`/v1/local-usage/${encodeURIComponent(id)}/${report}?limit=80`).then(r=>r.ok?r.json():Promise.reject())
+      fetch(`/v1/local-usage/${encodeURIComponent(id)}/${report}${report==='session'||report==='blocks'?'?limit=80':''}`).then(r=>r.ok?r.json():Promise.reject())
         .then(data=>{
           if(!current())return;
           if(data?.error) throw new Error('unavailable');
           ((S.localReports ||= {})[id] ||= {})[report]=data;
           const rows = reportRows(data,report);
-          pane.innerHTML = rows.length ? (report==='session'?sessionTable(rows):blockTable(rows)) : emptyUsage('No local usage in this report');
+          pane.innerHTML = !rows.length ? emptyUsage('No local usage in this report')
+            : report==='session' ? sessionTable(rows) : report==='blocks' ? blockTable(rows) : localPanelHtml(id, btn.dataset.panel);
           if(data.totalRows>rows.length) pane.innerHTML += `<div class="small-note">Showing ${rows.length} of ${data.totalRows.toLocaleString('en-US')} rows.</div>`;
           pane.dataset.loaded = 'yes';
         }).catch(()=>{if(!current())return;if(!reports?.[report])pane.innerHTML=emptyUsage('Could not load local usage. Select this tab to retry.');delete pane.dataset.loaded;});
@@ -2748,6 +2760,70 @@ function renderStatsSection(id, snap, rawHistory, reports){
   });
   const selected=S.analyticsTabs?.[id] || 'summary';
   box.querySelectorAll('.usage-tab').forEach(btn=>{if(btn.dataset.panel===selected)btn.click();});
+}
+
+const LOCAL_PANEL_REPORTS = {sessions:'session', blocks:'blocks', projects:'projects', hours:'hourly'};
+const LOCAL_SPANS = [['7','7D'],['30','30D'],['90','90D'],['all','All']];
+function localSpan(id, panel){ return S.localSpans?.[id+':'+panel] || '30'; }
+function setLocalSpan(id, panel, span){
+  (S.localSpans ||= {})[id+':'+panel] = span;
+  const pane = document.querySelector(`#stats-box-${CSS.escape(id)} .usage-panel[data-panel="${panel}"]`);
+  if(pane) pane.innerHTML = localPanelHtml(id, panel);
+}
+// Rows on or after the span's first UTC day; hourly rows carry an hour timestamp.
+function inLocalSpan(rows, span){
+  if(span==='all') return rows;
+  const start = dateKey(addDays(todayUtcDate(), -(Number(span)-1)));
+  return rows.filter(r=>String(r.date).slice(0,10) >= start);
+}
+function localPanelHtml(id, panel){
+  const report = LOCAL_PANEL_REPORTS[panel], span = localSpan(id, panel);
+  const rows = inLocalSpan(reportRows(S.localReports?.[id]?.[report], report), span);
+  const tabs = LOCAL_SPANS.map(([v,l])=>`<button class="cost-tab${v===span?' active':''}" type="button" aria-pressed="${v===span}" onclick="setLocalSpan('${esc(id)}','${panel}','${v}')">${l}</button>`).join('');
+  const head = `<div class="heatmap-head"><div class="u-h">${panel==='projects'?'Cost by project':'When you use it · local time'}</div><div class="cost-range" role="group" aria-label="Time span">${tabs}</div></div>`;
+  if(!rows.length) return head+emptyUsage('No local usage in this span');
+  return head + (panel==='projects' ? projectTable(rows) : hourOfDayHtml(rows));
+}
+function projectTable(rows){
+  const map = new Map();
+  for(const r of rows){
+    const name = r.project || 'unknown';
+    if(!map.has(name)) map.set(name, {name, rows:[], days:new Set(), last:''});
+    const p = map.get(name); p.rows.push(r); p.days.add(r.date); if(r.date>p.last) p.last=r.date;
+  }
+  const projects = [...map.values()].map(p=>({...p, totals:usageTotals(p.rows)})).sort((a,b)=>b.totals.cost-a.totals.cost||b.totals.totalTokens-a.totals.totalTokens);
+  const total = projects.reduce((n,p)=>n+p.totals.cost,0);
+  let html = `<table class="usage-table project-table"><thead><tr><th>Project</th><th>Cost</th><th>Share</th><th>Tokens</th><th>Active days</th><th>Last active</th></tr></thead><tbody>`;
+  for(const p of projects.slice(0,50)){
+    const share = total>0 ? p.totals.cost/total*100 : 0;
+    html+=`<tr><td title="${esc(p.name)}">${esc(p.name)}</td><td>${recordedCost(p.totals)}</td><td><span class="project-share"><span style="width:${share.toFixed(1)}%"></span></span>${share.toFixed(share<10?1:0)}%</td><td>${fmtTok(p.totals.totalTokens)}</td><td>${p.days.size}</td><td>${esc(fmtDay(p.last))}</td></tr>`;
+  }
+  html+=`</tbody></table>`;
+  if(projects.length>50) html+=`<div class="small-note">Showing the 50 costliest of ${projects.length} projects.</div>`;
+  return html;
+}
+// Hour-of-day totals and a weekday × hour grid, in the browser's time zone.
+function hourOfDayHtml(rows){
+  const hours = Array.from({length:24},()=>({tokens:0,cost:0}));
+  const grid = Array.from({length:7},()=>new Array(24).fill(0));
+  for(const r of rows){
+    const at = new Date(r.date);
+    if(!Number.isFinite(+at)) continue;
+    const h = at.getHours(), d = (at.getDay()+6)%7, tokens = rowTotalTokens(r);
+    hours[h].tokens += tokens; hours[h].cost += rowCost(r); grid[d][h] += tokens;
+  }
+  const max = Math.max(1, ...hours.map(h=>h.tokens)), gridMax = Math.max(1, ...grid.flat());
+  let html = `<div class="hour-bars" role="img" aria-label="Tokens by hour of day">`;
+  hours.forEach((h,i)=>{ html+=`<div class="hour-bar" title="${String(i).padStart(2,'0')}:00 · ${esc(fmtTok(h.tokens))} tokens · ${esc(fmtUsd(h.cost))}"><span style="height:${(h.tokens/max*100).toFixed(1)}%"></span></div>`; });
+  html+=`</div><div class="hour-axis">${[0,6,12,18].map(h=>`<span style="grid-column:${h+1}">${String(h).padStart(2,'0')}:00</span>`).join('')}</div>`;
+  const days = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  html+=`<div class="hour-grid">${grid.map((row,d)=>`<span class="hour-day">${days[d]}</span>`+row.map((v,h)=>{
+    const level = !v ? 0 : Math.min(4, 1+Math.floor(v/gridMax*3.999));
+    return `<span class="cal-cell l${level}" title="${days[d]} ${String(h).padStart(2,'0')}:00 · ${esc(fmtTok(v))} tokens"></span>`;
+  }).join('')).join('')}</div>`;
+  const peak = hours.reduce((best,h,i)=>h.tokens>hours[best].tokens?i:best,0);
+  html+=`<div class="small-note">Busiest hour: ${String(peak).padStart(2,'0')}:00–${String((peak+1)%24).padStart(2,'0')}:00 · ${esc(Intl.DateTimeFormat().resolvedOptions().timeZone||'local time')}</div>`;
+  return html;
 }
 
 function buildUsageAnalytics(id, snap, rawHistory, reports){
@@ -2801,6 +2877,8 @@ function buildUsageAnalytics(id, snap, rawHistory, reports){
   html+=usageTab('daily','Daily',false);
   html+=usageTab('weekly','Weekly',false);
   html+=usageTab('monthly','Monthly',false);
+  html+=usageTab('projects','Projects',false);
+  html+=usageTab('hours','Hours',false);
   html+=usageTab('sessions','Sessions',false);
   html+=usageTab('blocks','5h Blocks',false);
   html+=usageTab('limits','Limits',false);
@@ -2817,6 +2895,8 @@ function buildUsageAnalytics(id, snap, rawHistory, reports){
   html+=usagePanel('daily', usageRowsTable(fallbackDaily, 'Date'));
   html+=usagePanel('weekly', usageRowsTable(weeklyRows.length?weeklyRows:bucketRows(fallbackDaily,'week'), 'Week'));
   html+=usagePanel('monthly', usageRowsTable(monthlyRows.length?monthlyRows:bucketRows(fallbackDaily,'month'), 'Month'));
+  html+=usagePanel('projects', '');
+  html+=usagePanel('hours', '');
   html+=usagePanel('sessions', sessionRows.length?sessionTable(sessionRows):emptyUsage('No session report available from local logs yet'));
   html+=usagePanel('blocks', blockRows.length?blockTable(blockRows):emptyUsage('No 5-hour block report available from local logs yet'));
   html+=usagePanel('limits', limitsTable(progress, text, badges, averageUsage, highest, nextReset, exhausted));
@@ -3303,6 +3383,8 @@ function reportRows(report, preferred){
   if(!report || report.error) return [];
   const keys = preferred==='session' ? ['sessions','session'] :
     preferred==='blocks' ? ['blocks'] :
+    preferred==='projects' ? ['projects'] :
+    preferred==='hourly' ? ['hourly'] :
     preferred==='weekly' ? ['weekly','weeks'] :
     preferred==='monthly' ? ['monthly','months'] :
     ['daily','days'];

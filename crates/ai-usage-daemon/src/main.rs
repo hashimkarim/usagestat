@@ -789,7 +789,7 @@ fn serve_local_usage_report(rest: &str, query: &str) -> String {
     }
     if !matches!(
         report,
-        "daily" | "weekly" | "monthly" | "session" | "blocks" | "models"
+        "daily" | "weekly" | "monthly" | "session" | "blocks" | "models" | "hourly" | "projects"
     ) {
         return response_json(
             400,

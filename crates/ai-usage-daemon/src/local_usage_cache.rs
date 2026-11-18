@@ -11,7 +11,8 @@ use std::time::{Duration, Instant, SystemTime};
 use usagestat_core::{paths, provider_paths, usage_daily};
 
 // v9 resolves unknown Codex models from later metadata for the same turn.
-const VERSION: u32 = 9;
+// 10: rows compact per hour (was per 5h block) for hour-of-day reports.
+const VERSION: u32 = 10;
 const TTL: Duration = Duration::from_secs(30);
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -173,7 +174,7 @@ fn compact(events: Vec<LocalUsageEvent>) -> Vec<LocalUsageEvent> {
         }
         let key = (
             event.ts.format("%Y-%m-%d").to_string(),
-            event.ts.timestamp().div_euclid(5 * 3600),
+            event.ts.timestamp().div_euclid(3600),
             event.session_id.clone(),
             event.model.clone(),
         );
@@ -227,7 +228,7 @@ pub(super) fn report_limited(provider: &str, report: &str, limit: Option<usize>)
             let cache = std::fs::read(&cache_path)
                 .ok()
                 .and_then(|bytes| serde_json::from_slice::<Cache>(&bytes).ok())
-                .filter(|cache| cache.version == VERSION || cache.version == 8)
+                .filter(|cache| cache.version == VERSION)
                 .unwrap_or_default();
             Arc::new(Mutex::new(cache))
         })

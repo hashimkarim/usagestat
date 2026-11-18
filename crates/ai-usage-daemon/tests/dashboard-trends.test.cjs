@@ -809,3 +809,30 @@ test('chart CSV exports sum saved usage per period and keep formula text inert',
   assert.equal(quota.length,3);
   assert.match(quota[2],/^2026-09-01T11:00:00Z,raw,codex,oauth,Weekly,55\.00,55,100,$/);
 });
+
+test('project table ranks projects by cost with shares and escapes names',()=>{
+  const ui=dashboard();
+  ui.context.rows=[{...row('2026-09-01',10,3),project:'api'},{...row('2026-09-05',20,1),project:'api'},{...row('2026-09-06',5,5),project:'<web>'},{...row('2026-09-06',1,0),project:''}];
+  const html=ui.run('projectTable(rows)');
+  const order=[...html.matchAll(/<tr><td title="([^"]*)"/g)].map(m=>m[1]);
+  assert.deepEqual(JSON.parse(JSON.stringify(order)),['&lt;web&gt;','api','unknown']);
+  assert.match(html,/<td>\$4\.00<\/td><td>.*?44%<\/td><td>30<\/td><td>2<\/td><td>Sep 5<\/td>/);
+  assert.doesNotMatch(html,/<web>/);
+});
+
+test('hour-of-day view buckets hourly rows in local time and names the busiest hour',()=>{
+  const ui=dashboard();
+  ui.context.rows=[{date:'2026-09-07T09:00:00Z',totalTokens:50,cost:1},{date:'2026-09-07T09:00:00Z',totalTokens:10,cost:0},{date:'2026-09-08T22:00:00Z',totalTokens:5,cost:0}];
+  const html=ui.run('hourOfDayHtml(rows)');
+  const local=new Date('2026-09-07T09:00:00Z').getHours();
+  assert.match(html,new RegExp(`${String(local).padStart(2,'0')}:00 · 60 tokens`));
+  assert.match(html,new RegExp(`Busiest hour: ${String(local).padStart(2,'0')}:00`));
+  assert.equal((html.match(/class="cal-cell l/g)||[]).length,7*24);
+});
+
+test('local analytics spans keep only rows inside the chosen UTC window',()=>{
+  const ui=dashboard();
+  ui.context.rows=[{date:'2026-08-30'},{date:'2026-08-31T23:00:00Z'},{date:'2026-09-06'}];
+  assert.equal(ui.run(`inLocalSpan(rows,'7').length`),2);
+  assert.equal(ui.run(`inLocalSpan(rows,'all').length`),3);
+});

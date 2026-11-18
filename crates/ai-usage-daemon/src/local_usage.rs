@@ -56,6 +56,7 @@ impl LocalUsageEvent {
 
 #[derive(Copy, Clone)]
 pub(super) enum Bucket {
+    Hour,
     Day,
     Week,
     Month,
@@ -65,6 +66,8 @@ pub(super) enum Bucket {
 #[serde(rename_all = "camelCase")]
 pub(super) struct UsageAggregate {
     pub date: String,
+    #[serde(skip_serializing_if = "String::is_empty")]
+    pub project: String,
     #[serde(flatten)]
     pub usage: ModelAggregate,
     pub models: BTreeMap<String, ModelAggregate>,
@@ -268,13 +271,30 @@ pub(super) fn aggregate_usage<'a>(
     events: impl IntoIterator<Item = &'a LocalUsageEvent>,
     bucket: Bucket,
 ) -> Vec<UsageAggregate> {
-    let mut map: BTreeMap<String, UsageAggregate> = BTreeMap::new();
+    aggregate_by(events, bucket, false)
+}
+
+/// Rows per period, optionally split by project. Newest period first.
+fn aggregate_by<'a>(
+    events: impl IntoIterator<Item = &'a LocalUsageEvent>,
+    bucket: Bucket,
+    by_project: bool,
+) -> Vec<UsageAggregate> {
+    let mut map: BTreeMap<(String, String), UsageAggregate> = BTreeMap::new();
     for event in events {
         let key = bucket_key_for(event.ts, bucket);
-        let row = map.entry(key.clone()).or_insert_with(|| UsageAggregate {
-            date: key,
-            ..Default::default()
-        });
+        let project = if by_project {
+            event.project.clone()
+        } else {
+            String::new()
+        };
+        let row = map
+            .entry((key.clone(), project.clone()))
+            .or_insert_with(|| UsageAggregate {
+                date: key,
+                project,
+                ..Default::default()
+            });
         let metrics = event.metrics();
         row.usage.add(&metrics);
         row.sessions.insert(event.session_id.clone());
@@ -343,6 +363,7 @@ fn aggregate_blocks<'a>(
 
 fn bucket_key_for(ts: DateTime<Utc>, bucket: Bucket) -> String {
     match bucket {
+        Bucket::Hour => ts.format("%Y-%m-%dT%H:00:00Z").to_string(),
         Bucket::Day => ts.format("%Y-%m-%d").to_string(),
         Bucket::Month => ts.format("%Y-%m").to_string(),
         Bucket::Week => {
@@ -369,6 +390,8 @@ pub(super) fn report_limited<'a>(
     use serde_json::json;
     let mut value = match report {
         "daily" | "models" => json!({"daily": aggregate_usage(events, Bucket::Day)}),
+        "hourly" => json!({"hourly": aggregate_usage(events, Bucket::Hour)}),
+        "projects" => json!({"projects": aggregate_by(events, Bucket::Day, true)}),
         "weekly" => json!({"weekly": aggregate_usage(events, Bucket::Week)}),
         "monthly" => json!({"monthly": aggregate_usage(events, Bucket::Month)}),
         "session" => json!({"sessions": aggregate_sessions(events)}),
@@ -465,6 +488,80 @@ mod claude_tests {
             scan_rows(vec![first, changed]).len(),
             2,
             "different usage is not a proven duplicate"
+        );
+    }
+}
+
+#[cfg(test)]
+mod report_tests {
+    use super::*;
+
+    fn event(ts: &str, session: &str, project: &str, tokens: u64, cost: f64) -> LocalUsageEvent {
+        LocalUsageEvent {
+            ts: ts.parse().unwrap(),
+            session_id: session.into(),
+            project: project.into(),
+            model: "m".into(),
+            input_tokens: tokens,
+            cost_usd: cost,
+            cost_known: true,
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn hourly_and_project_reports_split_usage_without_losing_totals() {
+        let events = [
+            event("2026-11-18T09:10:00Z", "a", "usagestat", 10, 1.0),
+            event("2026-11-18T09:50:00Z", "b", "website", 5, 0.5),
+            event("2026-11-18T13:00:00Z", "a", "usagestat", 20, 2.0),
+            event("2026-11-19T01:00:00Z", "c", "usagestat", 1, 0.25),
+        ];
+        let hourly: JsonValue =
+            serde_json::from_str(&report(events.iter(), "hourly").unwrap()).unwrap();
+        let hours: Vec<_> = hourly["hourly"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|r| {
+                (
+                    r["date"].as_str().unwrap(),
+                    r["totalTokens"].as_u64().unwrap(),
+                )
+            })
+            .collect();
+        assert_eq!(
+            hours,
+            [
+                ("2026-11-19T01:00:00Z", 1),
+                ("2026-11-18T13:00:00Z", 20),
+                ("2026-11-18T09:00:00Z", 15)
+            ]
+        );
+        assert!(hourly["hourly"][0].get("project").is_none());
+
+        let projects: JsonValue =
+            serde_json::from_str(&report(events.iter(), "projects").unwrap()).unwrap();
+        let rows: Vec<_> = projects["projects"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|r| {
+                (
+                    r["date"].as_str().unwrap(),
+                    r["project"].as_str().unwrap(),
+                    r["costUsd"].as_f64().unwrap(),
+                    r["sessions"].as_u64().unwrap(),
+                )
+            })
+            .collect();
+        assert_eq!(
+            rows,
+            [
+                ("2026-11-19", "usagestat", 0.25, 1),
+                ("2026-11-18", "website", 0.5, 1),
+                ("2026-11-18", "usagestat", 3.0, 1)
+            ]
         );
     }
 }
