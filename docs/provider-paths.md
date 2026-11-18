@@ -14,6 +14,14 @@ directory and is canonicalized, matching upstream resolution. A missing or
 invalid explicit root returns `LOCAL_USAGE_PATH_UNAVAILABLE` from the local usage
 endpoint; it does not fall back to another profile or a saved report.
 
+Gemini CLI's collector reads `<tmp>/<project>/chats/**` session files, where
+`<tmp>` is each comma-separated `GEMINI_DATA_DIR` entry (the ccusage convention),
+else `GEMINI_CLI_HOME/.gemini/tmp`, else the native home's `.gemini/tmp`. Amp's
+collector reads `threads/**/*.json` beneath each `AMP_DATA_DIR` entry, else an
+absolute `XDG_DATA_HOME/amp`, else `~/.local/share/amp`. An explicit override
+replaces the defaults, including when it contains no data. Startup at login does
+not yet capture these overrides.
+
 Cursor stable and nightly use separate native application directories and
 separate `CURSOR_STATE_DB` / `CURSOR_NIGHTLY_STATE_DB` overrides. Nightly does not
 consume the stable override. An invalid explicit database does not fall back.

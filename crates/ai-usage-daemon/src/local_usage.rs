@@ -1,5 +1,5 @@
 //! Local transcript accounting. Input token classes are mutually exclusive.
-use super::{codex_usage, pricing};
+use super::{amp_usage, codex_usage, gemini_usage, pricing};
 use anyhow::Result;
 use chrono::{DateTime, Datelike, Duration as ChronoDuration, TimeZone, Utc};
 use serde::{Deserialize, Serialize};
@@ -7,6 +7,7 @@ use serde_json::Value as JsonValue;
 use std::collections::{BTreeMap, HashSet};
 use std::io::BufRead;
 use std::path::{Path, PathBuf};
+use usagestat_core::provider_paths;
 use usagestat_core::usage_daily::{UsageCostComponents, UsageModelDaily as ModelAggregate};
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -206,6 +207,73 @@ pub(super) fn scan_codex_file(path: &Path, events: &mut Vec<LocalUsageEvent>) ->
         .to_string();
     codex_usage::scan(std::io::BufReader::new(file), fallback_session, events);
     Ok(())
+}
+
+/// Agents whose local logs record per-request token usage. Each source owns
+/// its roots, file discovery and parser; reports and caching are shared.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) enum LocalSource {
+    Claude,
+    Codex,
+    Gemini,
+    Amp,
+}
+
+impl LocalSource {
+    /// Exact provider IDs used by the bundled plugins.
+    pub fn from_provider_id(id: &str) -> Option<Self> {
+        Some(match id {
+            "claude" => Self::Claude,
+            "codex" => Self::Codex,
+            "gemini" => Self::Gemini,
+            "amp" => Self::Amp,
+            _ => return None,
+        })
+    }
+
+    /// Provider IDs plus the HTTP aliases accepted by local-usage routes.
+    pub fn from_alias(id: &str) -> Option<Self> {
+        match id {
+            "anthropic" => Some(Self::Claude),
+            "openai" | "chatgpt" => Some(Self::Codex),
+            _ => Self::from_provider_id(id),
+        }
+    }
+
+    pub fn id(self) -> &'static str {
+        match self {
+            Self::Claude => "claude",
+            Self::Codex => "codex",
+            Self::Gemini => "gemini",
+            Self::Amp => "amp",
+        }
+    }
+
+    pub fn roots(self) -> Result<Vec<PathBuf>, provider_paths::ProviderPathError> {
+        match self {
+            Self::Claude => provider_paths::claude_usage_roots(),
+            Self::Codex => provider_paths::codex_usage_roots(),
+            Self::Gemini => provider_paths::gemini_usage_roots(),
+            Self::Amp => provider_paths::amp_usage_roots(),
+        }
+    }
+
+    pub fn files(self, root: &Path) -> Vec<PathBuf> {
+        match self {
+            Self::Claude | Self::Codex => jsonl_files(root),
+            Self::Gemini => gemini_usage::files(root),
+            Self::Amp => amp_usage::files(root),
+        }
+    }
+
+    pub fn scan(self, path: &Path, events: &mut Vec<LocalUsageEvent>) -> Result<()> {
+        match self {
+            Self::Claude => scan_claude_file(path, events),
+            Self::Codex => scan_codex_file(path, events),
+            Self::Gemini => gemini_usage::scan_file(path, events),
+            Self::Amp => amp_usage::scan_file(path, events),
+        }
+    }
 }
 
 pub(super) fn jsonl_files(root: &Path) -> Vec<PathBuf> {
@@ -466,5 +534,78 @@ mod claude_tests {
             2,
             "different usage is not a proven duplicate"
         );
+    }
+}
+
+#[cfg(test)]
+mod source_tests {
+    use super::*;
+    use serde_json::json;
+
+    fn daily(source: LocalSource, root: &Path) -> Vec<JsonValue> {
+        let mut events = Vec::new();
+        for path in source.files(root) {
+            source.scan(&path, &mut events).unwrap();
+        }
+        let report: JsonValue =
+            serde_json::from_str(&report(events.iter(), "daily").unwrap()).unwrap();
+        assert_eq!(report["source"], "local-transcript-v2");
+        report["daily"].as_array().unwrap().clone()
+    }
+
+    #[test]
+    fn provider_ids_and_aliases_dispatch_to_their_own_source() {
+        for id in ["claude", "codex", "gemini", "amp"] {
+            assert_eq!(LocalSource::from_provider_id(id).unwrap().id(), id);
+        }
+        assert_eq!(
+            LocalSource::from_alias("anthropic"),
+            Some(LocalSource::Claude)
+        );
+        assert_eq!(LocalSource::from_alias("chatgpt"), Some(LocalSource::Codex));
+        assert_eq!(LocalSource::from_provider_id("anthropic"), None);
+        assert_eq!(LocalSource::from_alias("opencode"), None);
+    }
+
+    #[test]
+    fn gemini_and_amp_fixture_roots_yield_daily_model_rows() {
+        let dir = tempfile::tempdir().unwrap();
+        let chats = dir.path().join("gemini/proj/chats");
+        std::fs::create_dir_all(&chats).unwrap();
+        let tokens =
+            json!({"input":1000,"output":50,"cached":400,"thoughts":10,"tool":0,"total":1060});
+        let rows = [
+            json!({"sessionId":"g1","projectHash":"x","startTime":"2026-09-01T00:00:00Z"}),
+            json!({"id":"a","timestamp":"2026-09-01T10:00:00Z","type":"gemini","model":"gemini-2.5-pro","tokens":tokens}),
+            json!({"id":"a","timestamp":"2026-09-01T10:00:00Z","type":"gemini","model":"gemini-2.5-pro","tokens":tokens}),
+            json!({"id":"b","timestamp":"2026-09-02T10:00:00Z","type":"gemini","model":"gemini-2.5-pro","tokens":tokens}),
+        ];
+        let text = rows
+            .iter()
+            .map(JsonValue::to_string)
+            .collect::<Vec<_>>()
+            .join("\n");
+        std::fs::write(chats.join("session-1.jsonl"), format!("{text}\nnot json\n")).unwrap();
+        let days = daily(LocalSource::Gemini, &dir.path().join("gemini"));
+        assert_eq!(days.len(), 2);
+        assert_eq!(days[1]["date"], "2026-09-01");
+        assert_eq!(days[1]["totalTokens"], 1060);
+        assert_eq!(days[1]["cacheReadTokens"], 400);
+        assert_eq!(days[1]["sessions"], 1);
+        assert_eq!(days[1]["costKnown"], false);
+        assert_eq!(
+            days[1]["models"]["gemini-2.5-pro"]["reasoningOutputTokens"],
+            10
+        );
+
+        let threads = dir.path().join("amp/threads");
+        std::fs::create_dir_all(&threads).unwrap();
+        std::fs::write(threads.join("T-1.json"), json!({"id":"T-1","usageLedger":{"events":[
+            {"id":"e","timestamp":"2026-09-03T01:00:00Z","model":"claude-sonnet-4-5","tokens":{"input":100,"output":10}},
+            {"id":"e","timestamp":"2026-09-03T01:00:00Z","model":"claude-sonnet-4-5","tokens":{"input":100,"output":10}}]}}).to_string()).unwrap();
+        let days = daily(LocalSource::Amp, &threads);
+        assert_eq!(days.len(), 1);
+        assert_eq!(days[0]["totalTokens"], 110);
+        assert_eq!(days[0]["costKnown"], true);
     }
 }

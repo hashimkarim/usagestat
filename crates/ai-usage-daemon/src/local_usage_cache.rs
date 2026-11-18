@@ -8,7 +8,7 @@ use std::hash::{Hash, Hasher};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{Duration, Instant, SystemTime};
-use usagestat_core::{paths, provider_paths, usage_daily};
+use usagestat_core::{paths, usage_daily};
 
 // v9 resolves unknown Codex models from later metadata for the same turn.
 const VERSION: u32 = 9;
@@ -206,11 +206,10 @@ pub(super) fn report_limited(provider: &str, report: &str, limit: Option<usize>)
     type Key = (PathBuf, String, Vec<PathBuf>);
     type SharedCache = Arc<Mutex<Cache>>;
     static CACHES: OnceLock<Mutex<HashMap<Key, SharedCache>>> = OnceLock::new();
-    let roots = match provider {
-        "codex" => provider_paths::codex_usage_roots()?,
-        "claude" => provider_paths::claude_usage_roots()?,
-        _ => anyhow::bail!("unsupported local provider"),
+    let Some(source) = local_usage::LocalSource::from_provider_id(provider) else {
+        anyhow::bail!("unsupported local provider");
     };
+    let roots = source.roots()?;
     let key = (paths::data_dir()?, provider.to_string(), roots.clone());
     let mut hasher = std::collections::hash_map::DefaultHasher::new();
     key.hash(&mut hasher);
@@ -234,16 +233,10 @@ pub(super) fn report_limited(provider: &str, report: &str, limit: Option<usize>)
         .clone();
     let mut cache = cache.lock().unwrap_or_else(|e| e.into_inner());
     if cache.checked.is_none_or(|at| at.elapsed() >= TTL) {
-        let files = roots
-            .iter()
-            .flat_map(|root| local_usage::jsonl_files(root))
-            .collect();
+        let files = roots.iter().flat_map(|root| source.files(root)).collect();
         let changed = cache.refresh(files, |path| {
             let mut events = Vec::new();
-            match provider {
-                "codex" => local_usage::scan_codex_file(path, &mut events)?,
-                _ => local_usage::scan_claude_file(path, &mut events)?,
-            }
+            source.scan(path, &mut events)?;
             Ok(events)
         })?;
         if changed {

@@ -22,9 +22,11 @@ use std::thread;
 use std::time::{Duration, Instant};
 use usagestat_plugins::{discover_providers, probe_provider};
 
+mod amp_usage;
 mod cliproxy;
 mod codex_usage;
 mod control;
+mod gemini_usage;
 mod history;
 mod http_request;
 mod icon_catalog;
@@ -239,7 +241,8 @@ fn start_usage_summarizer(state: Arc<Mutex<AppState>>, shutdown: Arc<AtomicBool>
                 .providers
                 .iter()
                 .filter(|provider| {
-                    provider.enabled && matches!(provider.id.as_str(), "codex" | "claude")
+                    provider.enabled
+                        && local_usage::LocalSource::from_provider_id(&provider.id).is_some()
                 })
                 .map(|provider| provider.id.clone())
                 .collect();
@@ -726,12 +729,8 @@ fn serve_cost(provider_id: &str) -> String {
         return response;
     }
 
-    let canonical = match provider_id {
-        "claude" | "anthropic" => "claude",
-        "codex" | "openai" | "chatgpt" => "codex",
-        _ => {
-            return serve_saved_cost(provider_id);
-        }
+    let Some(canonical) = local_usage::LocalSource::from_alias(provider_id).map(|s| s.id()) else {
+        return serve_saved_cost(provider_id);
     };
     match local_usage_cache::report(canonical, "daily") {
         Ok(_) => saved_cost_response(canonical).unwrap_or_else(|| response_json(200, "OK",
@@ -766,20 +765,13 @@ fn serve_local_usage_report(rest: &str, query: &str) -> String {
         }
         limit
     };
-    let provider = match provider_id {
-        "claude" | "anthropic" => "claude",
-        "codex" | "openai" | "chatgpt" => "codex",
-        _ => {
-            return serve_saved_usage_report(provider_id, report);
-        }
+    let Some(source) = local_usage::LocalSource::from_alias(provider_id) else {
+        return serve_saved_usage_report(provider_id, report);
     };
+    let provider = source.id();
     // An explicitly selected missing profile must not return a saved reading
     // from an earlier account. This only validates roots; it does not scan logs.
-    let roots = match provider {
-        "codex" => usagestat_core::provider_paths::codex_usage_roots(),
-        _ => usagestat_core::provider_paths::claude_usage_roots(),
-    };
-    if roots.is_err() {
+    if source.roots().is_err() {
         return provider_path_error_response();
     }
     if matches!(report, "daily" | "weekly" | "monthly") {
@@ -814,7 +806,7 @@ fn provider_path_error_response() -> String {
     response_json(
         200,
         "OK",
-        r#"{"error":{"code":"LOCAL_USAGE_PATH_UNAVAILABLE","message":"Provider profile directory unavailable; check CLAUDE_CONFIG_DIR or CODEX_HOME"}}"#,
+        r#"{"error":{"code":"LOCAL_USAGE_PATH_UNAVAILABLE","message":"Provider profile directory unavailable; check CLAUDE_CONFIG_DIR, CODEX_HOME, GEMINI_DATA_DIR or AMP_DATA_DIR"}}"#,
     )
 }
 
