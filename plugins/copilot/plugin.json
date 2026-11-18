@@ -6,6 +6,7 @@
   "entry": "plugin.js",
   "icon": "icon.svg",
   "brandColor": "#A855F7",
+  "statusPageUrl": "https://www.githubstatus.com/",
   "supportedModes": ["oauth", "local", "cli"],
   "autoMode": "local",
   "lines": [

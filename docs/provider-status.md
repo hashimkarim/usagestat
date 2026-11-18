@@ -24,7 +24,8 @@ returns a Statuspage document without redirecting, then add it to the table.
 - One request per distinct origin, however many providers share it.
 - Anonymous HTTPS GET with a 10 second timeout: no credentials, cookies or
   redirects. Responses over 2 MiB are rejected.
-- `USAGESTAT_STATUS_CHECKS=0` disables status requests entirely.
+- `USAGESTAT_STATUS_CHECKS=0` disables status requests entirely; every row then
+  reports `monitored: false`.
 
 ## `GET /v1/status`
 
