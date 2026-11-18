@@ -8,6 +8,9 @@
 - Attribute Codex turns whose model is recorded later from that exact turn's metadata; ambiguous turns stay unattributed.
 - Add spend alerts: an optional monthly API-equivalent budget and a daily spike alert relative to the 30-day average, shown on the Overview and optionally as browser notifications. The Overview and month-to-date Cost History show a projected month total.
 - Add CSV export to Cost History and Usage History, matching each chart's span and grouping. Exported text that a spreadsheet would run as a formula is kept inert.
+- Add `usagestat statusline`: one line of quotas, reset times and today's cost from the running daemon, for Claude Code and other agent statuslines.
+- Add Projects and Hours panels to provider tabs: cost per project, and usage by hour of day and weekday in local time. The local log cache now keeps hourly detail (cache v10, rebuilt once from logs).
+- Add optional combined overview cards for several accounts of the same provider, and an Image button that saves a local PNG summary.
 - Collection settings saves now edit `config.toml` in place, keeping key order and comments.
 - Fix the systemd unit's `EnvironmentFile=` line, which was quoted and so ignored `daemon.env`. Re-running `daemon enable` repairs existing units.
 - Rebrand the dashboard as usagestat. Tooltip explanations appear only in pinned details. Collection settings explain when the backend runs without polling or on a non-local address.
