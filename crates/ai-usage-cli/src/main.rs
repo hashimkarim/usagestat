@@ -251,6 +251,23 @@ enum Command {
         #[command(subcommand)]
         command: TestCommand,
     },
+    /// Inspect and exercise configured event hooks
+    Hooks {
+        #[command(subcommand)]
+        command: HooksCommand,
+    },
+}
+
+#[derive(Debug, Subcommand)]
+enum HooksCommand {
+    /// Send a sample event payload to every enabled hook subscribed to it
+    Test {
+        /// Event name: quota_threshold, quota_reset, provider_failing or provider_recovered.
+        event: String,
+        /// Provider id for the sample payload; hooks filtered to other providers are skipped.
+        #[arg(long)]
+        provider: Option<String>,
+    },
 }
 
 #[derive(Debug, Subcommand)]
@@ -682,6 +699,9 @@ fn run_cli() -> Result<()> {
         Command::Test {
             command: TestCommand::Https { url, timeout_ms },
         } => run_test_https(&url, timeout_ms, json),
+        Command::Hooks {
+            command: HooksCommand::Test { event, provider },
+        } => run_hooks_test(&config, &event, provider.as_deref(), json),
     }
 }
 
@@ -716,6 +736,7 @@ fn effective_args() -> Vec<OsString> {
                     | "cache"
                     | "auth"
                     | "test"
+                    | "hooks"
                     | "help"
             )
         })
@@ -806,6 +827,84 @@ fn run_test_https(url: &str, timeout_ms: u64, json: bool) -> Result<()> {
             "HTTPS OK: {} -> {} ({} bytes)",
             result.url, result.status, result.body_bytes
         );
+    }
+    Ok(())
+}
+
+// ── hooks ─────────────────────────────────────────────────────────────────────
+
+fn run_hooks_test(
+    config: &AppConfig,
+    event_name: &str,
+    provider: Option<&str>,
+    json: bool,
+) -> Result<()> {
+    use usagestat_core::hooks::{HookEvent, HookPayload};
+    let Some(event) = HookEvent::parse(event_name) else {
+        let known = HookEvent::ALL.map(HookEvent::as_str).join(", ");
+        anyhow::bail!("unknown hook event {event_name:?}; expected one of {known}");
+    };
+    let payload = HookPayload::sample(event, provider.unwrap_or("sample"), chrono::Utc::now());
+    let mut results = Vec::new();
+    for (index, hook) in config.hooks.iter().enumerate() {
+        let skipped = if !hook.enabled {
+            Some("disabled".to_string())
+        } else if let Err(error) = hook.validate() {
+            Some(format!("invalid: {error}"))
+        } else if !hook.subscribes(event) {
+            Some("not subscribed to this event".to_string())
+        } else if provider.is_some_and(|id| !hook.watches(id, id)) {
+            Some("filtered to other providers".to_string())
+        } else {
+            None
+        };
+        let outcome = match skipped {
+            Some(reason) => {
+                serde_json::json!({"hook": index, "status": "skipped", "reason": reason})
+            }
+            None => match usagestat_plugins::hooks::deliver(hook, &payload) {
+                Ok(()) => serde_json::json!({"hook": index, "status": "delivered"}),
+                Err(error) => {
+                    serde_json::json!({"hook": index, "status": "failed", "error": error})
+                }
+            },
+        };
+        results.push(outcome);
+    }
+    let failed = results.iter().filter(|r| r["status"] == "failed").count();
+    let delivered = results
+        .iter()
+        .filter(|r| r["status"] == "delivered")
+        .count();
+    if json {
+        println!(
+            "{}",
+            serde_json::to_string_pretty(
+                &serde_json::json!({"event": event, "payload": payload, "results": results})
+            )?
+        );
+    } else if results.is_empty() {
+        println!("No hooks are configured.");
+    } else {
+        for result in &results {
+            let detail = result
+                .get("error")
+                .or_else(|| result.get("reason"))
+                .and_then(|v| v.as_str())
+                .map(|v| format!(": {v}"))
+                .unwrap_or_default();
+            println!(
+                "hook {}: {}{detail}",
+                result["hook"],
+                result["status"].as_str().unwrap_or("")
+            );
+        }
+    }
+    if failed > 0 {
+        anyhow::bail!("{failed} hook(s) failed");
+    }
+    if delivered == 0 && !json {
+        eprintln!("usagestat: no hook received the {event} test event");
     }
     Ok(())
 }
