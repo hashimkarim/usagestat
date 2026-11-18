@@ -326,13 +326,29 @@ fn project_from_slug(slug: &str) -> String {
     }
 }
 
+/// A working directory's project name. Agent worktrees are named after the
+/// repository they belong to, not their generated folder:
+/// `~/.t3/worktrees/<repo>/t3-…` and `<repo>/.claude/worktrees/agent-…`.
 pub(super) fn project_label(path: &str) -> String {
-    Path::new(path)
-        .file_name()
-        .and_then(|s| s.to_str())
-        .filter(|s| !s.is_empty())
-        .unwrap_or(path)
-        .to_string()
+    let path = path.strip_prefix("file://").unwrap_or(path);
+    let parts: Vec<&str> = path.split(['/', '\\']).filter(|s| !s.is_empty()).collect();
+    if let Some(i) = parts.iter().rposition(|s| *s == "worktrees") {
+        let before = i.checked_sub(1).map(|j| parts[j]);
+        let generated = |s: &str| s.len() >= 6 && s.chars().all(|c| c.is_ascii_hexdigit());
+        match (before, parts.get(i + 1), parts.get(i + 2)) {
+            // <repo>/.claude/worktrees/<agent>: the repository owns the folder.
+            (Some(".claude"), Some(_), _) if i >= 2 => return parts[i - 2].to_string(),
+            // ~/.codex/worktrees/<id>/<repo>
+            (_, Some(id), Some(repo)) if generated(id) => return repo.to_string(),
+            // <tool>/worktrees/<repo>/<generated>
+            (_, Some(repo), Some(_)) => return repo.to_string(),
+            _ => {}
+        }
+    }
+    parts
+        .last()
+        .map(|s| s.to_string())
+        .unwrap_or_else(|| path.to_string())
 }
 
 pub(super) fn aggregate_usage<'a>(
@@ -563,6 +579,42 @@ mod claude_tests {
 #[cfg(test)]
 mod report_tests {
     use super::*;
+
+    #[test]
+    fn worktree_projects_are_named_after_their_repository() {
+        for (path, label) in [
+            ("/home/u/.t3/worktrees/htpc-stack/t3-7aa31368", "htpc-stack"),
+            (
+                "file:///home/u/.t3/worktrees/ai-workspace/t3-4e4b677a",
+                "ai-workspace",
+            ),
+            (
+                "/mnt/Git/htpc-stack/.claude/worktrees/agent-aad77b49",
+                "htpc-stack",
+            ),
+            (
+                "/home/u/.local/state/agenticdriver/worktrees/native-tools-sdk",
+                "native-tools-sdk",
+            ),
+            (
+                "/home/u/.t3/worktrees/usagestat/t3-1/crates/core",
+                "usagestat",
+            ),
+            ("/mnt/shared/Git/usagestat", "usagestat"),
+            ("file:///mnt/shared/Git/usagestat/", "usagestat"),
+            ("C:\\Users\\u\\src\\app", "app"),
+            (
+                "/home/u/.codex/worktrees/1a2b3c4d/punch-website",
+                "punch-website",
+            ),
+            (
+                "/home/u/.codex/worktrees/1a2b3c4d/punch-website/src",
+                "punch-website",
+            ),
+        ] {
+            assert_eq!(project_label(path), label, "{path}");
+        }
+    }
 
     fn event(ts: &str, session: &str, project: &str, tokens: u64, cost: f64) -> LocalUsageEvent {
         LocalUsageEvent {

@@ -14,6 +14,7 @@
 - Add event hooks: `[[hooks]]` in `config.toml` runs a command or sends a webhook POST when a quota crosses a threshold, resets, or a provider starts failing or recovers. `usagestat hooks test <event>` sends a sample payload. See [docs/cli.md](docs/cli.md#event-hooks).
 - Show live provider incidents from Statuspage.io status pages (Claude, OpenAI/Codex, Copilot, Droid, Augment, Deepgram, ElevenLabs, ZoomMate) as badges on cards and provider tabs, via the new `/v1/status` route. Checks run every 5 minutes without credentials; `USAGESTAT_STATUS_CHECKS=0` turns them off. See [docs/provider-status.md](docs/provider-status.md).
 - Add a provisioning-ready Grafana dashboard for `/metrics` in [docs/grafana](docs/grafana/README.md).
+- Projects from agent worktrees (T3 `~/.t3/worktrees/<repo>/t3-…`, Claude Code `<repo>/.claude/worktrees/…`, Codex `~/.codex/worktrees/<id>/<repo>`) are labelled with their repository (cache v11, rebuilt once).
 - Add optional combined overview cards for several accounts of the same provider, and an Image button that saves a local PNG summary.
 - Collection settings saves now edit `config.toml` in place, keeping key order and comments.
 - Fix the systemd unit's `EnvironmentFile=` line, which was quoted and so ignored `daemon.env`. Re-running `daemon enable` repairs existing units.
