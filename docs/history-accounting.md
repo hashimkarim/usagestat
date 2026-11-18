@@ -86,8 +86,8 @@ not repriced; local API estimates carry the rate schedule used to calculate them
 
 ## Local report cache
 
-The daemon prepares Codex and Claude daily model rows in a background worker for
-enabled providers. The first pass still needs to read existing local logs.
+The daemon prepares Codex, Claude, Gemini CLI and Amp daily model rows in a
+background worker for enabled providers. The first pass still needs to read existing local logs.
 HTTP history reads serve already saved rows while it runs. The worker refreshes
 about once a minute; direct local-report requests check at most every 30 seconds.
 
@@ -180,6 +180,13 @@ Unknown aliases remain unpriced. Sources:
 - [Claude Sonnet 5.5](https://platform.claude.com/docs/en/models/sonnet-5-5/overview)
 - [Claude Haiku 5.5](https://platform.claude.com/docs/en/models/haiku-5-5/overview)
 
+No Gemini rates have been verified and added yet, so Gemini CLI rows stay
+unpriced. The log formats follow the Gemini CLI
+[chat recorder](https://github.com/google-gemini/gemini-cli/blob/main/packages/core/src/services/chatRecordingService.ts),
+with [ccusage](https://github.com/ryoppippi/ccusage/tree/main/rust/adapters) and
+[tokscale](https://github.com/junhoyeo/tokscale/tree/main/crates/tokscale-core/src/sessions)
+as cross-checks.
+
 No public API price means no automatic dollar estimate: Spark research-preview
 usage remains explicitly unpriced. Other providers' billed costs and quota
 counters are not converted using Claude or OpenAI prices. A percentage, message
@@ -223,6 +230,38 @@ total stays unchanged; `reported-with-api-model-estimates` marks this distinctio
 Already priced or nonzero imported model costs are retained. New imports apply
 the same repair during ingestion, so polling cannot restore the old missing-rate
 flags after startup.
+
+## Gemini CLI and Amp logs
+
+Gemini CLI appends each chat message to its session `.jsonl` again whenever it
+changes. Within a file, the last version of a message ID that carries `tokens`
+is the request's usage; versions without tokens never replace it. Rewound or
+patched messages keep their usage, since those calls were made. A legacy `.json`
+session is skipped when Gemini CLI has migrated it to a sibling `.jsonl`, which
+copies every message. Gemini's `input` is `promptTokenCount`, which includes the
+cached tokens. Uncached input is `input - cached`, plus `tool` prompt tokens.
+Input is kept as reported only when `total` proves the cache was counted
+separately. Output is `output + thoughts`, with `thoughts` as reasoning. The
+session ID comes from the file's metadata; the project label is the directory
+under `tmp`, shortened when it is a project-path hash. Messages without a valid
+timestamp are skipped rather than dated by file modification time.
+
+An Amp thread file holds a usage ledger with one event per inference, and the
+assistant messages' usage. A repeated ledger event ID or message ID is the same
+record rewritten, and the last copy wins. A ledger event and its message describe
+one inference. They are paired by `toMessageId`, or, when the ledger has no
+message ID, by identical model and input/output counts. The pair takes the ledger
+timestamp and tokens, with cache read/write classes from the message when the
+ledger omits them. Unpaired messages and ledger events are separate inferences.
+Ledger `input` is uncached input. Records without their own timestamp use the
+thread creation time. Amp credits are not dollar costs and are not used. Each
+thread is one session, and the project is unknown. Current Amp versions may
+keep threads server-side, leaving the default directory empty. `AMP_DATA_DIR`
+can point at any directory with the same `threads/*.json` layout.
+
+Both sources de-duplicate per file only. Gemini models are unpriced. Amp model
+IDs that exactly match the price table get API-equivalent estimates; other IDs
+stay unpriced.
 
 Codex request records can precede their turn metadata. Missing model IDs are
 resolved from later explicit metadata for the same turn, provided that evidence
