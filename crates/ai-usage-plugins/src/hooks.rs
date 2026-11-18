@@ -61,8 +61,11 @@ fn run_command(hook: &HookConfig, payload: &HookPayload, json: &str) -> Result<(
             Some(code) => format!("exited with status {code}"),
             None => "terminated by a signal".into(),
         }),
-        // A hook that exits without reading stdin is still a success.
-        Err(error) if error.kind() == std::io::ErrorKind::BrokenPipe => Ok(()),
+        // The exit status is lost when the program exits before taking the
+        // payload, so this cannot be reported as delivered.
+        Err(error) if error.kind() == std::io::ErrorKind::BrokenPipe => {
+            Err("exited before reading the payload; exit status unknown".into())
+        }
         Err(error) if error.kind() == std::io::ErrorKind::TimedOut => Err(format!(
             "timed out after {}s and was stopped",
             hook.timeout().as_secs()

@@ -741,7 +741,9 @@ the fields also as `USAGESTAT_EVENT`, `USAGESTAT_PROVIDER`, `USAGESTAT_PLUGIN`,
 `USAGESTAT_METRIC`, `USAGESTAT_USED_PERCENT`, `USAGESTAT_PREVIOUS_PERCENT`,
 `USAGESTAT_THRESHOLD`, `USAGESTAT_RESETS_AT`, `USAGESTAT_STATE`,
 `USAGESTAT_PREVIOUS_STATE` and `USAGESTAT_TIMESTAMP`. Commands otherwise inherit
-the daemon environment, without `USAGESTAT_MANAGEMENT_KEY`.
+the daemon environment, without `USAGESTAT_MANAGEMENT_KEY`. A bare program
+name is looked up in `USAGESTAT_HELPER_PATH` (or `PATH`), which also becomes
+the command's `PATH`; prefer absolute paths under a system service.
 
 Hooks run on two background workers with a bounded queue, so they never delay
 polling; events are dropped with a warning when the queue is full. A command

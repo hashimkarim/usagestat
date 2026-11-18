@@ -14,9 +14,17 @@ const QUEUE: usize = 32;
 
 type Job = (usize, Arc<HookConfig>, HookPayload);
 
+/// One active hook: its position among `[[hooks]]` (used in logs, matching
+/// `usagestat hooks test`), its config and its transition state.
+struct Entry {
+    index: usize,
+    hook: Arc<HookConfig>,
+    detector: HookDetector,
+}
+
 /// Detectors for the configured hooks plus the delivery queue.
 pub struct Hooks {
-    entries: Vec<(Arc<HookConfig>, HookDetector)>,
+    entries: Vec<Entry>,
     configured: Vec<HookConfig>,
     queue: Option<SyncSender<Job>>,
 }
@@ -46,17 +54,16 @@ impl Hooks {
                 log::warn!("hook {index} is skipped: {error}");
                 continue;
             }
-            let entry = previous
+            let detector = previous
                 .iter()
-                .position(|(old, _)| old.as_ref() == hook)
-                .map(|position| previous.swap_remove(position))
-                .unwrap_or_else(|| {
-                    (
-                        Arc::new(hook.clone()),
-                        HookDetector::new(hook.threshold_list()),
-                    )
-                });
-            self.entries.push(entry);
+                .position(|old| old.hook.as_ref() == hook)
+                .map(|position| previous.swap_remove(position).detector)
+                .unwrap_or_else(|| HookDetector::new(hook.threshold_list()));
+            self.entries.push(Entry {
+                index,
+                hook: Arc::new(hook.clone()),
+                detector,
+            });
         }
         self.configured = configured.to_vec();
         if !self.entries.is_empty() && self.queue.is_none() {
@@ -68,7 +75,13 @@ impl Hooks {
 
     /// Feed one fresh snapshot to every hook and queue the events it caused.
     pub fn observe(&mut self, plugin_id: &str, snapshot: &UsageSnapshot, now: DateTime<Utc>) {
-        for (index, (hook, detector)) in self.entries.iter_mut().enumerate() {
+        for Entry {
+            index,
+            hook,
+            detector,
+        } in &mut self.entries
+        {
+            let index = *index;
             if !hook.watches(&snapshot.provider_id, plugin_id) {
                 continue;
             }
@@ -193,15 +206,17 @@ mod tests {
         let mut hooks = Hooks::new();
         hooks.sync(&[valid.clone(), invalid.clone()]);
         assert_eq!(hooks.entries.len(), 1);
+        assert_eq!(hooks.entries[0].index, 0);
         let mut snapshot = UsageSnapshot::error("claude", "Claude", "boom");
         snapshot.fetched_at = Utc::now();
         hooks.observe("claude", &snapshot, Utc::now());
-        let baseline = format!("{:?}", hooks.entries[0].1);
+        let baseline = format!("{:?}", hooks.entries[0].detector);
         let mut edited = valid.clone();
         edited.providers = vec!["codex".into()];
         hooks.sync(&[valid.clone(), invalid, edited]);
         assert_eq!(hooks.entries.len(), 2);
-        assert_eq!(format!("{:?}", hooks.entries[0].1), baseline);
-        assert_ne!(format!("{:?}", hooks.entries[1].1), baseline);
+        assert_eq!(format!("{:?}", hooks.entries[0].detector), baseline);
+        assert_ne!(format!("{:?}", hooks.entries[1].detector), baseline);
+        assert_eq!(hooks.entries[1].index, 2, "logs use the config position");
     }
 }
