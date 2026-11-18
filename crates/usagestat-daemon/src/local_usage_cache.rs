@@ -13,7 +13,8 @@ use usagestat_core::{paths, usage_daily};
 // v9 resolves unknown Codex models from later metadata for the same turn.
 // 10: rows compact per hour (was per 5h block) for hour-of-day reports.
 // 11: worktree projects are labelled with their repository.
-const VERSION: u32 = 11;
+// 12: live checkouts resolve subfolders and linked worktrees to the main repo.
+const VERSION: u32 = 12;
 const TTL: Duration = Duration::from_secs(30);
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

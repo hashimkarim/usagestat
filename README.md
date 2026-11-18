@@ -203,6 +203,15 @@ stops and restarts. `usagestat daemon t3 off` disables the bridge;
 `usagestat daemon disable` stops the daemon and turns off autostart.
 See the [T3 Code setup guide](docs/t3-code.md) for supported quotas and details.
 
+### Usage for one repository
+
+Run `usagestat project` inside a repository to see what Claude Code, Codex,
+Gemini CLI and Amp cost there today, over 7 and 30 days, and in total, with the
+top models. Subfolders and git worktrees (including T3 and Claude Code agent
+worktrees) count toward the main repository. Pass a directory
+(`usagestat project ~/src/app`), `--name` to choose a project explicitly, or
+`--json` for structured output. It reads the running daemon.
+
 ### Agent statuslines
 
 `usagestat statusline` prints one line of quotas, reset times and today's cost

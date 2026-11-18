@@ -9,6 +9,7 @@ pub mod model;
 pub mod normalized;
 pub mod paths;
 pub mod process;
+pub mod project;
 pub mod provider_paths;
 pub mod run_usage;
 pub mod signals;

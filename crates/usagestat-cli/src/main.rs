@@ -4,6 +4,7 @@ mod daemon;
 mod dashboard;
 mod doctor;
 mod history;
+mod project;
 mod statusline;
 
 use anyhow::{Context, Result};
@@ -83,6 +84,19 @@ enum Command {
         /// Print the dashboard URL without opening a browser
         #[arg(long)]
         url: bool,
+        /// Daemon address (defaults to the managed service address, then 127.0.0.1:6736)
+        #[arg(long, value_name = "ADDRESS:PORT")]
+        bind: Option<std::net::SocketAddr>,
+    },
+    /// Show local agent cost and tokens for the current repository
+    ///
+    /// Reads the running daemon. A git worktree counts toward its repository.
+    Project {
+        /// Directory inside the repository (defaults to the current directory)
+        path: Option<PathBuf>,
+        /// Project name to show instead of detecting it from the directory
+        #[arg(long)]
+        name: Option<String>,
         /// Daemon address (defaults to the managed service address, then 127.0.0.1:6736)
         #[arg(long, value_name = "ADDRESS:PORT")]
         bind: Option<std::net::SocketAddr>,
@@ -458,6 +472,14 @@ fn run_cli() -> Result<()> {
         Some(path) => path,
         None => paths::config_file()?,
     };
+    if let Some(Command::Project { path, name, bind }) = &cli.command {
+        return project::run(project::Options {
+            path: path.clone(),
+            name: name.clone(),
+            bind: *bind,
+            json,
+        });
+    }
     if let Some(Command::Statusline { provider_ids, bind }) = &cli.command {
         return statusline::run(statusline::Options {
             providers: provider_ids.clone(),
@@ -497,7 +519,8 @@ fn run_cli() -> Result<()> {
         Command::Doctor
         | Command::Daemon { .. }
         | Command::Dashboard { .. }
-        | Command::Statusline { .. } => {
+        | Command::Statusline { .. }
+        | Command::Project { .. } => {
             unreachable!("daemon and dashboard commands are handled before provider discovery")
         }
         Command::Capabilities => {
@@ -747,6 +770,7 @@ fn effective_args() -> Vec<OsString> {
                     | "daemon"
                     | "dashboard"
                     | "statusline"
+                    | "project"
                     | "doctor"
                     | "capabilities"
                     | "list"
