@@ -290,7 +290,7 @@ enum Command {
 enum HooksCommand {
     /// Send a sample event payload to every enabled hook subscribed to it
     Test {
-        /// Event name: quota_threshold, quota_reset, provider_failing or provider_recovered.
+        /// Event name: quota_threshold, quota_reset, quota_forecast, provider_failing or provider_recovered.
         event: String,
         /// Provider id for the sample payload; hooks filtered to other providers are skipped.
         #[arg(long)]

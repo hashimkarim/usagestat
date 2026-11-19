@@ -725,6 +725,10 @@ quota_reset         Used percent dropped by 20 points or more, or the reset
                     in the same poll.
 provider_failing    A working provider returned an error or auth state.
 provider_recovered  A failing provider returned usable data again.
+quota_forecast      At its average rate so far, a quota window runs out
+                    before it resets. Fires once per window (re-armed by
+                    quota_reset) and never in the first 5% or 10 minutes of
+                    a window. Carries exhaustsAt.
 ```
 
 Events come only from fresh probes. The first observation after daemon start
@@ -733,13 +737,14 @@ Events come only from fresh probes. The first observation after daemon start
 
 Each event is a JSON document (schema `usagestat.hook-event.v1`) with
 `event`, `providerId`, `pluginId`, `displayName`, `metric`, `usedPercent`,
-`previousPercent`, `threshold`, `resetsAt`, `state`, `previousState` and
-`timestamp`; absent fields are omitted. Webhooks receive it as the POST body
+`previousPercent`, `threshold`, `resetsAt`, `exhaustsAt`, `state`,
+`previousState` and `timestamp`; absent fields are omitted. Webhooks receive it as the POST body
 (`content-type: application/json`, no redirects; any non-2xx status is a
 failure). Commands receive it on stdin (Unix) and in `USAGESTAT_PAYLOAD`, with
 the fields also as `USAGESTAT_EVENT`, `USAGESTAT_PROVIDER`, `USAGESTAT_PLUGIN`,
 `USAGESTAT_METRIC`, `USAGESTAT_USED_PERCENT`, `USAGESTAT_PREVIOUS_PERCENT`,
-`USAGESTAT_THRESHOLD`, `USAGESTAT_RESETS_AT`, `USAGESTAT_STATE`,
+`USAGESTAT_THRESHOLD`, `USAGESTAT_RESETS_AT`, `USAGESTAT_EXHAUSTS_AT`,
+`USAGESTAT_STATE`,
 `USAGESTAT_PREVIOUS_STATE` and `USAGESTAT_TIMESTAMP`. Commands otherwise inherit
 the daemon environment, without `USAGESTAT_MANAGEMENT_KEY`. A bare program
 name is looked up in `USAGESTAT_HELPER_PATH` (or `PATH`), which also becomes

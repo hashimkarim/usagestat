@@ -31,14 +31,17 @@ pub enum HookEvent {
     ProviderFailing,
     /// A failing provider returned usable data again.
     ProviderRecovered,
+    /// At its average rate so far, a quota window runs out before it resets.
+    QuotaForecast,
 }
 
 impl HookEvent {
-    pub const ALL: [Self; 4] = [
+    pub const ALL: [Self; 5] = [
         Self::QuotaThreshold,
         Self::QuotaReset,
         Self::ProviderFailing,
         Self::ProviderRecovered,
+        Self::QuotaForecast,
     ];
 
     pub fn as_str(self) -> &'static str {
@@ -47,6 +50,7 @@ impl HookEvent {
             Self::QuotaReset => "quota_reset",
             Self::ProviderFailing => "provider_failing",
             Self::ProviderRecovered => "provider_recovered",
+            Self::QuotaForecast => "quota_forecast",
         }
     }
 
@@ -240,6 +244,9 @@ pub struct HookPayload {
     pub threshold: Option<f64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub resets_at: Option<DateTime<Utc>>,
+    /// Forecast time the quota runs out, for `quota_forecast`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub exhausts_at: Option<DateTime<Utc>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub state: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -270,6 +277,7 @@ impl HookPayload {
             ),
             ("USAGESTAT_THRESHOLD", self.threshold.map(number)),
             ("USAGESTAT_RESETS_AT", self.resets_at.map(rfc3339)),
+            ("USAGESTAT_EXHAUSTS_AT", self.exhausts_at.map(rfc3339)),
             ("USAGESTAT_STATE", self.state.clone()),
             ("USAGESTAT_PREVIOUS_STATE", self.previous_state.clone()),
             ("USAGESTAT_TEST", self.test.then(|| "1".to_string())),
@@ -284,9 +292,13 @@ impl HookPayload {
 
     /// A representative payload for `usagestat hooks test`.
     pub fn sample(event: HookEvent, provider_id: &str, now: DateTime<Utc>) -> Self {
-        let quota = matches!(event, HookEvent::QuotaThreshold | HookEvent::QuotaReset);
+        let quota = matches!(
+            event,
+            HookEvent::QuotaThreshold | HookEvent::QuotaReset | HookEvent::QuotaForecast
+        );
         let (used, previous) = match event {
             HookEvent::QuotaThreshold => (Some(91.0), Some(84.0)),
+            HookEvent::QuotaForecast => (Some(70.0), Some(62.0)),
             HookEvent::QuotaReset => (Some(0.0), Some(97.0)),
             _ => (None, None),
         };
@@ -306,6 +318,8 @@ impl HookPayload {
             previous_percent: previous,
             threshold: (event == HookEvent::QuotaThreshold).then_some(90.0),
             resets_at: quota.then(|| now + chrono::Duration::hours(5)),
+            exhausts_at: (event == HookEvent::QuotaForecast)
+                .then(|| now + chrono::Duration::hours(2)),
             state: state.map(str::to_string),
             previous_state: previous_state.map(str::to_string),
             timestamp: now,
@@ -370,6 +384,8 @@ struct Lane {
     resets_at: Option<DateTime<Utc>>,
     /// Highest threshold that has fired (or was already passed at baseline).
     armed_above: f64,
+    /// A run-out forecast fired (or was already true at baseline) this window.
+    forecast_fired: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -428,6 +444,7 @@ impl HookDetector {
             previous_percent: None,
             threshold: None,
             resets_at: None,
+            exhausts_at: None,
             state: None,
             previous_state: None,
             timestamp: now,
@@ -478,6 +495,7 @@ impl HookDetector {
                     used,
                     limit,
                     resets_at,
+                    period_duration_ms,
                     ..
                 } = metric
                 else {
@@ -489,17 +507,25 @@ impl HookDetector {
                     continue;
                 }
                 let used = used / limit * 100.0;
+                let exhausts_at = match (resets_at, period_duration_ms) {
+                    (Some(resets_at), Some(period)) => {
+                        crate::model::quota_exhaustion(used, *resets_at, *period, now)
+                    }
+                    _ => None,
+                };
                 let lane = match track.lanes.remove(label) {
                     None => Lane {
                         used,
                         resets_at: *resets_at,
                         armed_above: self.level(used),
+                        forecast_fired: exhausts_at.is_some(),
                     },
                     Some(previous) => {
                         let mut lane = Lane {
                             used,
                             resets_at: *resets_at,
                             armed_above: previous.armed_above,
+                            forecast_fired: previous.forecast_fired,
                         };
                         let dropped = previous.used - used >= RESET_DROP_PERCENT;
                         let window_rolled = previous.used > 0.0
@@ -519,7 +545,15 @@ impl HookDetector {
                             // A reset suppresses threshold events in the same poll.
                             events.push(quota(HookEvent::QuotaReset));
                             lane.armed_above = self.level(used);
+                            lane.forecast_fired = exhausts_at.is_some();
                         } else {
+                            if let Some(at) = exhausts_at.filter(|_| !lane.forecast_fired) {
+                                events.push(HookPayload {
+                                    exhausts_at: Some(at),
+                                    ..quota(HookEvent::QuotaForecast)
+                                });
+                                lane.forecast_fired = true;
+                            }
                             let level = self.level(used);
                             if level > previous.armed_above {
                                 events.push(HookPayload {
@@ -612,6 +646,36 @@ mod tests {
             .iter()
             .map(|e| (e.event.as_str(), e.threshold))
             .collect()
+    }
+
+    #[test]
+    fn run_out_forecast_fires_once_per_window_and_re_arms_on_reset() {
+        // A 5h window that started 3h before t0; snapshots arrive each minute.
+        let windowed = |used: f64| {
+            let mut snapshot = quota(used, Some(t0() + Duration::hours(2)));
+            if let MetricLine::Progress {
+                period_duration_ms, ..
+            } = &mut snapshot.metrics[0]
+            {
+                *period_duration_ms = Some(5 * 3_600_000);
+            }
+            snapshot
+        };
+        let mut probe = Probe::new();
+        assert!(probe.at(windowed(20.0)).is_empty());
+        // 72% used 3h in: at that rate the quota runs out before the reset.
+        let events = probe.at(windowed(72.0));
+        assert_eq!(names(&events), [("quota_forecast", None)]);
+        let at = events[0].exhausts_at.unwrap();
+        assert!(at < t0() + Duration::hours(2) && at > t0());
+        assert!(probe.at(windowed(73.0)).is_empty());
+        // The reset re-arms it.
+        assert_eq!(names(&probe.at(windowed(10.0))), [("quota_reset", None)]);
+        assert_eq!(names(&probe.at(windowed(74.0))), [("quota_forecast", None)]);
+        // A daemon start that already sees a forecast only sets a baseline.
+        let mut restarted = Probe::new();
+        assert!(restarted.at(windowed(72.0)).is_empty());
+        assert!(restarted.at(windowed(73.0)).is_empty());
     }
 
     #[test]

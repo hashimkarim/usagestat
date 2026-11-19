@@ -123,3 +123,18 @@ test('project table expands a project into its git branches', () => {
   // A project with no recorded branch is not expandable.
   assert.match(html, /<tr data-project="1"><td title="site">site/);
 });
+
+test('quota bars warn when the window runs out before reset at its current rate', () => {
+  const ui = dashboard();
+  const now = Date.parse('2026-11-18T21:00:00Z');
+  ui.context.now = now;
+  ui.context.m = { used: 75, limit: 100, resetsAt: '2026-11-18T23:00:00Z', periodDurationMs: 5 * 3600000 };
+  assert.equal(ui.run('quotaExhaustion(m, now).toISOString()'), '2026-11-18T22:00:00.000Z');
+  ui.context.m = { ...ui.context.m, used: 30 };
+  assert.equal(ui.run('quotaExhaustion(m, now)'), null);
+  // Too early in the window to trust the rate.
+  ui.context.m = { used: 50, limit: 100, resetsAt: '2026-11-19T01:55:00Z', periodDurationMs: 5 * 3600000 };
+  assert.equal(ui.run('quotaExhaustion(m, now)'), null);
+  ui.context.m = { used: 10, limit: 100, resetsAt: '2026-11-18T23:00:00Z' };
+  assert.equal(ui.run('quotaExhaustion(m, now)'), null);
+});

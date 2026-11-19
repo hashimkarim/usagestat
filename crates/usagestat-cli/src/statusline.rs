@@ -122,7 +122,20 @@ fn percent(metric: &Value) -> f64 {
 }
 
 fn reset_in(metric: &Value, now: DateTime<Utc>) -> Option<String> {
-    let at: DateTime<Utc> = metric["resetsAt"].as_str()?.parse().ok()?;
+    until(metric["resetsAt"].as_str()?.parse().ok()?, now)
+}
+
+/// When the quota runs out before its reset at the window's average rate.
+fn exhausts_at(metric: &Value, now: DateTime<Utc>) -> Option<DateTime<Utc>> {
+    usagestat_core::model::quota_exhaustion(
+        percent(metric),
+        metric["resetsAt"].as_str()?.parse().ok()?,
+        metric["periodDurationMs"].as_u64()?,
+        now,
+    )
+}
+
+fn until(at: DateTime<Utc>, now: DateTime<Utc>) -> Option<String> {
     let minutes = (at - now).num_minutes();
     (minutes > 0).then(|| match minutes {
         m if m < 60 => format!("{m}m"),
@@ -165,8 +178,11 @@ fn summary_text(snapshot: &Value, now: DateTime<Utc>, color: bool) -> String {
             metric["label"].as_str().unwrap_or("Quota"),
             paint(value, color)
         );
-        if let Some(reset) = reset_in(metric, now) {
-            text.push_str(&format!(" ({reset})"));
+        let out = exhausts_at(metric, now).and_then(|at| until(at, now));
+        match (reset_in(metric, now), out) {
+            (Some(reset), Some(out)) => text.push_str(&format!(" ({reset}, out in {out})")),
+            (Some(reset), None) => text.push_str(&format!(" ({reset})")),
+            _ => {}
         }
         parts.push(text);
     }
@@ -204,6 +220,7 @@ fn summary_json(snapshot: &Value, now: DateTime<Utc>) -> Value {
             "label": m["label"],
             "usedPercent": (percent(m) * 10.0).round() / 10.0,
             "resetsAt": m["resetsAt"],
+            "exhaustsAt": exhausts_at(m, now),
         })).collect::<Vec<_>>(),
     })
 }
@@ -234,6 +251,25 @@ mod tests {
         let row = summary_json(&snapshot(), now);
         assert_eq!(row["quotas"][1]["usedPercent"], 91.0);
         assert_eq!(row["todayCost"], "$312.70");
+    }
+
+    #[test]
+    fn warns_when_a_window_runs_out_before_reset() {
+        let mut snap = snapshot();
+        // 3h into a 5h session at 75%: out in about an hour, before the 2h reset.
+        snap["metrics"][0]["used"] = json!(75.0);
+        snap["metrics"][0]["periodDurationMs"] = json!(5 * 3_600_000u64);
+        let now: DateTime<Utc> = "2026-11-18T21:00:00Z".parse().unwrap();
+        snap["fetchedAt"] = json!("2026-11-18T21:00:00Z");
+        assert!(
+            summary_text(&snap, now, false).contains("Session 75% (2h00m, out in 1h00m)"),
+            "{}",
+            summary_text(&snap, now, false)
+        );
+        assert_eq!(
+            summary_json(&snap, now)["quotas"][0]["exhaustsAt"],
+            "2026-11-18T22:00:00Z"
+        );
     }
 
     #[test]

@@ -230,6 +230,10 @@ the Claude provider:
 { "statusLine": { "type": "command", "command": "usagestat statusline" } }
 ```
 
+When a quota window is on track to run out before it resets, the line says so,
+for example `Session 72% (2h00m, out in 1h05m)`. The dashboard shows the same
+warning under each quota bar.
+
 Name providers to choose them explicitly (`usagestat statusline codex`), add
 `--json` for structured output, or `--no-color` to drop the 75%/90% colours.
 

@@ -73,6 +73,29 @@ pub struct Pace {
     pub eta_seconds: Option<f64>,
 }
 
+/// When a quota window runs out if use continues at its average rate so far,
+/// provided that comes before the window resets. `None` while on pace to last,
+/// already exhausted, or too early in the window (first 5% and 10 minutes) for
+/// the rate to mean anything.
+pub fn quota_exhaustion(
+    used_percent: f64,
+    resets_at: DateTime<Utc>,
+    period_ms: u64,
+    now: DateTime<Utc>,
+) -> Option<DateTime<Utc>> {
+    let until_reset = (resets_at - now).num_milliseconds() as f64;
+    let period = period_ms as f64;
+    let elapsed = period - until_reset;
+    if !(5.0..100.0).contains(&used_percent)
+        || until_reset <= 0.0
+        || elapsed < (period * 0.05).max(10.0 * 60_000.0)
+    {
+        return None;
+    }
+    let ms_left = (100.0 - used_percent) * elapsed / used_percent;
+    (ms_left < until_reset).then(|| now + chrono::Duration::milliseconds(ms_left as i64))
+}
+
 fn pace_stage(delta: f64) -> &'static str {
     if delta < -20.0 {
         "well_under"
@@ -285,5 +308,30 @@ mod provider_sync_tests {
             snapshot.source = Some(source.into());
             assert!(snapshot.compute_pace().is_none(), "{source}");
         }
+    }
+
+    #[test]
+    fn exhaustion_is_forecast_only_when_the_rate_runs_out_before_reset() {
+        let now = Utc::now();
+        let hours = |h: i64| chrono::Duration::hours(h);
+        let five_hours = 5 * 3_600_000;
+        // 3h into a 5h window at 75%: 100% in one more hour, before the reset.
+        assert_eq!(
+            quota_exhaustion(75.0, now + hours(2), five_hours, now),
+            Some(now + hours(1))
+        );
+        // 3h in at 30%: lasts to the reset.
+        assert_eq!(
+            quota_exhaustion(30.0, now + hours(2), five_hours, now),
+            None
+        );
+        // Too early in the window, too little use, or already out.
+        let minutes = chrono::Duration::minutes(295);
+        assert_eq!(quota_exhaustion(50.0, now + minutes, five_hours, now), None);
+        assert_eq!(quota_exhaustion(4.0, now + hours(4), five_hours, now), None);
+        assert_eq!(
+            quota_exhaustion(100.0, now + hours(2), five_hours, now),
+            None
+        );
     }
 }

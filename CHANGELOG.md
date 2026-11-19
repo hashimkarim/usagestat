@@ -15,6 +15,7 @@
 - Show live provider incidents from Statuspage.io status pages (Claude, OpenAI/Codex, Copilot, Droid, Augment, Deepgram, ElevenLabs, ZoomMate) as badges on cards and provider tabs, via the new `/v1/status` route. Checks run every 5 minutes without credentials; `USAGESTAT_STATUS_CHECKS=0` turns them off. See [docs/provider-status.md](docs/provider-status.md).
 - Add a provisioning-ready Grafana dashboard for `/metrics` in [docs/grafana](docs/grafana/README.md).
 - Add `usagestat project`: local agent cost and tokens for the repository you're in, per agent and in total. Projects now resolve live subfolders and linked git worktrees to their main repository (cache v12, rebuilt once).
+- Add run-out forecasts: when a quota window is on track to run out before its reset at the current rate, quota bars and `usagestat statusline` say when. A new `quota_forecast` hook event alerts once per window.
 - Add cost per git branch: `usagestat project --branches`, a `branches` local usage report, and expandable project rows in the Projects tab. Claude Code and Codex record the branch (cache v13, rebuilt once).
 - Projects from agent worktrees (T3 `~/.t3/worktrees/<repo>/t3-…`, Claude Code `<repo>/.claude/worktrees/…`, Codex `~/.codex/worktrees/<id>/<repo>`) are labelled with their repository (cache v11, rebuilt once).
 - Add optional combined overview cards for several accounts of the same provider, and an Image button that saves a local PNG summary.

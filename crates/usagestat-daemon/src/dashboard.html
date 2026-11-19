@@ -317,6 +317,7 @@ header{
 .track{height:3px;background:var(--s2);border-radius:2px;overflow:hidden}
 .bar{height:100%;border-radius:2px;width:0;transition:width .85s cubic-bezier(.4,0,.2,1)}
 .resets{font:11px var(--mono);color:var(--mu);margin-top:3px}
+.runout{font:11px var(--mono);color:var(--orange);margin-top:3px}
 .kv{display:flex;align-items:center;justify-content:space-between;gap:8px}
 .kv>.mlabel{flex-shrink:0}
 .kv .pill{white-space:normal;text-align:right;border-radius:8px;min-width:0;overflow-wrap:anywhere}
@@ -1124,6 +1125,8 @@ function renderOverview(){
         if(m.detail) html+=`<div class="metric-detail">${esc(m.detail)}</div>`;
         html+=`<div class="track"><div class="bar" style="background:${col}" data-w="${displayPct(p).toFixed(2)}%"></div></div>`;
         if(m.resetsAt&&S.prefs.showReset&&S.prefs.components.includes('reset')) html+=`<div class="resets">${fmtReset(m.resetsAt)}</div>`;
+        html+=runOutHtml(m);
+      html+=runOutHtml(m);
         html+=`</div>`;
       } else if(m.type==='text'){
         html+=`<div class="metric"><div class="kv"><span class="mlabel" style="margin:0">${esc(m.label)}</span><span class="kv-val">${esc(groupDollarText(m.value||''))}</span></div></div>`;
@@ -1189,6 +1192,7 @@ function combinedCardHtml(group){
       html+=`<div class="metric" data-card-component="quota" ${chartDetailAttribute(snapshotDetail(r.s,m))}><div class="kv"><span class="mlabel" style="margin:0">${esc(m.label)}</span><span class="prog-val">${esc(fmtMetric(m))}</span></div>`;
       html+=`<div class="track"><div class="bar" style="background:${barCol(p)}" data-w="${displayPct(p).toFixed(2)}%"></div></div>`;
       if(m.resetsAt&&S.prefs.showReset&&S.prefs.components.includes('reset')) html+=`<div class="resets">${fmtReset(m.resetsAt)}</div>`;
+      html+=runOutHtml(m);
       html+=`</div>`;
     }
     const roll = providerWindowTotals(r.s.providerId, 30); cost += roll.cost; tokens += roll.totalTokens;
@@ -2770,6 +2774,7 @@ async function renderProvider(id){
       if(m.detail) html+=`<div class="dm-detail">${esc(m.detail)}</div>`;
       html+=`<div class="dm-track"><div class="dm-bar" style="background:${col}" data-w="${displayPct(p).toFixed(2)}%"></div></div>`;
       if(m.resetsAt&&S.prefs.showReset&&S.prefs.components.includes('reset')) html+=`<div class="dm-reset">${fmtReset(m.resetsAt)}</div>`;
+      html+=runOutHtml(m);
       html+=`</div>`;
     } else if(m.type==='text'){
       html+=`<div class="dmetric"><div class="kv"><span class="mlabel" style="margin:0">${esc(m.label)}</span><span class="kv-val">${esc(groupDollarText(m.value||''))}</span></div></div>`;
@@ -4197,6 +4202,22 @@ function fmtReset(iso){
   const h=Math.floor(ms/3600000),m=Math.floor((ms%3600000)/60000);
   const relative=ms<=0?'resetting…':h>48?`resets in ${Math.floor(h/24)}d`:h>0?`resets in ${h}h ${m}m`:`resets in ${m}m`;
   return S.prefs.resetTimeFormat==='absolute'?'resets '+absolute:S.prefs.resetTimeFormat==='both'?relative+' · '+absolute:relative;
+}
+// Mirrors usagestat_core::model::quota_exhaustion: when the window runs out at
+// its average rate so far, if before the reset. Silent in the first 5% / 10 min.
+function quotaExhaustion(m, now=Date.now()){
+  const used=pct(m), reset=Date.parse(m.resetsAt||''), period=Number(m.periodDurationMs)||0;
+  if(used==null||!(used>=5&&used<100)||!Number.isFinite(reset)||!period) return null;
+  const untilReset=reset-now, elapsed=period-untilReset;
+  if(untilReset<=0||elapsed<Math.max(period*0.05,600000)) return null;
+  const left=(100-used)*elapsed/used;
+  return left<untilReset ? new Date(now+left) : null;
+}
+function runOutHtml(m){
+  const at=quotaExhaustion(m);
+  if(!at) return '';
+  const clock=at.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+  return `<div class="runout" title="At the average rate so far in this window, this quota runs out before it resets">At this pace, out in ${esc(fmtEta((at-Date.now())/1000))} · ${esc(clock)}</div>`;
 }
 function fmtEta(secs,stage){
   if(secs==null||stage==='well_under') return '∞';
