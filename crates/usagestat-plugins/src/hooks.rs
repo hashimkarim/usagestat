@@ -179,7 +179,9 @@ mod tests {
     #[test]
     fn command_hook_failures_and_timeouts_are_reported() {
         let dir = tempfile::tempdir().unwrap();
-        let failing = script(dir.path(), "exit 3");
+        // Read the payload first: a script that exits before the write races it
+        // and is reported as "exited before reading the payload" instead.
+        let failing = script(dir.path(), "cat > /dev/null; exit 3");
         let error = deliver(&hook(vec![failing], None), &payload()).unwrap_err();
         assert!(error.contains("status 3"), "{error}");
         let slow = script(dir.path(), "exec sleep 30");
@@ -189,8 +191,15 @@ mod tests {
         let error = deliver(&slow, &payload()).unwrap_err();
         assert!(error.contains("timed out"), "{error}");
         assert!(started.elapsed() < Duration::from_secs(10));
+        // Exiting without reading is either delivered or reported honestly,
+        // depending on whether the payload write won the race.
         let ignores_stdin = script(dir.path(), "exit 0");
-        deliver(&hook(vec![ignores_stdin], None), &payload()).unwrap();
+        if let Err(error) = deliver(&hook(vec![ignores_stdin], None), &payload()) {
+            assert!(
+                error.contains("exited before reading the payload"),
+                "{error}"
+            );
+        }
     }
 
     #[test]

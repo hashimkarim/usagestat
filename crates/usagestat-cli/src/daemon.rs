@@ -903,7 +903,13 @@ mod tests {
         .unwrap();
         assert_eq!(saved["OPENCODE_DB"], "channel.db");
         assert_eq!(saved["FLATPAK_XDG_CONFIG_HOME"], root);
-        let list = format!("{root},/srv/gemini");
+        let other = Path::new(&root)
+            .parent()
+            .unwrap()
+            .join("gemini")
+            .to_string_lossy()
+            .into_owned();
+        let list = format!("{root},{other}");
         capture_provider_roots(&mut saved, |name| match name {
             "GEMINI_DATA_DIR" => Some(list.clone()),
             "AMP_DATA_DIR" => Some(root.clone()),
@@ -942,6 +948,8 @@ mod tests {
         fs::remove_dir_all(dir).unwrap();
     }
 
+    // systemd units exist only on Linux; Windows paths are not systemd-absolute.
+    #[cfg(unix)]
     #[test]
     fn service_arguments_escape_systemd_expansion_and_reject_injection() {
         assert_eq!(
@@ -983,6 +991,8 @@ mod tests {
         assert!(unit_file_path("/x\nExecStart=/evil").is_err());
     }
 
+    // systemd units exist only on Linux; Windows paths are not systemd-absolute.
+    #[cfg(unix)]
     #[test]
     fn ordinary_service_keeps_t3_disabled_even_with_a_retained_key() {
         let dir = temp_dir();

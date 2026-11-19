@@ -490,7 +490,8 @@ fn legacy_settings(unit: &str) -> Result<Option<DaemonSettings>> {
     }))
 }
 
-#[cfg(test)]
+// systemd units exist only on Linux.
+#[cfg(all(test, unix))]
 mod migration_tests {
     use super::*;
     #[test]
