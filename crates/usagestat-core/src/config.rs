@@ -21,6 +21,13 @@ pub struct AppConfig {
         skip_serializing_if = "Vec::is_empty"
     )]
     pub hooks: Vec<HookConfig>,
+    /// Optional monthly budgets for local agent usage. See `crate::budgets`.
+    #[serde(
+        default,
+        deserialize_with = "crate::budgets::deserialize_budgets",
+        skip_serializing_if = "Vec::is_empty"
+    )]
+    pub budgets: Vec<crate::budgets::BudgetConfig>,
 }
 
 impl Default for AppConfig {
@@ -30,6 +37,7 @@ impl Default for AppConfig {
             plugin_dirs: Vec::new(),
             providers: Vec::new(),
             hooks: Vec::new(),
+            budgets: Vec::new(),
         }
     }
 }

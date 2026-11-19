@@ -1,3 +1,4 @@
+pub mod budgets;
 pub mod cache;
 pub mod capabilities;
 pub mod config;

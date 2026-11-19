@@ -27,6 +27,7 @@ const WINDOWS: [(&str, Option<i64>); 4] = [
 ];
 
 pub struct Options {
+    pub budgets: Vec<usagestat_core::budgets::BudgetConfig>,
     pub path: Option<PathBuf>,
     pub name: Option<String>,
     pub bind: Option<SocketAddr>,
@@ -35,13 +36,19 @@ pub struct Options {
 }
 
 pub fn run(options: Options) -> Result<()> {
-    let report = fetch(options.path.as_deref(), options.name, options.bind)?;
+    let report = fetch(
+        options.path.as_deref(),
+        options.name,
+        &options.budgets,
+        options.bind,
+    )?;
     if options.json {
         println!("{}", serde_json::to_string_pretty(&report)?);
         return Ok(());
     }
     let project = report["project"].as_str().unwrap_or_default();
     print_text(project, &report["providers"]);
+    print_budget(&report["budget"]);
     if options.branches {
         print_branches(&report["branches"]);
     }
@@ -49,7 +56,12 @@ pub fn run(options: Options) -> Result<()> {
 }
 
 /// The project's usage as JSON. Never prints, so the MCP server can reuse it.
-pub fn fetch(path: Option<&Path>, name: Option<String>, bind: Option<SocketAddr>) -> Result<Value> {
+pub fn fetch(
+    path: Option<&Path>,
+    name: Option<String>,
+    budgets: &[usagestat_core::budgets::BudgetConfig],
+    bind: Option<SocketAddr>,
+) -> Result<Value> {
     let dir = match path {
         Some(path) => path.to_path_buf(),
         None => std::env::current_dir()?,
@@ -79,12 +91,50 @@ pub fn fetch(path: Option<&Path>, name: Option<String>, bind: Option<SocketAddr>
         rows
     };
     let today = Utc::now().date_naive();
+    let project_rows = rows("projects");
+    let budget = budgets
+        .iter()
+        .find(|b| b.project.as_deref() == Some(project.as_str()) && b.validate().is_ok())
+        .map(|b| budget_status(b, &project_rows, today));
     Ok(json!({
         "project": project, "directory": dir, "timeZone": "UTC",
         "costSource": "api-rate-estimate",
-        "providers": summarize(&rows("projects"), today),
+        "providers": summarize(&project_rows, today),
         "branches": branches(&rows("branches"), today),
+        "budget": budget,
     }))
+}
+
+/// Month-to-date (UTC) spend against a `[[budgets]]` entry for this project.
+fn budget_status(
+    budget: &usagestat_core::budgets::BudgetConfig,
+    rows: &[(String, Value)],
+    today: NaiveDate,
+) -> Value {
+    let month = today.format("%Y-%m").to_string();
+    let spent = rows
+        .iter()
+        .filter(|(name, _)| SOURCES.iter().any(|(id, n)| n == name && budget.counts(id)))
+        .filter(|(_, row)| row["date"].as_str().is_some_and(|d| d.starts_with(&month)))
+        .map(|(_, row)| row["costUsd"].as_f64().unwrap_or(0.0))
+        .fold(0.0, |a, b| a + b);
+    json!({
+        "monthlyUsd": budget.monthly_usd, "spentUsd": spent, "month": month,
+        "usedPercent": spent / budget.monthly_usd * 100.0,
+        "sources": budget.sources,
+    })
+}
+
+fn print_budget(budget: &Value) {
+    let Some(limit) = budget["monthlyUsd"].as_f64() else {
+        return;
+    };
+    let used = budget["usedPercent"].as_f64().unwrap_or(0.0);
+    println!(
+        "\nBudget: ${:.2} of ${limit:.2} this month ({used:.0}%){}",
+        budget["spentUsd"].as_f64().unwrap_or(0.0),
+        if used >= 100.0 { " · over budget" } else { "" }
+    );
 }
 
 /// The repository name for a directory, matching how the daemon labels log
@@ -358,6 +408,26 @@ mod tests {
         assert_eq!(money(&s["Codex"]["windows"]["Today"]), "—");
         assert_eq!(money(&s["Total"]["windows"]["All time"]), "$10.00+");
         assert!(summarize(&rows[..1], today).get("Total").is_none());
+    }
+
+    #[test]
+    fn budget_counts_this_months_spend_from_its_sources() {
+        let today = NaiveDate::from_ymd_opt(2026, 11, 18).unwrap();
+        let rows = vec![
+            ("Claude".to_string(), row("2026-11-02", 30.0, 1, true)),
+            ("Codex".to_string(), row("2026-11-03", 20.0, 1, true)),
+            ("Claude".to_string(), row("2026-10-30", 99.0, 1, true)),
+        ];
+        let mut budget = usagestat_core::budgets::BudgetConfig {
+            project: Some("app".into()),
+            monthly_usd: 100.0,
+            ..Default::default()
+        };
+        assert_eq!(budget_status(&budget, &rows, today)["spentUsd"], 50.0);
+        budget.sources = vec!["claude".into()];
+        let status = budget_status(&budget, &rows, today);
+        assert_eq!(status["spentUsd"], 30.0);
+        assert_eq!(status["usedPercent"], 30.0);
     }
 
     #[test]

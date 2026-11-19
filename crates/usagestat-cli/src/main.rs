@@ -524,7 +524,12 @@ fn run_cli() -> Result<()> {
         bind,
     }) = &cli.command
     {
+        // Budgets are optional; a config that fails to load only hides them.
+        let budgets = AppConfig::load_optional(&config_path)
+            .map(|c| c.budgets)
+            .unwrap_or_default();
         return project::run(project::Options {
+            budgets,
             path: path.clone(),
             name: name.clone(),
             branches: *branches,

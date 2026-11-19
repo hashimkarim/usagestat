@@ -475,6 +475,19 @@ fn bucket_key_for(ts: DateTime<Utc>, bucket: Bucket) -> String {
     }
 }
 
+/// API-equivalent cost since `since`, optionally only in one project.
+pub(super) fn spend_since(
+    events: &[&LocalUsageEvent],
+    since: DateTime<Utc>,
+    project: Option<&str>,
+) -> f64 {
+    events
+        .iter()
+        .filter(|e| e.ts >= since && project.is_none_or(|p| e.project == p))
+        .map(|e| e.cost_usd)
+        .fold(0.0, |a, b| a + b)
+}
+
 /// Recost events since `since` (optionally only those on `from`) as if they ran
 /// on `model`. Per source model: actual cost and the recost, at base rates.
 pub(super) fn what_if(

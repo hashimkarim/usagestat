@@ -33,15 +33,18 @@ pub enum HookEvent {
     ProviderRecovered,
     /// At its average rate so far, a quota window runs out before it resets.
     QuotaForecast,
+    /// A `[[budgets]]` entry's month-to-date spend crossed a threshold percent.
+    BudgetThreshold,
 }
 
 impl HookEvent {
-    pub const ALL: [Self; 5] = [
+    pub const ALL: [Self; 6] = [
         Self::QuotaThreshold,
         Self::QuotaReset,
         Self::ProviderFailing,
         Self::ProviderRecovered,
         Self::QuotaForecast,
+        Self::BudgetThreshold,
     ];
 
     pub fn as_str(self) -> &'static str {
@@ -51,6 +54,7 @@ impl HookEvent {
             Self::ProviderFailing => "provider_failing",
             Self::ProviderRecovered => "provider_recovered",
             Self::QuotaForecast => "quota_forecast",
+            Self::BudgetThreshold => "budget_threshold",
         }
     }
 
@@ -247,6 +251,14 @@ pub struct HookPayload {
     /// Forecast time the quota runs out, for `quota_forecast`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub exhausts_at: Option<DateTime<Utc>>,
+    /// Budget fields, for `budget_threshold`. `project` is absent for an
+    /// overall budget.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub project: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub budget_usd: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub spent_usd: Option<f64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub state: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -278,6 +290,9 @@ impl HookPayload {
             ("USAGESTAT_THRESHOLD", self.threshold.map(number)),
             ("USAGESTAT_RESETS_AT", self.resets_at.map(rfc3339)),
             ("USAGESTAT_EXHAUSTS_AT", self.exhausts_at.map(rfc3339)),
+            ("USAGESTAT_PROJECT", self.project.as_deref().map(clean)),
+            ("USAGESTAT_BUDGET_USD", self.budget_usd.map(number)),
+            ("USAGESTAT_SPENT_USD", self.spent_usd.map(number)),
             ("USAGESTAT_STATE", self.state.clone()),
             ("USAGESTAT_PREVIOUS_STATE", self.previous_state.clone()),
             ("USAGESTAT_TEST", self.test.then(|| "1".to_string())),
@@ -288,6 +303,46 @@ impl HookPayload {
                 .filter_map(|(name, value)| value.map(|v| (name.to_string(), v))),
         );
         env
+    }
+
+    /// A budget crossing. Budgets are not providers: the provider fields name
+    /// the counted sources.
+    pub fn budget(
+        budget: &crate::budgets::BudgetConfig,
+        spent: f64,
+        threshold: f64,
+        now: DateTime<Utc>,
+    ) -> Self {
+        let sources = if budget.sources.is_empty() {
+            "local".to_string()
+        } else {
+            budget.sources.join(",")
+        };
+        Self {
+            schema: PAYLOAD_SCHEMA.into(),
+            event: HookEvent::BudgetThreshold,
+            provider_id: sources,
+            plugin_id: "budget".into(),
+            display_name: format!("Budget · {}", budget.label()),
+            metric: Some("Monthly budget".into()),
+            used_percent: Some(round(spent / budget.monthly_usd * 100.0)),
+            previous_percent: None,
+            threshold: Some(threshold),
+            resets_at: None,
+            exhausts_at: None,
+            project: budget.project.clone(),
+            budget_usd: Some(budget.monthly_usd),
+            spent_usd: Some(round(spent)),
+            state: None,
+            previous_state: None,
+            timestamp: now,
+            test: false,
+        }
+    }
+
+    fn with_test(mut self) -> Self {
+        self.test = true;
+        self
     }
 
     /// A representative payload for `usagestat hooks test`.
@@ -302,6 +357,19 @@ impl HookPayload {
             HookEvent::QuotaReset => (Some(0.0), Some(97.0)),
             _ => (None, None),
         };
+        if event == HookEvent::BudgetThreshold {
+            return Self::budget(
+                &crate::budgets::BudgetConfig {
+                    project: Some("sample-project".into()),
+                    monthly_usd: 100.0,
+                    ..Default::default()
+                },
+                91.0,
+                90.0,
+                now,
+            )
+            .with_test();
+        }
         let (state, previous_state) = match event {
             HookEvent::ProviderFailing => (Some("failed"), Some("ready")),
             HookEvent::ProviderRecovered => (Some("ready"), Some("failed")),
@@ -320,6 +388,9 @@ impl HookPayload {
             resets_at: quota.then(|| now + chrono::Duration::hours(5)),
             exhausts_at: (event == HookEvent::QuotaForecast)
                 .then(|| now + chrono::Duration::hours(2)),
+            project: None,
+            budget_usd: None,
+            spent_usd: None,
             state: state.map(str::to_string),
             previous_state: previous_state.map(str::to_string),
             timestamp: now,
@@ -445,6 +516,9 @@ impl HookDetector {
             threshold: None,
             resets_at: None,
             exhausts_at: None,
+            project: None,
+            budget_usd: None,
+            spent_usd: None,
             state: None,
             previous_state: None,
             timestamp: now,

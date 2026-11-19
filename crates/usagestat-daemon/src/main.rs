@@ -378,6 +378,12 @@ fn start_poller(
                 }
             }
 
+            // Budgets read local logs only when a hook subscribes to them.
+            if !config.budgets.is_empty() && hooks.wants_budgets() {
+                let now = Utc::now();
+                hooks.observe_budgets(&budget_spend(&config.budgets, now), now);
+            }
+
             // Sleep until next cycle, but wake early if refresh is requested.
             if refresh_flag.load(Ordering::Acquire) {
                 continue;
@@ -405,6 +411,49 @@ fn start_poller(
             }
         }
     })
+}
+
+/// Month-to-date (UTC) spend for each valid budget, reading each needed local
+/// log source once.
+fn budget_spend(
+    budgets: &[usagestat_core::budgets::BudgetConfig],
+    now: chrono::DateTime<Utc>,
+) -> Vec<(usagestat_core::budgets::BudgetConfig, f64)> {
+    use chrono::{Datelike, TimeZone};
+    let month_start = Utc
+        .with_ymd_and_hms(now.year(), now.month(), 1, 0, 0, 0)
+        .single()
+        .unwrap_or(now);
+    let valid: Vec<_> = budgets
+        .iter()
+        .enumerate()
+        .filter(|(index, budget)| match budget.validate() {
+            Ok(()) => true,
+            Err(error) => {
+                log::warn!("budget {index} is skipped: {error}");
+                false
+            }
+        })
+        .map(|(_, budget)| budget)
+        .collect();
+    let mut spent = vec![0.0; valid.len()];
+    for source in usagestat_core::budgets::SOURCES {
+        if !valid.iter().any(|b| b.counts(source)) {
+            continue;
+        }
+        let result = local_usage_cache::with_events(source, |events| {
+            for (total, budget) in spent.iter_mut().zip(&valid) {
+                if budget.counts(source) {
+                    *total +=
+                        local_usage::spend_since(events, month_start, budget.project.as_deref());
+                }
+            }
+        });
+        if let Err(error) = result {
+            log::debug!("budget spend for {source} unavailable: {error}");
+        }
+    }
+    valid.into_iter().cloned().zip(spent).collect()
 }
 
 fn serve(

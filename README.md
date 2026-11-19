@@ -212,6 +212,11 @@ worktrees) count toward the main repository. Pass a directory
 (`usagestat project ~/src/app`), `--name` to choose a project explicitly, or
 `--json` for structured output. It reads the running daemon.
 
+To cap a repository's spend, add a `[[budgets]]` entry to `config.toml`;
+`usagestat project` then shows the month's spend against it, and a hook
+subscribed to `budget_threshold` alerts on crossings. See
+[budgets](docs/cli.md#budgets).
+
 Add `--branches` to split the cost by git branch, so you can see what a feature
 branch cost. Claude Code and Codex record the branch in their logs; Gemini CLI
 and Amp do not. In the dashboard, select a row in a provider's Projects tab to

@@ -725,6 +725,10 @@ quota_reset         Used percent dropped by 20 points or more, or the reset
                     in the same poll.
 provider_failing    A working provider returned an error or auth state.
 provider_recovered  A failing provider returned usable data again.
+budget_threshold    A [[budgets]] entry's month-to-date spend crossed one of
+                    the hook's thresholds (percent of the budget). Fires once
+                    per threshold per UTC month. Carries project, budgetUsd
+                    and spentUsd.
 quota_forecast      At its average rate so far, a quota window runs out
                     before it resets. Fires once per window (re-armed by
                     quota_reset) and never in the first 5% or 10 minutes of
@@ -737,13 +741,14 @@ Events come only from fresh probes. The first observation after daemon start
 
 Each event is a JSON document (schema `usagestat.hook-event.v1`) with
 `event`, `providerId`, `pluginId`, `displayName`, `metric`, `usedPercent`,
-`previousPercent`, `threshold`, `resetsAt`, `exhaustsAt`, `state`,
-`previousState` and `timestamp`; absent fields are omitted. Webhooks receive it as the POST body
+`previousPercent`, `threshold`, `resetsAt`, `exhaustsAt`, `project`,
+`budgetUsd`, `spentUsd`, `state`, `previousState` and `timestamp`; absent fields are omitted. Webhooks receive it as the POST body
 (`content-type: application/json`, no redirects; any non-2xx status is a
 failure). Commands receive it on stdin (Unix) and in `USAGESTAT_PAYLOAD`, with
 the fields also as `USAGESTAT_EVENT`, `USAGESTAT_PROVIDER`, `USAGESTAT_PLUGIN`,
 `USAGESTAT_METRIC`, `USAGESTAT_USED_PERCENT`, `USAGESTAT_PREVIOUS_PERCENT`,
 `USAGESTAT_THRESHOLD`, `USAGESTAT_RESETS_AT`, `USAGESTAT_EXHAUSTS_AT`,
+`USAGESTAT_PROJECT`, `USAGESTAT_BUDGET_USD`, `USAGESTAT_SPENT_USD`,
 `USAGESTAT_STATE`,
 `USAGESTAT_PREVIOUS_STATE` and `USAGESTAT_TIMESTAMP`. Commands otherwise inherit
 the daemon environment, without `USAGESTAT_MANAGEMENT_KEY`. A bare program
@@ -756,6 +761,27 @@ that outlives its timeout is killed with its process tree. Failures are logged
 at warn level by hook index and program name; URLs, arguments and header
 values are never logged. An invalid hook entry is skipped with a warning and
 does not affect the rest of the configuration.
+
+### Budgets
+
+Budgets are optional monthly limits on API-equivalent local agent spend
+(Claude Code, Codex, Gemini CLI and Amp logs), per project or overall. They
+cost nothing until a hook subscribes to `budget_threshold`; then the daemon
+sums the current UTC month after each poll.
+
+```toml
+[[budgets]]
+project = "usagestat"        # as `usagestat project` names it; omit for all usage
+monthlyUsd = 50
+sources = ["claude", "codex"] # optional; default every local source
+
+[[hooks]]
+events = ["budget_threshold"]
+thresholds = [80, 100]        # percent of the budget
+command = ["notify-send", "usagestat budget"]
+```
+
+`usagestat project` shows the month's spend against the project's budget.
 
 Send a sample payload (marked `"test": true`) to every enabled hook
 subscribed to an event:
