@@ -57,15 +57,14 @@ class RpmLifecycle(unittest.TestCase):
     def test_stable_payload_and_post_transaction_are_packaged(self):
         package = self.build()
         files = subprocess.check_output(["rpm", "-qpl", str(package)], text=True).splitlines()
-        for path in [REPO, "/usr/libexec/usagestat/service-sync.py", "/usr/libexec/usagestat/rpm-service-sync.py",
-                     "/usr/lib/systemd/user/usagestat-package-sync.service",
-                     "/usr/lib/systemd/system/usagestat-rpm-update.timer",
+        for path in [REPO, "/usr/lib/systemd/system/usagestat-rpm-update.timer",
                      "/usr/lib/systemd/system/usagestat-rpm-update.service"]:
             self.assertIn(path, files)
         self.assertFalse(any("install-rpm" in path or "install-service" in path for path in files))
+        # The daemon follows upgrades itself; no scriptlet reaches into user sessions.
+        self.assertFalse(any("libexec" in path or "/systemd/user/" in path for path in files))
         scripts = subprocess.check_output(["rpm", "-qp", "--scripts", str(package)], text=True)
-        self.assertIn("posttrans", scripts)
-        self.assertIn("/usr/bin/python3 /usr/libexec/usagestat/rpm-service-sync.py", scripts)
+        self.assertNotIn("posttrans", scripts)
         flags = subprocess.check_output(["rpm", "-qp", "--qf", "[%{FILENAMES} %{FILEFLAGS}\n]", str(package)], text=True)
         repo_flags = next(int(line.rsplit(" ", 1)[1]) for line in flags.splitlines() if line.startswith(REPO + " "))
         self.assertEqual(repo_flags & (1 | 16), 1 | 16)  # config and noreplace
@@ -75,9 +74,7 @@ class RpmLifecycle(unittest.TestCase):
         files = subprocess.check_output(["rpm", "-qpl", str(package)], text=True).splitlines()
         self.assertNotIn(REPO, files)
         self.assertFalse(any("usagestat-rpm-update" in path for path in files))
-        self.assertIn("/usr/lib/systemd/user/usagestat-package-sync.service", files)
         scripts = subprocess.check_output(["rpm", "-qp", "--scripts", str(package)], text=True)
-        self.assertIn("rpm-service-sync.py", scripts)
         self.assertNotIn("usagestat-rpm-update.timer", scripts)
 
 

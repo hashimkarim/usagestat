@@ -39,6 +39,8 @@ mod run_usage;
 mod settings;
 mod status_monitor;
 mod sync;
+#[cfg(unix)]
+mod upgrade;
 use usagestat_core::usage_daily::UsageModelDaily as ModelAggregate;
 
 #[derive(Debug, Parser)]
@@ -92,8 +94,13 @@ struct AppState {
 }
 
 fn main() -> Result<()> {
+    // Kept for an in-place restart after an upgrade, before the settings
+    // below edit this process's environment.
+    let launch_args: Vec<std::ffi::OsString> = std::env::args_os().skip(1).collect();
+    let launch_env: Vec<(std::ffi::OsString, std::ffi::OsString)> = std::env::vars_os().collect();
     let mut cli = Cli::parse();
     let mut owner = None;
+    let mut installed_binary = None;
     if let Some(path) = &cli.service_settings {
         use usagestat_core::daemon_settings::{DaemonSettings, T3Mode};
         let settings = DaemonSettings::load(path)?.context("daemon settings are missing")?;
@@ -107,6 +114,7 @@ fn main() -> Result<()> {
             (settings.t3_mode == T3Mode::Auto).then_some(installation.management_key_file);
         cli.control_key_file = Some(installation.control_key_file);
         owner = Some(installation.owner);
+        installed_binary = Some(installation.binary);
         // This is the binary's single-threaded entry, before logging, signals,
         // HTTP clients or provider workers can read environment variables.
         unsafe {
@@ -210,6 +218,12 @@ fn main() -> Result<()> {
     // Build daily model history away from the HTTP/UI path. Per-file caches
     // survive restarts; subsequent passes only parse changed transcripts.
     // Ingestion-only services (--no-poll) never read provider logs.
+    // Only service daemons follow upgrades; one-off and development runs do not.
+    let restart = Arc::new(AtomicBool::new(false));
+    #[cfg(unix)]
+    if let Some(path) = installed_binary.clone() {
+        upgrade::start(path, Arc::clone(&shutdown), Arc::clone(&restart));
+    }
     if !cli.no_poll {
         start_usage_summarizer(Arc::clone(&state), Arc::clone(&shutdown));
         start_status_poller(Arc::clone(&state), Arc::clone(&shutdown));
@@ -238,6 +252,18 @@ fn main() -> Result<()> {
             }
         }
     }
+    #[cfg(unix)]
+    if result.is_ok()
+        && restart.load(Ordering::SeqCst)
+        && let Some(path) = installed_binary
+    {
+        drop(_profile_lock);
+        let error = upgrade::exec(&path, &launch_args, &launch_env);
+        // Exit non-zero so the service manager restarts the daemon instead.
+        anyhow::bail!("restart into upgraded daemon {}: {error}", path.display());
+    }
+    #[cfg(not(unix))]
+    let _ = (launch_args, launch_env, restart, installed_binary);
     result
 }
 

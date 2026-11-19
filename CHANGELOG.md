@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- A managed daemon now restarts itself into an upgraded executable. It checks its installed path once a minute and, after a replacement has settled for 30 seconds and reports a `usagestatd` version, shuts down normally and re-executes in place with the same process, settings and autostart. This works for every package format that replaces the file in place. Upgrading to this version still needs one manual restart; Homebrew needs `usagestat daemon relocate`.
+- Remove the RPM post-transaction restart hook (`usagestat-package-sync.service`, `service-sync.py`, `rpm-service-sync.py`) and the RPM's `python3` dependency. On SELinux-enforcing Fedora its root-to-user-session call failed silently, so it never restarted the daemon.
+
 ## 2.3.0 - 2026-11-19
 
 - Add time span and grouping controls to dashboard charts. Usage History plots saved local tokens, cost and cache summed per day, week or month; Cost History, the History page and the activity heatmap gain span controls.

@@ -15,7 +15,6 @@ BuildRequires:  openssl-devel
 BuildRequires:  pkgconfig
 BuildRequires:  rust
 BuildRequires:  systemd-rpm-macros
-Requires:       python3
 %{?systemd_ordering}
 
 %description
@@ -32,9 +31,6 @@ install -Dm0755 target/release/usagestat %{buildroot}%{_bindir}/usagestat
 install -Dm0755 target/release/usagestatd %{buildroot}%{_bindir}/usagestatd
 mkdir -p %{buildroot}%{_datadir}/usagestat/plugins
 cp -a plugins/. %{buildroot}%{_datadir}/usagestat/plugins/
-install -Dm0644 tools/updates/service-sync.py %{buildroot}%{_libexecdir}/usagestat/service-sync.py
-install -Dm0644 tools/updates/rpm-service-sync.py %{buildroot}%{_libexecdir}/usagestat/rpm-service-sync.py
-install -Dm0644 tools/updates/usagestat-package-sync.service %{buildroot}%{_userunitdir}/usagestat-package-sync.service
 %if ! 0%{?usagestat_alpha}
 install -Dm0644 tools/updates/usagestat-rpm-update.service %{buildroot}%{_unitdir}/usagestat-rpm-update.service
 install -Dm0644 tools/updates/usagestat-rpm-update.timer %{buildroot}%{_unitdir}/usagestat-rpm-update.timer
@@ -49,11 +45,6 @@ cargo test --locked -p usagestat-cli -p usagestat-daemon
 %systemd_post usagestat-rpm-update.timer
 %endif
 
-%posttrans
-# Probe only RPM-owned running readback services, after all replacement files
-# are installed. This helper never changes daemon intent or SDK installations.
-/usr/bin/python3 %{_libexecdir}/usagestat/rpm-service-sync.py || :
-
 %preun
 %if ! 0%{?usagestat_alpha}
 %systemd_preun usagestat-rpm-update.timer
@@ -64,8 +55,6 @@ cargo test --locked -p usagestat-cli -p usagestat-daemon
 %{_bindir}/usagestat
 %{_bindir}/usagestatd
 %{_datadir}/usagestat/plugins
-%{_libexecdir}/usagestat
-%{_userunitdir}/usagestat-package-sync.service
 %if ! 0%{?usagestat_alpha}
 %{_unitdir}/usagestat-rpm-update.service
 %{_unitdir}/usagestat-rpm-update.timer

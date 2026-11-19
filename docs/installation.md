@@ -243,29 +243,28 @@ and provider setup details are in the [CLI reference](cli.md).
 | Ubuntu PPA | `sudo apt update`, then `sudo apt install --only-upgrade usagestat` |
 | Manual / source | Repeat the download or build/install steps for the new release, replacing both binaries and refreshing bundled plugins. |
 
-If the managed daemon is running, run `usagestat daemon stop` followed by
-`usagestat daemon start` after upgrading to restart it with the updated binary.
-This preserves its saved T3 mode and
-does not change whether it starts at login. Leave a deliberately stopped daemon
-stopped. RPMs from v2.0.1 include the automatic synchronization described
-below; other installation channels still use this manual restart.
-For a foreground daemon, stop it and launch `usagestatd` again. Then check
-`usagestat --version` and `usagestat daemon status`.
+A running managed daemon follows upgrades by itself. Once a minute it checks
+its installed executable; when a package manager has replaced it and the new
+file has stayed unchanged for 30 seconds and reports a `usagestatd` version, the
+daemon shuts down normally, saving its state, and restarts in
+place into the new version. It keeps its process, settings, T3 mode and
+autostart. This works for RPM, deb, AUR, npm and manual installs that replace
+the file at the same path, and needs no package scriptlet. A stopped daemon
+stays stopped, and foreground or development runs are not watched.
+
+These cases still need a manual restart (`usagestat daemon stop`, then
+`usagestat daemon start`):
+
+- Upgrading *to* the first version with this behavior, because the daemon that
+  is running when you upgrade does not have it yet.
+- Homebrew, which installs each version under a new `Cellar` path. Run
+  `usagestat daemon relocate` after `brew upgrade` (see the [CLI reference](cli.md)).
+- Windows, which cannot replace a running executable. Stop the daemon before
+  upgrading and start it afterwards.
+
+Check the result with `usagestat --version` and `usagestat daemon status`.
 
 ### Automatic updates on Fedora
-
-RPMs from v2.0.1 ship update support in the package. The immutable v2.0.0 RPM
-does not contain these units or hooks; upgrade to the published v2.0.1 RPM to
-receive them. No source-checkout installer is needed.
-
-After a package transaction, the RPM queues `usagestat-package-sync.service`
-in existing user managers. The helper verifies the managed native service's
-saved `/usr` owner, registered command, running executable and loopback health.
-It restarts only an already-running RPM-owned `usagestat.service` whose binary
-was replaced, then confirms the new executable and healthy version. Settings,
-T3 credentials, provider data and autostart remain with the existing service.
-Stopped services, unmanaged units and SDK ingestion installations are preserved.
-This hook also works for ordinary manual DNF upgrades.
 
 Stable RPMs include the `hashimkarim/usagestat` COPR feed configuration with RPM
 signature checks enabled, as `%config(noreplace)`, preserving administrator edits. Alpha packages do not
@@ -279,21 +278,19 @@ sudo systemctl enable --now usagestat-rpm-update.timer
 The timer checks daily, with up to 30 minutes of random delay and a catch-up
 after the machine was off. DNF5 upgrades `usagestat` and required dependencies,
 selects Usagestat from the stable feed, and retains RPM signature checks. It
-does not enroll the rest of the OS in automatic updates. Enabling downloads is
-separate from applying an installed upgrade to a running daemon; package
-installation follows the system's timer preset policy.
+does not enroll the rest of the OS in automatic updates. Package installation
+follows the system's timer preset policy.
 
-Check the two parts independently:
+Check the timer with:
 
 ```bash
-journalctl --user -u usagestat-package-sync.service
 systemctl list-timers usagestat-rpm-update.timer
 journalctl -u usagestat-rpm-update.service
 ```
 
 To disable daily downloads, run `sudo systemctl disable --now
-usagestat-rpm-update.timer`. Ordinary package upgrades and their service
-synchronization continue to work.
+usagestat-rpm-update.timer`. Manual upgrades keep working, and the running
+daemon still restarts into them.
 
 ## Remove
 
