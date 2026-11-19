@@ -264,7 +264,7 @@ fn money(window: &Value) -> String {
     }
 }
 
-fn tokens(n: u64) -> String {
+pub(crate) fn tokens(n: u64) -> String {
     match n {
         n if n >= 1_000_000_000 => format!("{:.2}B", n as f64 / 1e9),
         n if n >= 1_000_000 => format!("{:.1}M", n as f64 / 1e6),

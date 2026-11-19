@@ -7,6 +7,7 @@ mod history;
 mod project;
 mod sessions;
 mod statusline;
+mod whatif;
 
 use anyhow::{Context, Result};
 use chrono::{Local, Utc};
@@ -121,6 +122,26 @@ enum Command {
         /// Only sessions in the repository of the current directory
         #[arg(long)]
         here: bool,
+        /// Daemon address (defaults to the managed service address, then 127.0.0.1:6736)
+        #[arg(long, value_name = "ADDRESS:PORT")]
+        bind: Option<std::net::SocketAddr>,
+    },
+    /// Recost local agent usage as if it had run on another model
+    ///
+    /// Same token counts at the other model's base API rates. Reads the
+    /// running daemon only.
+    Whatif {
+        /// Model to price the usage at, such as claude-sonnet-5-5
+        model: String,
+        /// Log source to recost (default: the one matching the model's vendor)
+        #[arg(long, value_name = "claude|codex|gemini|amp")]
+        provider: Option<String>,
+        /// Only usage that ran on this model
+        #[arg(long, value_name = "MODEL")]
+        from: Option<String>,
+        /// Only the last N days (default 30; 0 for all time)
+        #[arg(long, default_value_t = 30)]
+        days: u32,
         /// Daemon address (defaults to the managed service address, then 127.0.0.1:6736)
         #[arg(long, value_name = "ADDRESS:PORT")]
         bind: Option<std::net::SocketAddr>,
@@ -532,6 +553,23 @@ fn run_cli() -> Result<()> {
             json,
         });
     }
+    if let Some(Command::Whatif {
+        model,
+        provider,
+        from,
+        days,
+        bind,
+    }) = &cli.command
+    {
+        return whatif::run(whatif::Options {
+            model: model.clone(),
+            provider: provider.clone(),
+            from: from.clone(),
+            days: (*days > 0).then_some(*days),
+            bind: *bind,
+            json,
+        });
+    }
     if let Some(Command::Statusline { provider_ids, bind }) = &cli.command {
         return statusline::run(statusline::Options {
             providers: provider_ids.clone(),
@@ -573,6 +611,7 @@ fn run_cli() -> Result<()> {
         | Command::Dashboard { .. }
         | Command::Statusline { .. }
         | Command::Sessions { .. }
+        | Command::Whatif { .. }
         | Command::Project { .. } => {
             unreachable!("daemon and dashboard commands are handled before provider discovery")
         }
@@ -825,6 +864,7 @@ fn effective_args() -> Vec<OsString> {
                     | "statusline"
                     | "project"
                     | "sessions"
+                    | "whatif"
                     | "doctor"
                     | "capabilities"
                     | "list"

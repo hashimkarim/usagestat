@@ -112,6 +112,22 @@ pub(super) fn needs_reprice(event: &LocalUsageEvent) -> bool {
     })
 }
 
+/// What an event's tokens would cost on another model, at base rates: cached
+/// rows no longer have request boundaries, so long-context tiers are skipped.
+pub(super) fn cost_as(event: &LocalUsageEvent, model: &str) -> Option<f64> {
+    rates(model)?;
+    let mut copy = LocalUsageEvent {
+        model: model.to_string(),
+        input_tokens: event.input_tokens,
+        output_tokens: event.output_tokens,
+        cache_read_tokens: event.cache_read_tokens,
+        cache_creation_tokens: event.cache_creation_tokens,
+        ..LocalUsageEvent::default()
+    };
+    price(&mut copy, false);
+    copy.cost_known.then_some(copy.cost_usd)
+}
+
 pub(super) fn apply(event: &mut LocalUsageEvent) {
     price(event, true);
 }
@@ -229,6 +245,20 @@ pub(super) fn backfill_daily(row: &mut usagestat_core::usage_daily::UsageDailyRo
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn cost_as_reprices_tokens_at_another_models_base_rates() {
+        let event = LocalUsageEvent {
+            model: "claude-opus-5-5".into(),
+            input_tokens: 1_000_000,
+            output_tokens: 1_000_000,
+            cache_read_tokens: 1_000_000,
+            ..LocalUsageEvent::default()
+        };
+        // Sonnet 5.5: $2 input, $10 output, $0.10 cached input per million.
+        assert!((cost_as(&event, "claude-sonnet-5-5").unwrap() - 12.1).abs() < 1e-9);
+        assert_eq!(cost_as(&event, "not-a-model"), None);
+    }
 
     #[test]
     fn haiku_55_prompt_tier_counts_all_input_classes_but_not_output() {

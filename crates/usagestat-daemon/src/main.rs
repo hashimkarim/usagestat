@@ -807,6 +807,9 @@ fn serve_local_usage_report(rest: &str, query: &str) -> String {
     if parts.next().is_some() {
         return response_json(404, "Not Found", r#"{"error":"not_found"}"#);
     }
+    if report == "whatif" {
+        return serve_what_if(provider_id, query);
+    }
     let limit = if query.is_empty() {
         None
     } else {
@@ -864,6 +867,57 @@ fn serve_local_usage_report(rest: &str, query: &str) -> String {
             }
             log::warn!("local usage report failed: {e}");
             serve_saved_usage_report(provider_id, report)
+        }
+    }
+}
+
+/// `/v1/local-usage/<provider>/whatif?model=<id>[&days=N][&from=<id>]`: recost
+/// local usage as if it ran on another model.
+fn serve_what_if(provider_id: &str, query: &str) -> String {
+    let bad = |message: &str| {
+        response_json(
+            400,
+            "Bad Request",
+            &json!({"error":{"code":"BAD_WHATIF","message":message}}).to_string(),
+        )
+    };
+    fn model_id(v: &str) -> Option<&str> {
+        (!v.is_empty() && v.len() <= 128).then_some(v).filter(|v| {
+            v.chars()
+                .all(|c| c.is_ascii_alphanumeric() || "._-:".contains(c))
+        })
+    }
+    let (mut model, mut days, mut from) = (None, None, None);
+    for pair in query.split('&').filter(|p| !p.is_empty()) {
+        match pair.split_once('=') {
+            Some(("model", v)) => model = model_id(v),
+            Some(("from", v)) => from = model_id(v),
+            Some(("days", v)) => days = v.parse::<i64>().ok().filter(|d| (1..=3650).contains(d)),
+            _ => return bad("Unknown parameter; use model, days and from"),
+        }
+    }
+    let Some(model) = model else {
+        return bad("model is required, for example model=claude-sonnet-5-5");
+    };
+    let Some(source) = local_usage::LocalSource::from_alias(provider_id) else {
+        return bad("What-if needs a local log source: claude, codex, gemini or amp");
+    };
+    let since = days.map(|d| Utc::now() - chrono::Duration::days(d));
+    match local_usage_cache::with_events(source.id(), |events| {
+        local_usage::what_if(events, model, since, from)
+    }) {
+        Ok(Ok(body)) => response_json(200, "OK", &body.to_string()),
+        Ok(Err(error)) => bad(&error.to_string()),
+        Err(error) if error.is::<usagestat_core::provider_paths::ProviderPathError>() => {
+            provider_path_error_response()
+        }
+        Err(error) => {
+            log::warn!("what-if report failed: {error}");
+            response_json(
+                500,
+                "Internal Server Error",
+                r#"{"error":"whatif_unavailable"}"#,
+            )
         }
     }
 }

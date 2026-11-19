@@ -209,6 +209,29 @@ pub(super) fn report(provider: &str, report: &str) -> Result<String> {
 }
 
 pub(super) fn report_limited(provider: &str, report: &str, limit: Option<usize>) -> Result<String> {
+    let cache = refreshed(provider)?;
+    let mut cache = cache.lock().unwrap_or_else(|e| e.into_inner());
+    cache.report_limited(report, limit)
+}
+
+/// Run `f` over the provider's deduplicated events, refreshing from logs first.
+pub(super) fn with_events<T>(
+    provider: &str,
+    f: impl FnOnce(&[&LocalUsageEvent]) -> T,
+) -> Result<T> {
+    let cache = refreshed(provider)?;
+    let cache = cache.lock().unwrap_or_else(|e| e.into_inner());
+    let events = super::codex_usage::unique(
+        &cache
+            .files
+            .values()
+            .flat_map(|file| file.events.iter())
+            .collect::<Vec<_>>(),
+    );
+    Ok(f(&events))
+}
+
+fn refreshed(provider: &str) -> Result<Arc<Mutex<Cache>>> {
     type Key = (PathBuf, String, Vec<PathBuf>);
     type SharedCache = Arc<Mutex<Cache>>;
     static CACHES: OnceLock<Mutex<HashMap<Key, SharedCache>>> = OnceLock::new();
@@ -237,7 +260,8 @@ pub(super) fn report_limited(provider: &str, report: &str, limit: Option<usize>)
             Arc::new(Mutex::new(cache))
         })
         .clone();
-    let mut cache = cache.lock().unwrap_or_else(|e| e.into_inner());
+    let shared = cache;
+    let mut cache = shared.lock().unwrap_or_else(|e| e.into_inner());
     if cache.checked.is_none_or(|at| at.elapsed() >= TTL) {
         let files = roots.iter().flat_map(|root| source.files(root)).collect();
         let changed = cache.refresh(files, |path| {
@@ -259,7 +283,8 @@ pub(super) fn report_limited(provider: &str, report: &str, limit: Option<usize>)
         let daily = cache.report("daily")?;
         usage_daily::ingest_json(provider, &daily)?;
     }
-    cache.report_limited(report, limit)
+    drop(cache);
+    Ok(shared)
 }
 
 #[cfg(test)]

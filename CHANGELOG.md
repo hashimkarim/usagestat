@@ -15,6 +15,7 @@
 - Show live provider incidents from Statuspage.io status pages (Claude, OpenAI/Codex, Copilot, Droid, Augment, Deepgram, ElevenLabs, ZoomMate) as badges on cards and provider tabs, via the new `/v1/status` route. Checks run every 5 minutes without credentials; `USAGESTAT_STATUS_CHECKS=0` turns them off. See [docs/provider-status.md](docs/provider-status.md).
 - Add a provisioning-ready Grafana dashboard for `/metrics` in [docs/grafana](docs/grafana/README.md).
 - Add `usagestat project`: local agent cost and tokens for the repository you're in, per agent and in total. Projects now resolve live subfolders and linked git worktrees to their main repository (cache v12, rebuilt once).
+- Add `usagestat whatif <model>` and `/v1/local-usage/<provider>/whatif`: recost local usage at another model's base API rates.
 - Add `usagestat sessions`: the costliest agent sessions across Claude Code, Codex, Gemini CLI and Amp, filterable by days and project. Session reports gain first activity and branch; the Sessions tab shows branch, main model and duration.
 - Add plan value: set a provider's monthly plan price in display settings to compare it with this month's API-equivalent cost, projection and cache savings, per provider and on the Overview.
 - Add run-out forecasts: when a quota window is on track to run out before its reset at the current rate, quota bars and `usagestat statusline` say when. A new `quota_forecast` hook event alerts once per window.

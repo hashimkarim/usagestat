@@ -475,6 +475,65 @@ fn bucket_key_for(ts: DateTime<Utc>, bucket: Bucket) -> String {
     }
 }
 
+/// Recost events since `since` (optionally only those on `from`) as if they ran
+/// on `model`. Per source model: actual cost and the recost, at base rates.
+pub(super) fn what_if(
+    events: &[&LocalUsageEvent],
+    model: &str,
+    since: Option<DateTime<Utc>>,
+    from: Option<&str>,
+) -> Result<JsonValue> {
+    use serde_json::json;
+    let family = |m: &str| {
+        m.split(['-', '.'])
+            .next()
+            .unwrap_or_default()
+            .to_ascii_lowercase()
+    };
+    if pricing::cost_as(&LocalUsageEvent::default(), model).is_none() {
+        anyhow::bail!("no verified price for model {model}");
+    }
+    #[derive(Default)]
+    struct Row {
+        tokens: u64,
+        actual: f64,
+        actual_known: bool,
+        recost: f64,
+    }
+    let mut rows: BTreeMap<String, Row> = BTreeMap::new();
+    for event in events {
+        if since.is_some_and(|s| event.ts < s) || from.is_some_and(|f| event.model != f) {
+            continue;
+        }
+        let row = rows.entry(event.model.clone()).or_insert(Row {
+            actual_known: true,
+            ..Default::default()
+        });
+        row.tokens += event.metrics().total_tokens;
+        row.actual += event.cost_usd;
+        row.actual_known &= event.cost_known;
+        row.recost += pricing::cost_as(event, model).unwrap_or(0.0);
+    }
+    let models: Vec<_> = rows
+        .iter()
+        .map(|(name, r)| {
+            json!({"model": name, "totalTokens": r.tokens, "costUsd": r.actual,
+                "costKnown": r.actual_known, "whatIfCostUsd": r.recost})
+        })
+        .collect();
+    let actual: f64 = rows.values().map(|r| r.actual).sum::<f64>() + 0.0;
+    let recost: f64 = rows.values().map(|r| r.recost).sum::<f64>() + 0.0;
+    Ok(json!({
+        "model": model, "since": since.map(|s| s.to_rfc3339()), "from": from,
+        "costUsd": actual, "costKnown": rows.values().all(|r| r.actual_known),
+        "whatIfCostUsd": recost,
+        "crossProvider": rows.keys().any(|m| family(m) != family(model)),
+        "costSource": "api-rate-estimate",
+        "note": "Base API rates for the same token counts. Long-context tiers are not applied, and another model would have used a different number of tokens.",
+        "models": models,
+    }))
+}
+
 #[cfg(test)]
 pub(super) fn report<'a>(
     events: impl Iterator<Item = &'a LocalUsageEvent>,
@@ -702,6 +761,26 @@ mod report_tests {
             .collect();
         rows.sort_by(|a, b| a.0.cmp(b.0));
         assert_eq!(rows, [("", 0.25), ("feat/x", 1.0), ("main", 0.5)]);
+    }
+
+    #[test]
+    fn what_if_recosts_the_window_on_another_model() {
+        let mut opus = event("2026-11-18T09:00:00Z", "a", "app", 0, 9.0);
+        opus.model = "claude-opus-5-5".into();
+        opus.output_tokens = 1_000_000;
+        let mut old = opus.clone();
+        old.ts = "2026-10-01T00:00:00Z".parse().unwrap();
+        let since = Some("2026-11-01T00:00:00Z".parse().unwrap());
+        let body = what_if(&[&opus, &old], "claude-sonnet-5-5", since, None).unwrap();
+        assert_eq!(body["costUsd"], 9.0);
+        assert!((body["whatIfCostUsd"].as_f64().unwrap() - 10.0).abs() < 1e-9);
+        assert_eq!(body["crossProvider"], false);
+        assert_eq!(body["models"][0]["model"], "claude-opus-5-5");
+        assert_eq!(
+            what_if(&[&opus], "gpt-6.1-sol", None, None).unwrap()["crossProvider"],
+            true
+        );
+        assert!(what_if(&[&opus], "made-up", None, None).is_err());
     }
 
     #[test]

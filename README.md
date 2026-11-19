@@ -227,6 +227,16 @@ the count with `--limit`. A session's cost is its whole cost, including days
 before the window. The dashboard's Sessions tab shows the same ranking per
 provider.
 
+### What if another model
+
+`usagestat whatif claude-sonnet-5-5` recosts the last 30 days of local usage at
+another model's API rates, per model used, for example
+`Total $2370.49 → $1187.69 (-50%)`. It picks the log source matching the
+model's vendor; use `--provider`, `--from MODEL` to recost only one model's
+usage, and `--days` (0 for all time). It's a rough guide: it applies base rates
+to the same token counts, while another model would have used a different number
+of tokens.
+
 ### Agent statuslines
 
 `usagestat statusline` prints one line of quotas, reset times and today's cost
@@ -449,6 +459,10 @@ Endpoints in the source checkout:
 - `GET /v1/usage`
 - `GET /v1/usage/:providerId`
 - `GET /v1/status` ([provider incident status](docs/provider-status.md))
+- `GET /v1/local-usage/:source/:report` for `claude`, `codex`, `gemini` or
+  `amp` (`daily`, `weekly`, `monthly`, `hourly`, `projects`, `branches`,
+  `session`, `blocks`, `models`), and
+  `GET /v1/local-usage/:source/whatif?model=…&days=…&from=…`
 - `GET /metrics` (Prometheus; see the [Grafana dashboard](docs/grafana/README.md))
 - `GET /v0/management/quota-scheduler/status` (opt-in, management key required)
 
