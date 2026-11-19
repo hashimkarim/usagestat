@@ -15,6 +15,9 @@ pub(super) struct LocalUsageEvent {
     pub ts: DateTime<Utc>,
     pub session_id: String,
     pub project: String,
+    /// Git branch the agent was on, when its log records one.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub branch: String,
     pub model: String,
     pub input_tokens: u64,
     pub output_tokens: u64,
@@ -69,6 +72,8 @@ pub(super) struct UsageAggregate {
     pub date: String,
     #[serde(skip_serializing_if = "String::is_empty")]
     pub project: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub branch: Option<String>,
     #[serde(flatten)]
     pub usage: ModelAggregate,
     pub models: BTreeMap<String, ModelAggregate>,
@@ -181,11 +186,18 @@ pub(super) fn scan_claude_file(path: &Path, events: &mut Vec<LocalUsageEvent>) -
             .and_then(JsonValue::as_str)
             .map(project_label)
             .unwrap_or_else(|| fallback_project.clone());
+        let branch = v
+            .get("gitBranch")
+            .and_then(JsonValue::as_str)
+            .filter(|b| !b.is_empty() && *b != "HEAD")
+            .unwrap_or_default()
+            .to_string();
 
         let mut event = LocalUsageEvent {
             ts,
             session_id,
             project,
+            branch,
             model,
             input_tokens: input,
             output_tokens: output,
@@ -332,28 +344,42 @@ pub(super) fn aggregate_usage<'a>(
     events: impl IntoIterator<Item = &'a LocalUsageEvent>,
     bucket: Bucket,
 ) -> Vec<UsageAggregate> {
-    aggregate_by(events, bucket, false)
+    aggregate_by(events, bucket, Split::None)
 }
 
-/// Rows per period, optionally split by project. Newest period first.
+#[derive(Copy, Clone, PartialEq)]
+enum Split {
+    None,
+    Project,
+    /// Project and git branch; events without a branch get an empty one.
+    Branch,
+}
+
+/// Rows per period, optionally split by project or branch. Newest period first.
 fn aggregate_by<'a>(
     events: impl IntoIterator<Item = &'a LocalUsageEvent>,
     bucket: Bucket,
-    by_project: bool,
+    split: Split,
 ) -> Vec<UsageAggregate> {
-    let mut map: BTreeMap<(String, String), UsageAggregate> = BTreeMap::new();
+    let mut map: BTreeMap<(String, String, String), UsageAggregate> = BTreeMap::new();
     for event in events {
         let key = bucket_key_for(event.ts, bucket);
-        let project = if by_project {
+        let project = if split == Split::None {
+            String::new()
+        } else {
             event.project.clone()
+        };
+        let branch = if split == Split::Branch {
+            event.branch.clone()
         } else {
             String::new()
         };
         let row = map
-            .entry((key.clone(), project.clone()))
+            .entry((key.clone(), project.clone(), branch.clone()))
             .or_insert_with(|| UsageAggregate {
                 date: key,
                 project,
+                branch: (split == Split::Branch).then_some(branch),
                 ..Default::default()
             });
         let metrics = event.metrics();
@@ -452,7 +478,8 @@ pub(super) fn report_limited<'a>(
     let mut value = match report {
         "daily" | "models" => json!({"daily": aggregate_usage(events, Bucket::Day)}),
         "hourly" => json!({"hourly": aggregate_usage(events, Bucket::Hour)}),
-        "projects" => json!({"projects": aggregate_by(events, Bucket::Day, true)}),
+        "projects" => json!({"projects": aggregate_by(events, Bucket::Day, Split::Project)}),
+        "branches" => json!({"branches": aggregate_by(events, Bucket::Day, Split::Branch)}),
         "weekly" => json!({"weekly": aggregate_usage(events, Bucket::Week)}),
         "monthly" => json!({"monthly": aggregate_usage(events, Bucket::Month)}),
         "session" => json!({"sessions": aggregate_sessions(events)}),
@@ -528,6 +555,18 @@ mod claude_tests {
         assert_eq!(total[0].usage.total_tokens, 396);
         assert_eq!(total[0].usage.sessions, Some(1));
         assert!((total[0].usage.cost_usd - 0.000984).abs() < 1e-12);
+    }
+
+    #[test]
+    fn claude_events_keep_the_git_branch() {
+        let mut on_branch = row();
+        on_branch["gitBranch"] = json!("feat/x");
+        let mut detached = row();
+        detached["requestId"] = json!("other");
+        detached["gitBranch"] = json!("HEAD");
+        let events = scan_rows(vec![on_branch, detached]);
+        let branches: Vec<_> = events.iter().map(|e| e.branch.as_str()).collect();
+        assert_eq!(branches, ["feat/x", ""]);
     }
 
     #[test]
@@ -624,6 +663,31 @@ mod report_tests {
                 ("2026-11-18", "usagestat", 3.0, 1)
             ]
         );
+    }
+
+    #[test]
+    fn branch_report_splits_a_project_by_git_branch() {
+        let mut feature = event("2026-11-18T09:10:00Z", "a", "usagestat", 10, 1.0);
+        feature.branch = "feat/x".into();
+        let mut main = event("2026-11-18T10:00:00Z", "a", "usagestat", 5, 0.5);
+        main.branch = "main".into();
+        let none = event("2026-11-18T11:00:00Z", "b", "usagestat", 1, 0.25);
+        let body: JsonValue =
+            serde_json::from_str(&report([feature, main, none].iter(), "branches").unwrap())
+                .unwrap();
+        let mut rows: Vec<_> = body["branches"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|r| {
+                (
+                    r["branch"].as_str().unwrap(),
+                    r["costUsd"].as_f64().unwrap(),
+                )
+            })
+            .collect();
+        rows.sort_by(|a, b| a.0.cmp(b.0));
+        assert_eq!(rows, [("", 0.25), ("feat/x", 1.0), ("main", 0.5)]);
     }
 }
 

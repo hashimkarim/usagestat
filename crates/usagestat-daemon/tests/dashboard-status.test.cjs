@@ -108,3 +108,18 @@ test('an older daemon without the route keeps the dashboard working', async () =
   ui.run('renderOverview()');
   assert.ok(!ui.element('grid').innerHTML.includes('b-incident'));
 });
+
+test('project table expands a project into its git branches', () => {
+  const ui = dashboard();
+  ui.context.rows = [
+    { date: '2026-11-18', project: 'app', branch: 'feat/x', costUsd: 3, totalTokens: 30, models: {} },
+    { date: '2026-11-17', project: 'app', branch: '', costUsd: 1, totalTokens: 10, models: {} },
+    { date: '2026-11-18', project: 'site', costUsd: 0.5, totalTokens: 5, models: {} },
+  ];
+  const html = ui.run('projectTable(rows)');
+  assert.match(html, /<tr class="project-row"[^>]*data-project="0"><td title="app">/);
+  assert.match(html, /<tr class="branch-row" data-parent="0" hidden><td title="feat\/x">feat\/x<\/td><td>\$3\.00<\/td><td>75% of project/);
+  assert.match(html, /<td title="no branch recorded">\(no branch\)/);
+  // A project with no recorded branch is not expandable.
+  assert.match(html, /<tr data-project="1"><td title="site">site/);
+});

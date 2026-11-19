@@ -573,6 +573,12 @@ header{
 .project-table td:first-child{max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .project-share{display:inline-block;width:60px;height:6px;border-radius:3px;background:var(--s2);margin-right:8px;vertical-align:middle;overflow:hidden}
 .project-share span{display:block;height:100%;background:var(--blue)}
+.project-row{cursor:pointer}
+.project-row:focus-visible{outline:2px solid var(--blue);outline-offset:-2px}
+.branch-caret{display:inline-block;width:1em;color:var(--su);transition:transform .15s}
+.project-row[aria-expanded="true"] .branch-caret{transform:rotate(90deg)}
+.branch-row td{color:var(--mu);font-size:12px}
+.branch-row td:first-child{padding-left:28px}
 .hour-bars{display:grid;grid-template-columns:repeat(24,minmax(0,1fr));gap:3px;align-items:end;height:120px;margin-top:6px}
 .hour-bar{height:100%;display:flex;align-items:flex-end}
 .hour-bar span{display:block;width:100%;min-height:1px;border-radius:3px 3px 0 0;background:color-mix(in srgb,var(--blue) 75%,var(--s2))}
@@ -2866,7 +2872,8 @@ function renderStatsSection(id, snap, rawHistory, reports){
   box.querySelectorAll('.usage-tab').forEach(btn=>{if(btn.dataset.panel===selected)btn.click();});
 }
 
-const LOCAL_PANEL_REPORTS = {sessions:'session', blocks:'blocks', projects:'projects', hours:'hourly'};
+// Branch rows carry the project too, so the Projects tab reads them to expand a project by branch.
+const LOCAL_PANEL_REPORTS = {sessions:'session', blocks:'blocks', projects:'branches', hours:'hourly'};
 const LOCAL_SPANS = [['7','7D'],['30','30D'],['90','90D'],['all','All']];
 function localSpan(id, panel){ return S.localSpans?.[id+':'+panel] || '30'; }
 function setLocalSpan(id, panel, span){
@@ -2892,19 +2899,35 @@ function projectTable(rows){
   const map = new Map();
   for(const r of rows){
     const name = r.project || 'unknown';
-    if(!map.has(name)) map.set(name, {name, rows:[], days:new Set(), last:''});
+    if(!map.has(name)) map.set(name, {name, rows:[], days:new Set(), last:'', branches:new Map()});
     const p = map.get(name); p.rows.push(r); p.days.add(r.date); if(r.date>p.last) p.last=r.date;
+    const b = r.branch || '';
+    if(!p.branches.has(b)) p.branches.set(b, {name:b, rows:[], last:''});
+    const br = p.branches.get(b); br.rows.push(r); if(r.date>br.last) br.last=r.date;
   }
   const projects = [...map.values()].map(p=>({...p, totals:usageTotals(p.rows)})).sort((a,b)=>b.totals.cost-a.totals.cost||b.totals.totalTokens-a.totals.totalTokens);
   const total = projects.reduce((n,p)=>n+p.totals.cost,0);
   let html = `<table class="usage-table project-table"><thead><tr><th>Project</th><th>Cost</th><th>Share</th><th>Tokens</th><th>Active days</th><th>Last active</th></tr></thead><tbody>`;
-  for(const p of projects.slice(0,50)){
+  projects.slice(0,50).forEach((p,i)=>{
     const share = total>0 ? p.totals.cost/total*100 : 0;
-    html+=`<tr><td title="${esc(p.name)}">${esc(p.name)}</td><td>${recordedCost(p.totals)}</td><td><span class="project-share"><span style="width:${share.toFixed(1)}%"></span></span>${share.toFixed(share<10?1:0)}%</td><td>${fmtTok(p.totals.totalTokens)}</td><td>${p.days.size}</td><td>${esc(fmtDay(p.last))}</td></tr>`;
-  }
+    const branches = [...p.branches.values()].map(b=>({...b, totals:usageTotals(b.rows)})).sort((a,b)=>b.totals.cost-a.totals.cost);
+    const named = branches.some(b=>b.name);
+    const toggle = named ? ` class="project-row" tabindex="0" role="button" aria-expanded="false" onclick="toggleBranches(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleBranches(this)}"` : '';
+    html+=`<tr${toggle} data-project="${i}"><td title="${esc(p.name)}">${named?'<span class="branch-caret">▸</span>':''}${esc(p.name)}</td><td>${recordedCost(p.totals)}</td><td><span class="project-share"><span style="width:${share.toFixed(1)}%"></span></span>${share.toFixed(share<10?1:0)}%</td><td>${fmtTok(p.totals.totalTokens)}</td><td>${p.days.size}</td><td>${esc(fmtDay(p.last))}</td></tr>`;
+    if(named) for(const b of branches.slice(0,20)){
+      const bshare = p.totals.cost>0 ? b.totals.cost/p.totals.cost*100 : 0;
+      html+=`<tr class="branch-row" data-parent="${i}" hidden><td title="${esc(b.name||'no branch recorded')}">${esc(b.name||'(no branch)')}</td><td>${recordedCost(b.totals)}</td><td>${bshare.toFixed(bshare<10?1:0)}% of project</td><td>${fmtTok(b.totals.totalTokens)}</td><td></td><td>${esc(fmtDay(b.last))}</td></tr>`;
+    }
+  });
   html+=`</tbody></table>`;
   if(projects.length>50) html+=`<div class="small-note">Showing the 50 costliest of ${projects.length} projects.</div>`;
+  if(projects.some(p=>[...p.branches.keys()].some(Boolean))) html+=`<div class="small-note">Select a project to see its cost by git branch (Claude Code and Codex record the branch).</div>`;
   return html;
+}
+function toggleBranches(row){
+  const open = row.getAttribute('aria-expanded')!=='true';
+  row.setAttribute('aria-expanded', open);
+  row.closest('tbody').querySelectorAll(`.branch-row[data-parent="${row.dataset.project}"]`).forEach(r=>{ r.hidden = !open; });
 }
 // Hour-of-day totals and a weekday × hour grid, in the browser's time zone.
 function hourOfDayHtml(rows){
@@ -3488,6 +3511,7 @@ function reportRows(report, preferred){
   const keys = preferred==='session' ? ['sessions','session'] :
     preferred==='blocks' ? ['blocks'] :
     preferred==='projects' ? ['projects'] :
+    preferred==='branches' ? ['branches'] :
     preferred==='hourly' ? ['hourly'] :
     preferred==='weekly' ? ['weekly','weeks'] :
     preferred==='monthly' ? ['monthly','months'] :

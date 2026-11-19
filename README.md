@@ -212,6 +212,11 @@ worktrees) count toward the main repository. Pass a directory
 (`usagestat project ~/src/app`), `--name` to choose a project explicitly, or
 `--json` for structured output. It reads the running daemon.
 
+Add `--branches` to split the cost by git branch, so you can see what a feature
+branch cost. Claude Code and Codex record the branch in their logs; Gemini CLI
+and Amp do not. In the dashboard, select a row in a provider's Projects tab to
+expand it by branch.
+
 ### Agent statuslines
 
 `usagestat statusline` prints one line of quotas, reset times and today's cost

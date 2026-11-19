@@ -30,52 +30,61 @@ pub struct Options {
     pub path: Option<PathBuf>,
     pub name: Option<String>,
     pub bind: Option<SocketAddr>,
+    pub branches: bool,
     pub json: bool,
 }
 
 pub fn run(options: Options) -> Result<()> {
-    let dir = match &options.path {
-        Some(path) => path.clone(),
+    let report = fetch(options.path.as_deref(), options.name, options.bind)?;
+    if options.json {
+        println!("{}", serde_json::to_string_pretty(&report)?);
+        return Ok(());
+    }
+    let project = report["project"].as_str().unwrap_or_default();
+    print_text(project, &report["providers"]);
+    if options.branches {
+        print_branches(&report["branches"]);
+    }
+    Ok(())
+}
+
+/// The project's usage as JSON. Never prints, so the MCP server can reuse it.
+pub fn fetch(path: Option<&Path>, name: Option<String>, bind: Option<SocketAddr>) -> Result<Value> {
+    let dir = match path {
+        Some(path) => path.to_path_buf(),
         None => std::env::current_dir()?,
     };
-    let project = match options.name {
-        Some(name) => name,
-        None => project_for(&dir),
-    };
-    let base = daemon::dashboard_base_url(options.bind)?;
+    let project = name.unwrap_or_else(|| project_for(&dir));
+    let base = daemon::dashboard_base_url(bind)?;
     let client = daemon::local_client(Duration::from_secs(120))?;
     daemon::check_health(&base).with_context(|| {
         format!("the usagestat daemon is not responding at {base}; start it to read local usage")
     })?;
-    let mut rows: Vec<(String, Value)> = Vec::new();
-    for (id, name) in SOURCES {
-        let Ok(report) = client
-            .get(format!("{base}/v1/local-usage/{id}/projects"))
-            .send()
-            .and_then(|r| r.json::<Value>())
-        else {
-            continue;
-        };
-        for row in report["projects"].as_array().into_iter().flatten() {
-            if row["project"].as_str() == Some(project.as_str()) {
-                rows.push((name.to_string(), row.clone()));
+    let rows = |report: &str| {
+        let mut rows: Vec<(String, Value)> = Vec::new();
+        for (id, name) in SOURCES {
+            let Ok(body) = client
+                .get(format!("{base}/v1/local-usage/{id}/{report}"))
+                .send()
+                .and_then(|r| r.json::<Value>())
+            else {
+                continue;
+            };
+            for row in body[report].as_array().into_iter().flatten() {
+                if row["project"].as_str() == Some(project.as_str()) {
+                    rows.push((name.to_string(), row.clone()));
+                }
             }
         }
-    }
+        rows
+    };
     let today = Utc::now().date_naive();
-    let summary = summarize(&rows, today);
-    if options.json {
-        println!(
-            "{}",
-            serde_json::to_string_pretty(&json!({
-                "project": project, "directory": dir, "timeZone": "UTC",
-                "costSource": "api-rate-estimate", "providers": summary,
-            }))?
-        );
-        return Ok(());
-    }
-    print_text(&project, &summary);
-    Ok(())
+    Ok(json!({
+        "project": project, "directory": dir, "timeZone": "UTC",
+        "costSource": "api-rate-estimate",
+        "providers": summarize(&rows("projects"), today),
+        "branches": branches(&rows("branches"), today),
+    }))
 }
 
 /// The repository name for a directory, matching how the daemon labels log
@@ -157,6 +166,88 @@ fn summarize(rows: &[(String, Value)], today: NaiveDate) -> Value {
         );
     }
     Value::Object(out)
+}
+
+/// One row per branch and provider, costliest over 30 days first.
+fn branches(rows: &[(String, Value)], today: NaiveDate) -> Value {
+    let mut by: BTreeMap<(String, String), Vec<&Value>> = BTreeMap::new();
+    for (provider, row) in rows {
+        let branch = row["branch"].as_str().unwrap_or_default().to_string();
+        by.entry((branch, provider.clone())).or_default().push(row);
+    }
+    let sum = |rows: &[&Value], days: Option<i64>, key: &str| -> f64 {
+        let start = days.map(|d| (today - Days::days(d - 1)).to_string());
+        rows.iter()
+            .filter(|r| {
+                start
+                    .as_deref()
+                    .is_none_or(|s| r["date"].as_str().is_some_and(|d| d >= s))
+            })
+            .map(|r| r[key].as_f64().unwrap_or(0.0))
+            // An empty f64 sum is -0.0, which would print as "$-0.00".
+            .fold(0.0, |a, b| a + b)
+    };
+    let mut out: Vec<Value> = by
+        .iter()
+        .map(|((branch, provider), rows)| {
+            json!({
+                "branch": branch, "provider": provider,
+                "costUsd7d": sum(rows, Some(7), "costUsd"),
+                "costUsd30d": sum(rows, Some(30), "costUsd"),
+                "costUsd": sum(rows, None, "costUsd"),
+                "totalTokens": sum(rows, None, "totalTokens") as u64,
+                "lastActive": rows.iter().filter_map(|r| r["date"].as_str()).max(),
+            })
+        })
+        .collect();
+    out.sort_by(|a, b| {
+        b["costUsd30d"]
+            .as_f64()
+            .unwrap_or(0.0)
+            .total_cmp(&a["costUsd30d"].as_f64().unwrap_or(0.0))
+            .then(
+                b["costUsd"]
+                    .as_f64()
+                    .unwrap_or(0.0)
+                    .total_cmp(&a["costUsd"].as_f64().unwrap_or(0.0)),
+            )
+    });
+    Value::Array(out)
+}
+
+fn print_branches(rows: &Value) {
+    let rows = rows.as_array().map(Vec::as_slice).unwrap_or_default();
+    println!();
+    if rows.is_empty() {
+        println!(
+            "No git branch recorded. Claude Code and Codex logs record the branch; Gemini CLI and Amp do not."
+        );
+        return;
+    }
+    println!(
+        "{:<36}{:<8}{:>12}{:>12}{:>12}  {}",
+        "Branch", "Agent", "7 days", "30 days", "All time", "Last active"
+    );
+    for row in rows {
+        let branch = row["branch"]
+            .as_str()
+            .filter(|b| !b.is_empty())
+            .unwrap_or("(none)");
+        let branch = if branch.chars().count() > 34 {
+            format!("{}…", branch.chars().take(33).collect::<String>())
+        } else {
+            branch.to_string()
+        };
+        let cost = |key: &str| format!("${:.2}", row[key].as_f64().unwrap_or(0.0));
+        println!(
+            "{branch:<36}{:<8}{:>12}{:>12}{:>12}  {}",
+            row["provider"].as_str().unwrap_or("?"),
+            cost("costUsd7d"),
+            cost("costUsd30d"),
+            cost("costUsd"),
+            row["lastActive"].as_str().unwrap_or("—"),
+        );
+    }
 }
 
 fn money(window: &Value) -> String {
@@ -267,6 +358,30 @@ mod tests {
         assert_eq!(money(&s["Codex"]["windows"]["Today"]), "—");
         assert_eq!(money(&s["Total"]["windows"]["All time"]), "$10.00+");
         assert!(summarize(&rows[..1], today).get("Total").is_none());
+    }
+
+    #[test]
+    fn branches_rank_by_recent_cost_per_agent() {
+        let today = NaiveDate::from_ymd_opt(2026, 11, 18).unwrap();
+        let mut old = row("2026-09-01", 50.0, 10, true);
+        old["branch"] = json!("main");
+        let mut recent = row("2026-11-17", 4.0, 10, true);
+        recent["branch"] = json!("feat/x");
+        let mut also = row("2026-11-01", 1.0, 10, true);
+        also["branch"] = json!("feat/x");
+        let rows = vec![
+            ("Claude".to_string(), old),
+            ("Claude".to_string(), recent),
+            ("Claude".to_string(), also),
+        ];
+        let b = branches(&rows, today);
+        assert_eq!(b[0]["branch"], "feat/x");
+        assert_eq!(b[0]["costUsd7d"], 4.0);
+        assert_eq!(b[0]["costUsd30d"], 5.0);
+        assert_eq!(b[1]["branch"], "main");
+        assert_eq!(b[1]["costUsd30d"], 0.0);
+        assert!(b[1]["costUsd30d"].as_f64().unwrap().is_sign_positive());
+        assert_eq!(b[1]["costUsd"], 50.0);
     }
 
     #[test]

@@ -250,6 +250,7 @@ pub(super) fn scan(
     let mut session_id = fallback_session;
     let mut model = "unknown".to_string();
     let mut project = "unknown".to_string();
+    let mut branch = String::new();
     let mut boundary = None;
     let mut execution_session = None;
     let mut captured_metadata = false;
@@ -317,6 +318,9 @@ pub(super) fn scan(
             if let Some(cwd) = value.pointer("/payload/cwd").and_then(Value::as_str) {
                 project = project_label(cwd);
             }
+            if let Some(name) = value.pointer("/payload/git/branch").and_then(Value::as_str) {
+                branch = name.to_string();
+            }
         }
         let last = value
             .pointer("/payload/info/last_token_usage")
@@ -379,6 +383,7 @@ pub(super) fn scan(
                 event: LocalUsageEvent {
                     ts,
                     project: project.clone(),
+                    branch: branch.clone(),
                     model: request_model,
                     ..Default::default()
                 },
@@ -425,6 +430,7 @@ pub(super) fn scan(
                 ts,
                 session_id: session_id.clone(),
                 project: project.clone(),
+                branch: branch.clone(),
                 model: model.clone(),
                 input_tokens: usage[0],
                 output_tokens: usage[1],
@@ -999,6 +1005,15 @@ mod tests {
         assert_eq!(event.model, "gpt-5");
         assert_eq!(event.ts.to_rfc3339(), "2026-09-11T00:00:00+00:00");
         assert!(event.cost_usd > 0.0);
+    }
+
+    #[test]
+    fn session_git_branch_is_kept_on_events() {
+        let mut session = meta(json!(null));
+        session["payload"]["git"] = json!({"branch":"feat/codex"});
+        let events = parse(&[session, usage(json!(1), Some(100), 100)]);
+        assert_eq!(events.len(), 1);
+        assert_eq!(events[0].branch, "feat/codex");
     }
 
     #[test]

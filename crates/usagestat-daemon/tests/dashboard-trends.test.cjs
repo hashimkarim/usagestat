@@ -814,7 +814,7 @@ test('project table ranks projects by cost with shares and escapes names',()=>{
   const ui=dashboard();
   ui.context.rows=[{...row('2026-09-01',10,3),project:'api'},{...row('2026-09-05',20,1),project:'api'},{...row('2026-09-06',5,5),project:'<web>'},{...row('2026-09-06',1,0),project:''}];
   const html=ui.run('projectTable(rows)');
-  const order=[...html.matchAll(/<tr><td title="([^"]*)"/g)].map(m=>m[1]);
+  const order=[...html.matchAll(/<tr[^>]*data-project="\d+"><td title="([^"]*)"/g)].map(m=>m[1]);
   assert.deepEqual(JSON.parse(JSON.stringify(order)),['&lt;web&gt;','api','unknown']);
   assert.match(html,/<td>\$4\.00<\/td><td>.*?44%<\/td><td>30<\/td><td>2<\/td><td>Sep 5<\/td>/);
   assert.doesNotMatch(html,/<web>/);

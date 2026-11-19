@@ -839,7 +839,15 @@ fn serve_local_usage_report(rest: &str, query: &str) -> String {
     }
     if !matches!(
         report,
-        "daily" | "weekly" | "monthly" | "session" | "blocks" | "models" | "hourly" | "projects"
+        "daily"
+            | "weekly"
+            | "monthly"
+            | "session"
+            | "blocks"
+            | "models"
+            | "hourly"
+            | "projects"
+            | "branches"
     ) {
         return response_json(
             400,

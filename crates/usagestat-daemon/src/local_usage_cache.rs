@@ -14,7 +14,8 @@ use usagestat_core::{paths, usage_daily};
 // 10: rows compact per hour (was per 5h block) for hour-of-day reports.
 // 11: worktree projects are labelled with their repository.
 // 12: live checkouts resolve subfolders and linked worktrees to the main repo.
-const VERSION: u32 = 12;
+// 13: events keep the git branch recorded by Claude Code and Codex.
+const VERSION: u32 = 13;
 const TTL: Duration = Duration::from_secs(30);
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -166,7 +167,8 @@ impl Cache {
 // Preserve the dimensions needed by every report, while dropping per-turn rows.
 // Price each event BEFORE compaction so long-context rates remain per request.
 fn compact(events: Vec<LocalUsageEvent>) -> Vec<LocalUsageEvent> {
-    let mut rows: BTreeMap<(String, i64, String, String), LocalUsageEvent> = BTreeMap::new();
+    let mut rows: BTreeMap<(String, i64, String, String, String), LocalUsageEvent> =
+        BTreeMap::new();
     let mut identified = Vec::new();
     for event in events {
         // Request evidence must survive disk reload and cross-file reconciliation.
@@ -179,6 +181,7 @@ fn compact(events: Vec<LocalUsageEvent>) -> Vec<LocalUsageEvent> {
             event.ts.timestamp().div_euclid(3600),
             event.session_id.clone(),
             event.model.clone(),
+            event.branch.clone(),
         );
         rows.entry(key)
             .and_modify(|row| {

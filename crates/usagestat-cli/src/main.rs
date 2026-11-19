@@ -97,6 +97,9 @@ enum Command {
         /// Project name to show instead of detecting it from the directory
         #[arg(long)]
         name: Option<String>,
+        /// Also list cost per git branch (Claude Code and Codex record it)
+        #[arg(long)]
+        branches: bool,
         /// Daemon address (defaults to the managed service address, then 127.0.0.1:6736)
         #[arg(long, value_name = "ADDRESS:PORT")]
         bind: Option<std::net::SocketAddr>,
@@ -472,10 +475,17 @@ fn run_cli() -> Result<()> {
         Some(path) => path,
         None => paths::config_file()?,
     };
-    if let Some(Command::Project { path, name, bind }) = &cli.command {
+    if let Some(Command::Project {
+        path,
+        name,
+        branches,
+        bind,
+    }) = &cli.command
+    {
         return project::run(project::Options {
             path: path.clone(),
             name: name.clone(),
+            branches: *branches,
             bind: *bind,
             json,
         });
