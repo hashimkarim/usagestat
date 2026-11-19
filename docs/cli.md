@@ -782,6 +782,8 @@ command = ["notify-send", "usagestat budget"]
 ```
 
 `usagestat project` shows the month's spend against the project's budget.
+A hook's `providers` list does not filter budget events; use a budget's
+`sources` instead.
 
 Send a sample payload (marked `"test": true`) to every enabled hook
 subscribed to an event:

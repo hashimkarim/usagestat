@@ -3628,9 +3628,9 @@ function usageRowsTable(rows, label){
 
 function sessionTable(rows){
   const sorted = rows.slice().sort((a,b)=>rowCost(b)-rowCost(a) || rowTotalTokens(b)-rowTotalTokens(a)).slice(0,80);
-  let html = `<table class="usage-table"><thead><tr><th>Session</th><th>Project</th><th>Branch</th><th>Main model</th><th>Duration</th><th>Input</th><th>Output</th><th>Cache Read</th><th>Total</th><th>Cost</th><th>Last</th></tr></thead><tbody>`;
+  let html = `<table class="usage-table"><thead><tr><th>Session</th><th>Project</th><th>Branch</th><th>Main model</th><th>Duration</th><th>Input</th><th>Output</th><th>Reasoning</th><th>Cache Write</th><th>Cache Read</th><th>Total</th><th>Cost</th><th>Last</th></tr></thead><tbody>`;
   for(const r of sorted){
-    html+=`<tr><td>${esc(shortId(readAny(r,['sessionId','session_id','id'], rowLabel(r))))}</td><td>${esc(projectLabel(r))}</td><td title="${esc(r.branch||'')}">${esc(r.branch||'—')}</td><td>${esc(sessionMainModel(r))}</td><td>${esc(sessionDuration(r))}</td><td>${fmtTok(rowInput(r))}</td><td>${fmtTok(rowOutput(r))}</td><td>${fmtTok(rowCacheRead(r))}</td><td>${fmtTok(rowTotalTokens(r))}</td><td>${recordedCost(r)}</td><td>${esc(rowDate(r)||'—')}</td></tr>`;
+    html+=`<tr><td>${esc(shortId(readAny(r,['sessionId','session_id','id'], rowLabel(r))))}</td><td>${esc(projectLabel(r))}</td><td title="${esc(r.branch||'')}">${esc(r.branch||'—')}</td><td>${esc(sessionMainModel(r))}</td><td>${esc(sessionDuration(r))}</td><td>${fmtTok(rowInput(r))}</td><td>${fmtTok(rowOutput(r))}</td><td>${fmtTok(rowReasoning(r))}</td><td>${fmtTok(rowCacheCreate(r))}</td><td>${fmtTok(rowCacheRead(r))}</td><td>${fmtTok(rowTotalTokens(r))}</td><td>${recordedCost(r)}</td><td>${esc(rowDate(r)||'—')}</td></tr>`;
   }
   html+=`</tbody></table>`;
   return html;

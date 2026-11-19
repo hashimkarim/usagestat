@@ -886,6 +886,7 @@ fn serve_local_usage_report(rest: &str, query: &str) -> String {
                     .ok()
                     .filter(|limit| (1..=1000).contains(limit));
                 if limit.is_none() {
+                    recent = false;
                     break;
                 }
             }

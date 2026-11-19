@@ -59,7 +59,7 @@ pub fn run(options: Options) -> Result<()> {
 }
 
 fn fetch(base: &str, bind: Option<SocketAddr>) -> Result<Frame> {
-    let client = daemon::local_client(Duration::from_secs(30))?;
+    let client = daemon::local_client(Duration::from_secs(5))?;
     let get = |path: String| -> Option<Value> {
         client
             .get(format!("{base}{path}"))

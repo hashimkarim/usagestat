@@ -23,6 +23,51 @@ const MAX_MACHINES: usize = 64;
 #[derive(Default)]
 pub struct Publisher {
     last: Option<(Instant, String, u64)>,
+    warned: bool,
+}
+
+/// A random id for this installation, created once in the data directory, so
+/// two machines that share a name never overwrite each other's file.
+fn install_id() -> Option<String> {
+    let path = usagestat_core::paths::data_dir()
+        .ok()?
+        .join("sync-install-id");
+    if let Ok(id) = std::fs::read_to_string(&path) {
+        let id = id.trim().to_string();
+        if !id.is_empty() {
+            return Some(id);
+        }
+    }
+    let id = format!("{:032x}", rand_u128());
+    usagestat_core::storage::create_once(&path, id.as_bytes()).ok()?;
+    std::fs::read_to_string(&path)
+        .ok()
+        .map(|s| s.trim().to_string())
+}
+
+fn rand_u128() -> u128 {
+    use std::hash::{BuildHasher, Hasher};
+    let mut out = 0u128;
+    for _ in 0..2 {
+        let mut h = std::collections::hash_map::RandomState::new().build_hasher();
+        h.write_u128(
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map_or(0, |d| d.as_nanos()),
+        );
+        h.write_u32(std::process::id());
+        out = (out << 64) | h.finish() as u128;
+    }
+    out
+}
+
+/// Whether `path` holds another installation's file under the same name.
+fn owned_by_another(path: &Path, id: &str) -> bool {
+    std::fs::read(path)
+        .ok()
+        .and_then(|bytes| serde_json::from_slice::<JsonValue>(&bytes).ok())
+        .and_then(|doc| doc["installId"].as_str().map(str::to_owned))
+        .is_some_and(|other| other != id)
 }
 
 impl Publisher {
@@ -53,11 +98,26 @@ impl Publisher {
             .is_some_and(|(_, t, previous)| *t == target && *previous == hash);
         if !unchanged {
             let machine = config.machine_name();
+            let Some(id) = install_id() else {
+                log::warn!("sync is paused: could not create this installation's id");
+                return;
+            };
+            let path = dir.join(format!("{machine}.json"));
+            if owned_by_another(&path, &id) {
+                if !self.warned {
+                    log::warn!(
+                        "sync is paused: another machine already publishes as `{machine}`; set [sync] machine to a unique name"
+                    );
+                    self.warned = true;
+                }
+                return;
+            }
+            self.warned = false;
             let document = json!({
-                "schema": SCHEMA, "machine": machine, "updatedAt": Utc::now().to_rfc3339(),
+                "schema": SCHEMA, "machine": machine, "installId": id,
+                "updatedAt": Utc::now().to_rfc3339(),
                 "timeZone": "UTC", "costSource": "api-rate-estimate", "rows": rows,
             });
-            let path = dir.join(format!("{machine}.json"));
             if let Err(error) =
                 usagestat_core::storage::write_atomic(&path, document.to_string().as_bytes())
             {
@@ -102,12 +162,17 @@ pub fn serve(config: Option<&SyncConfig>) -> JsonValue {
         return json!({"enabled": false});
     };
     let this = config.machine_name();
+    let id = install_id();
     let today = Utc::now().date_naive();
     let mut machines: Vec<JsonValue> = read_documents(&dir)
         .iter()
         .map(|doc| {
             let mut summary = summarize(doc, today);
-            summary["thisMachine"] = json!(doc["machine"].as_str() == Some(this.as_str()));
+            // Match by installation id; a name alone may be shared.
+            summary["thisMachine"] = json!(match (doc["installId"].as_str(), id.as_deref()) {
+                (Some(theirs), Some(ours)) => theirs == ours,
+                _ => doc["machine"].as_str() == Some(this.as_str()),
+            });
             summary
         })
         .collect();
@@ -205,6 +270,24 @@ mod tests {
 
     fn doc(machine: &str, updated: &str, rows: JsonValue) -> JsonValue {
         json!({"schema": SCHEMA, "machine": machine, "updatedAt": updated, "rows": rows})
+    }
+
+    #[test]
+    fn a_file_from_another_installation_with_the_same_name_is_left_alone() {
+        let dir = usagestat_core::storage::temporary_directory().unwrap();
+        let path = dir.path().join("fedora.json");
+        assert!(!owned_by_another(&path, "mine"));
+        std::fs::write(&path, doc("fedora", "x", json!([])).to_string()).unwrap();
+        assert!(
+            !owned_by_another(&path, "mine"),
+            "files without an id are adoptable"
+        );
+        let mut theirs = doc("fedora", "x", json!([]));
+        theirs["installId"] = json!("theirs");
+        std::fs::write(&path, theirs.to_string()).unwrap();
+        assert!(owned_by_another(&path, "mine"));
+        assert!(!owned_by_another(&path, "theirs"));
+        assert_ne!(rand_u128(), rand_u128());
     }
 
     #[test]
