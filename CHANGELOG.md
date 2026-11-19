@@ -1,9 +1,11 @@
 # Changelog
 
-## Unreleased
+## 2.3.1 - 2026-11-19
 
 - A managed daemon now restarts itself into an upgraded executable. It checks its installed path once a minute and, after a replacement has settled for 30 seconds and reports a `usagestatd` version, shuts down normally and re-executes in place with the same process, settings and autostart. This works for every package format that replaces the file in place. Upgrading to this version still needs one manual restart; Homebrew needs `usagestat daemon relocate`.
 - Remove the RPM post-transaction restart hook (`usagestat-package-sync.service`, `service-sync.py`, `rpm-service-sync.py`) and the RPM's `python3` dependency. On SELinux-enforcing Fedora its root-to-user-session call failed silently, so it never restarted the daemon.
+
+See [release notes](docs/releases/v2.3.1.md).
 
 ## 2.3.0 - 2026-11-19
 
