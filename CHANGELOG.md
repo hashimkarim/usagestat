@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 2.3.0 - 2026-11-19
 
 - Add time span and grouping controls to dashboard charts. Usage History plots saved local tokens, cost and cache summed per day, week or month; Cost History, the History page and the activity heatmap gain span controls.
 - Align chart axis ticks to calendar periods, adding years where ticks cross one. Mark missing data in line charts with hatched bands and dashed bridges.
@@ -29,6 +29,8 @@
 - Collection settings saves now edit `config.toml` in place, keeping key order and comments.
 - Fix the systemd unit's `EnvironmentFile=` line, which was quoted and so ignored `daemon.env`. Re-running `daemon enable` repairs existing units.
 - Rebrand the dashboard as usagestat. Tooltip explanations appear only in pinned details. Collection settings explain when the backend runs without polling or on a non-local address.
+
+See [release notes](docs/releases/v2.3.0.md).
 
 ## 2.2.0 - 2026-11-15
 
