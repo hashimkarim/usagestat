@@ -13,7 +13,7 @@ use std::time::Duration;
 use crate::daemon;
 
 /// Providers whose local logs carry a working directory.
-const SOURCES: [(&str, &str); 4] = [
+pub(crate) const SOURCES: [(&str, &str); 4] = [
     ("claude", "Claude"),
     ("codex", "Codex"),
     ("gemini", "Gemini"),

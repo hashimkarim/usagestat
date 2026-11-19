@@ -138,3 +138,12 @@ test('quota bars warn when the window runs out before reset at its current rate'
   ui.context.m = { used: 10, limit: 100, resetsAt: '2026-11-18T23:00:00Z' };
   assert.equal(ui.run('quotaExhaustion(m, now)'), null);
 });
+
+test('session table names the main model, branch and duration', () => {
+  const ui = dashboard();
+  ui.context.rows = [{ sessionId: 'abc-123', project: 'app', branch: 'feat/x', firstActivity: '2026-11-18T09:00:00Z',
+    lastActivity: '2026-11-18T11:30:00Z', costUsd: 3, totalTokens: 30,
+    models: { small: { costUsd: 0.5, totalTokens: 20 }, big: { costUsd: 2.5, totalTokens: 10 } } }];
+  const html = ui.run('sessionTable(rows)');
+  assert.match(html, /<td title="feat\/x">feat\/x<\/td><td>big<\/td><td>2h 30m<\/td>/);
+});

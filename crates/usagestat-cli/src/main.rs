@@ -5,6 +5,7 @@ mod dashboard;
 mod doctor;
 mod history;
 mod project;
+mod sessions;
 mod statusline;
 
 use anyhow::{Context, Result};
@@ -100,6 +101,26 @@ enum Command {
         /// Also list cost per git branch (Claude Code and Codex record it)
         #[arg(long)]
         branches: bool,
+        /// Daemon address (defaults to the managed service address, then 127.0.0.1:6736)
+        #[arg(long, value_name = "ADDRESS:PORT")]
+        bind: Option<std::net::SocketAddr>,
+    },
+    /// List the costliest agent sessions from local logs
+    ///
+    /// Reads the running daemon only.
+    Sessions {
+        /// Number of sessions to show
+        #[arg(long, default_value_t = 10, value_parser = clap::value_parser!(u16).range(1..=1000))]
+        limit: u16,
+        /// Only sessions active in the last N days (default 30; 0 for all time)
+        #[arg(long, default_value_t = 30)]
+        days: u32,
+        /// Only sessions in this project
+        #[arg(long, conflicts_with = "here")]
+        project: Option<String>,
+        /// Only sessions in the repository of the current directory
+        #[arg(long)]
+        here: bool,
         /// Daemon address (defaults to the managed service address, then 127.0.0.1:6736)
         #[arg(long, value_name = "ADDRESS:PORT")]
         bind: Option<std::net::SocketAddr>,
@@ -490,6 +511,27 @@ fn run_cli() -> Result<()> {
             json,
         });
     }
+    if let Some(Command::Sessions {
+        limit,
+        days,
+        project,
+        here,
+        bind,
+    }) = &cli.command
+    {
+        let project = match (project, here) {
+            (Some(name), _) => Some(name.clone()),
+            (None, true) => Some(project::project_for(&std::env::current_dir()?)),
+            (None, false) => None,
+        };
+        return sessions::run(sessions::Options {
+            limit: *limit as usize,
+            days: (*days > 0).then_some(*days as i64),
+            project,
+            bind: *bind,
+            json,
+        });
+    }
     if let Some(Command::Statusline { provider_ids, bind }) = &cli.command {
         return statusline::run(statusline::Options {
             providers: provider_ids.clone(),
@@ -530,6 +572,7 @@ fn run_cli() -> Result<()> {
         | Command::Daemon { .. }
         | Command::Dashboard { .. }
         | Command::Statusline { .. }
+        | Command::Sessions { .. }
         | Command::Project { .. } => {
             unreachable!("daemon and dashboard commands are handled before provider discovery")
         }
@@ -781,6 +824,7 @@ fn effective_args() -> Vec<OsString> {
                     | "dashboard"
                     | "statusline"
                     | "project"
+                    | "sessions"
                     | "doctor"
                     | "capabilities"
                     | "list"

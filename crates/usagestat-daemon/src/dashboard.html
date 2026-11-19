@@ -3620,12 +3620,25 @@ function usageRowsTable(rows, label){
 
 function sessionTable(rows){
   const sorted = rows.slice().sort((a,b)=>rowCost(b)-rowCost(a) || rowTotalTokens(b)-rowTotalTokens(a)).slice(0,80);
-  let html = `<table class="usage-table"><thead><tr><th>Session</th><th>Project</th><th>Input</th><th>Output</th><th>Reasoning</th><th>Cache Write</th><th>Cache Read</th><th>Total</th><th>Cost</th><th>Last</th></tr></thead><tbody>`;
+  let html = `<table class="usage-table"><thead><tr><th>Session</th><th>Project</th><th>Branch</th><th>Main model</th><th>Duration</th><th>Input</th><th>Output</th><th>Cache Read</th><th>Total</th><th>Cost</th><th>Last</th></tr></thead><tbody>`;
   for(const r of sorted){
-    html+=`<tr><td>${esc(shortId(readAny(r,['sessionId','session_id','id'], rowLabel(r))))}</td><td>${esc(projectLabel(r))}</td><td>${fmtTok(rowInput(r))}</td><td>${fmtTok(rowOutput(r))}</td><td>${fmtTok(rowReasoning(r))}</td><td>${fmtTok(rowCacheCreate(r))}</td><td>${fmtTok(rowCacheRead(r))}</td><td>${fmtTok(rowTotalTokens(r))}</td><td>${recordedCost(r)}</td><td>${esc(rowDate(r)||'—')}</td></tr>`;
+    html+=`<tr><td>${esc(shortId(readAny(r,['sessionId','session_id','id'], rowLabel(r))))}</td><td>${esc(projectLabel(r))}</td><td title="${esc(r.branch||'')}">${esc(r.branch||'—')}</td><td>${esc(sessionMainModel(r))}</td><td>${esc(sessionDuration(r))}</td><td>${fmtTok(rowInput(r))}</td><td>${fmtTok(rowOutput(r))}</td><td>${fmtTok(rowCacheRead(r))}</td><td>${fmtTok(rowTotalTokens(r))}</td><td>${recordedCost(r)}</td><td>${esc(rowDate(r)||'—')}</td></tr>`;
   }
   html+=`</tbody></table>`;
   return html;
+}
+// The model with the most cost in a session (tokens when unpriced).
+function sessionMainModel(r){
+  const models = r.models && typeof r.models==='object' && !Array.isArray(r.models) ? Object.entries(r.models) : [];
+  if(!models.length) return modelsLabel(r);
+  models.sort((a,b)=>(b[1].costUsd||0)-(a[1].costUsd||0) || (b[1].totalTokens||0)-(a[1].totalTokens||0));
+  return models[0][0];
+}
+function sessionDuration(r){
+  const ms = Date.parse(r.lastActivity) - Date.parse(r.firstActivity);
+  if(!Number.isFinite(ms) || ms<0) return '—';
+  const m = Math.round(ms/60000);
+  return m<1 ? '<1m' : m<60 ? `${m}m` : m<48*60 ? `${Math.floor(m/60)}h ${m%60}m` : `${Math.floor(m/1440)}d`;
 }
 
 function blockTable(rows){

@@ -217,6 +217,16 @@ branch cost. Claude Code and Codex record the branch in their logs; Gemini CLI
 and Amp do not. In the dashboard, select a row in a provider's Projects tab to
 expand it by branch.
 
+### Costliest sessions
+
+`usagestat sessions` lists the agent sessions that cost the most, with the agent,
+project, git branch, main model and how long each ran. By default it covers
+sessions active in the last 30 days; change that with `--days 7` (or `--days 0`
+for all time), limit to one project with `--here` or `--project NAME`, and set
+the count with `--limit`. A session's cost is its whole cost, including days
+before the window. The dashboard's Sessions tab shows the same ranking per
+provider.
+
 ### Agent statuslines
 
 `usagestat statusline` prints one line of quotas, reset times and today's cost

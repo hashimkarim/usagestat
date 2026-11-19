@@ -88,6 +88,9 @@ pub(super) struct UsageAggregate {
 struct SessionAggregate {
     session_id: String,
     project: String,
+    #[serde(skip_serializing_if = "String::is_empty")]
+    branch: String,
+    first_activity: String,
     last_activity: String,
     #[serde(flatten)]
     usage: ModelAggregate,
@@ -407,7 +410,18 @@ fn aggregate_sessions<'a>(
                 project: event.project.clone(),
                 ..Default::default()
             });
-        row.last_activity = row.last_activity.clone().max(event.ts.to_rfc3339());
+        let ts = event.ts.to_rfc3339();
+        if row.first_activity.is_empty() || ts < row.first_activity {
+            row.first_activity = ts.clone();
+        }
+        if ts >= row.last_activity {
+            if !event.branch.is_empty() {
+                row.branch = event.branch.clone();
+            }
+            row.last_activity = ts;
+        } else if row.branch.is_empty() {
+            row.branch = event.branch.clone();
+        }
         let metrics = event.metrics();
         row.usage.add(&metrics);
         row.usage.sessions = Some(1);
@@ -688,6 +702,23 @@ mod report_tests {
             .collect();
         rows.sort_by(|a, b| a.0.cmp(b.0));
         assert_eq!(rows, [("", 0.25), ("feat/x", 1.0), ("main", 0.5)]);
+    }
+
+    #[test]
+    fn session_report_spans_first_to_last_activity_with_the_latest_branch() {
+        let mut early = event("2026-11-18T09:00:00Z", "a", "usagestat", 10, 1.0);
+        early.branch = "feat/x".into();
+        let mut late = event("2026-11-18T11:30:00Z", "a", "usagestat", 10, 1.0);
+        late.branch = "main".into();
+        let unbranched = event("2026-11-18T10:00:00Z", "a", "usagestat", 10, 1.0);
+        let body: JsonValue =
+            serde_json::from_str(&report([late, early, unbranched].iter(), "session").unwrap())
+                .unwrap();
+        let row = &body["sessions"][0];
+        assert_eq!(row["firstActivity"], "2026-11-18T09:00:00+00:00");
+        assert_eq!(row["lastActivity"], "2026-11-18T11:30:00+00:00");
+        assert_eq!(row["branch"], "main");
+        assert_eq!(row["costUsd"], 3.0);
     }
 }
 
