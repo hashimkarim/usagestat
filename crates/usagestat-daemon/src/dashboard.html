@@ -574,6 +574,12 @@ header{
 .project-table td:first-child{max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .project-share{display:inline-block;width:60px;height:6px;border-radius:3px;background:var(--s2);margin-right:8px;vertical-align:middle;overflow:hidden}
 .project-share span{display:block;height:100%;background:var(--blue)}
+.machine-total td{font-weight:600;color:var(--hi)}
+.machine-scroll{overflow-x:auto}
+.machine-table{width:100%;min-width:0}
+.machine-table td:first-child{white-space:normal;max-width:150px;overflow-wrap:anywhere}
+.machine-table td,.machine-table th{padding-left:6px;padding-right:6px}
+.machine-sub{font:10px var(--mono);color:var(--su);margin-top:2px;white-space:normal}
 .project-row{cursor:pointer}
 .project-row:focus-visible{outline:2px solid var(--blue);outline-offset:-2px}
 .branch-caret{display:inline-block;width:1em;color:var(--su);transition:transform .15s}
@@ -935,6 +941,7 @@ async function load(){
     S.allProviders=providers;
     S.providers = providers.filter(p=>p.enabled);
     S.status = await fetchProviderStatus();
+    S.machines = await fetchMachines();
     if(!S.iconCatalog)try{S.iconCatalog=await fetch('/v1/icon-catalog').then(r=>r.ok?r.json():null);}catch{}
     if(daily && !daily.error && (Array.isArray(daily)||Array.isArray(daily.daily)))S.dailyRows = normalizeDailyRows(daily);
     S.dailyError = !daily || !!daily.error || !(Array.isArray(daily) || Array.isArray(daily.daily));
@@ -1533,6 +1540,7 @@ function renderOverviewSummary(){
   html+=`</div>`;
   html+=overviewTrendHtml(trend);
   html+=topContributorsHtml(top, r30);
+  html+=machinesHtml(S.machines);
   html+=`</div>`;
 
   el.innerHTML = html;
@@ -4167,6 +4175,24 @@ function pct(m){return m.limit>0?Math.min(m.used/m.limit*100,100):0}
 function pillCls(c){return'pill '+({'green':'pill-green','red':'pill-red','blue':'pill-blue','yellow':'pill-yellow','orange':'pill-orange'}[c]||'')}
 function srcCls(s){return'badge b-'+({'oauth':'oauth','web':'web','api':'api','cli':'cli','local':'local','error':'error'}[s]||'local')}
 function safeWebUrl(value){if(typeof value!=='string'||!/^https?:\/\//i.test(value))return null;try{return /^https?:$/.test(new URL(value).protocol)?value:null;}catch{return null;}}
+
+// Multi-machine totals (GET /v1/machines): only when [sync] is configured.
+async function fetchMachines(){
+  try{const response=await fetch('/v1/machines');if(!response.ok)return null;const body=await response.json();return body?.enabled===true&&Array.isArray(body.machines)?body:null;}catch{return null;}
+}
+function machinesHtml(data){
+  const rows=(data?.machines||[]).filter(m=>m&&typeof m.machine==='string');
+  if(!rows.length) return '';
+  const total=k=>rows.reduce((n,m)=>n+(Number(m[k])||0),0);
+  let html=`<div class="u-h" style="margin:18px 0 8px">Machines · shared folder</div><div class="machine-scroll"><table class="usage-table machine-table"><thead><tr><th>Machine</th><th>Today</th><th>7d</th><th>30d</th><th>Month</th></tr></thead><tbody>`;
+  for(const m of rows){
+    const top=m.topProjects30d?.[0];
+    const sub=[m.thisMachine?'this machine':'',top?`top: ${top.project}`:''].filter(Boolean).join(' · ');
+    html+=`<tr><td title="${m.updatedAt?esc('Updated '+fmtAgo(m.updatedAt)):''}"><div class="machine-name">${esc(m.machine)}</div>${sub?`<div class="machine-sub">${esc(sub)}</div>`:''}</td><td>${fmtUsd(m.todayUsd||0)}</td><td>${fmtUsd(m.last7Usd||0)}</td><td>${fmtUsd(m.last30Usd||0)}${m.costKnown===false?'+':''}</td><td>${fmtUsd(m.monthUsd||0)}</td></tr>`;
+  }
+  if(rows.length>1) html+=`<tr class="machine-total"><td>All machines</td><td>${fmtUsd(total('todayUsd'))}</td><td>${fmtUsd(total('last7Usd'))}</td><td>${fmtUsd(total('last30Usd'))}</td><td>${fmtUsd(total('monthUsd'))}</td></tr>`;
+  return html+`</tbody></table></div>`;
+}
 
 // ── provider incident status (GET /v1/status) ─────────────────────────────────
 // Older daemons lack the route; any failure simply hides the badges.

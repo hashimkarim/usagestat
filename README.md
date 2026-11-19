@@ -411,6 +411,20 @@ Settings → Display. Its tab then compares this month's API-equivalent cost wit
 the price (for example `5.7×`, with the month's projection and the cache
 discount), and the Overview adds a combined plan value card.
 
+To add up several machines, point each daemon at a shared folder (Syncthing,
+Dropbox, a network drive) in `config.toml`:
+
+```toml
+[sync]
+dir = "~/Sync/usagestat"
+machine = "desktop"   # optional; defaults to the host name
+```
+
+Each daemon then writes `<machine>.json` there at most every 10 minutes (daily
+cost per project only: no paths, prompts or account details), and the Overview
+shows a Machines table with an all-machines total, also at `/v1/machines`.
+Without `[sync]` nothing is written.
+
 The dashboard also has Used/Remaining quotas, month-to-date and all-time
 history ranges, daily ledger rows, partial/unpriced cost indicators, and portable
 display preferences. Saved daily usage is available through JSON cost reports

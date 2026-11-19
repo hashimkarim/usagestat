@@ -38,6 +38,7 @@ mod prometheus;
 mod run_usage;
 mod settings;
 mod status_monitor;
+mod sync;
 use usagestat_core::usage_daily::UsageModelDaily as ModelAggregate;
 
 #[derive(Debug, Parser)]
@@ -86,6 +87,8 @@ struct AppState {
     control: control::ControlApi,
     settings: Option<Arc<settings::SettingsApi>>,
     status: status_monitor::StatusMonitor,
+    /// `[sync]` from the last loaded config; `/v1/machines` reads it.
+    sync: Option<usagestat_core::sync::SyncConfig>,
 }
 
 fn main() -> Result<()> {
@@ -166,6 +169,7 @@ fn main() -> Result<()> {
         control,
         settings: None,
         status: status_monitor::StatusMonitor::default(),
+        sync: config.sync.clone(),
     }));
     let refresh_flag = Arc::new(AtomicBool::new(false));
 
@@ -325,6 +329,7 @@ fn start_poller(
 ) -> thread::JoinHandle<()> {
     thread::spawn(move || {
         let mut hooks = hooks::Hooks::new();
+        let mut sync_publisher = sync::Publisher::default();
         while !shutdown.load(Ordering::SeqCst) {
             refresh_flag.swap(false, Ordering::AcqRel);
             let config_modified = std::fs::metadata(&config_path)
@@ -342,7 +347,11 @@ fn start_poller(
             let mut providers = discover_providers(&current_dirs);
             sort_providers(&mut providers, &config);
             let summaries = provider_summaries(&providers, &config);
-            state.lock().expect("app state poisoned").providers = summaries;
+            {
+                let mut guard = state.lock().expect("app state poisoned");
+                guard.providers = summaries;
+                guard.sync = config.sync.clone();
+            }
 
             for (provider, configured) in collection_targets(&providers, &config) {
                 if shutdown.load(Ordering::SeqCst) {
@@ -377,6 +386,9 @@ fn start_poller(
                     }
                 }
             }
+
+            // Off unless [sync] names a shared folder.
+            sync_publisher.tick(config.sync.as_ref());
 
             // Budgets read local logs only when a hook subscribes to them.
             if !config.budgets.is_empty() && hooks.wants_budgets() {
@@ -697,6 +709,11 @@ fn route(
         let snapshots = ordered_snapshots(&guard);
         let body = serde_json::to_string(&snapshots).unwrap_or_else(|_| "[]".into());
         return response_json(200, "OK", &body);
+    }
+
+    if path == "/v1/machines" {
+        let config = state.lock().expect("app state poisoned").sync.clone();
+        return response_json(200, "OK", &sync::serve(config.as_ref()).to_string());
     }
 
     if path == "/v1/status" {

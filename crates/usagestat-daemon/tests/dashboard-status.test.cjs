@@ -147,3 +147,17 @@ test('session table names the main model, branch and duration', () => {
   const html = ui.run('sessionTable(rows)');
   assert.match(html, /<td title="feat\/x">feat\/x<\/td><td>big<\/td><td>2h 30m<\/td>/);
 });
+
+test('machines table lists each machine and an all-machines total, escaping names', () => {
+  const ui = dashboard();
+  ui.context.data = { enabled: true, machines: [
+    { machine: 'desk', thisMachine: true, todayUsd: 2, last7Usd: 10, last30Usd: 40, monthUsd: 30,
+      topProjects30d: [{ project: '<app>', costUsd: 25 }] },
+    { machine: 'laptop', todayUsd: 1, last7Usd: 5, last30Usd: 20, monthUsd: 15, costKnown: false, topProjects30d: [] },
+  ] };
+  const html = ui.run('machinesHtml(data)');
+  assert.match(html, /<div class="machine-name">desk<\/div><div class="machine-sub">this machine · top: &lt;app&gt;<\/div>/);
+  assert.match(html, /\$20\.00\+/);
+  assert.match(html, /All machines<\/td><td>\$3\.00<\/td><td>\$15\.00<\/td><td>\$60\.00<\/td><td>\$45\.00/);
+  assert.equal(ui.run('machinesHtml(null)'), '');
+});

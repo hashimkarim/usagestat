@@ -28,6 +28,13 @@ pub struct AppConfig {
         skip_serializing_if = "Vec::is_empty"
     )]
     pub budgets: Vec<crate::budgets::BudgetConfig>,
+    /// Optional shared folder for multi-machine totals. See `crate::sync`.
+    #[serde(
+        default,
+        deserialize_with = "crate::sync::deserialize_sync",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub sync: Option<crate::sync::SyncConfig>,
 }
 
 impl Default for AppConfig {
@@ -38,6 +45,7 @@ impl Default for AppConfig {
             providers: Vec::new(),
             hooks: Vec::new(),
             budgets: Vec::new(),
+            sync: None,
         }
     }
 }
