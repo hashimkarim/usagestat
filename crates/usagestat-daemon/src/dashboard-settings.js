@@ -71,6 +71,9 @@
         if(typeof entry.customIcon==='string'&&entry.customIcon.length<=524288&&/^data:image\/(png|jpeg|webp);base64,[a-z0-9+/]+=*$/i.test(entry.customIcon))setting.customIcon=entry.customIcon;
         if(Array.isArray(entry.hiddenMetrics))setting.hiddenMetrics=[...new Set(entry.hiddenMetrics.filter(v=>typeof v==='string'&&v.length<=256))].slice(0,256);
         if(typeof entry.pinned==='boolean')setting.pinned=entry.pinned;
+        // Monthly subscription price, for the plan value comparison. 0 = not set.
+        const plan=Number(entry.planUsd);
+        if(entry.planUsd!==''&&entry.planUsd!=null&&Number.isFinite(plan)&&plan>0&&plan<=1e6)setting.planUsd=plan;
         result.providers[id] = setting;
       }
     }

@@ -352,6 +352,11 @@ charts, previous-period comparisons, and CSV export of saved daily reports.
 Quota-only providers retain their snapshot charts. See
 [CLI and dashboard documentation](docs/cli.md).
 
+To see what a subscription is worth, set a provider's **Plan price** in
+Settings → Display. Its tab then compares this month's API-equivalent cost with
+the price (for example `5.7×`, with the month's projection and the cache
+discount), and the Overview adds a combined plan value card.
+
 The dashboard also has Used/Remaining quotas, month-to-date and all-time
 history ranges, daily ledger rows, partial/unpriced cost indicators, and portable
 display preferences. Saved daily usage is available through JSON cost reports

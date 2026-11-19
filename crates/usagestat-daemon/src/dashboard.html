@@ -1369,6 +1369,16 @@ function spendStatus(rows, now=Date.now()){
   return {month, today:byDay.get(today)||0, monthToDate, projected:monthToDate/elapsedDays*daysInMonth,
     priorAverage, costKnown:known, daysInMonth};
 }
+// This month's API-equivalent cost against a subscription price.
+function planValue(rows, planUsd, now=Date.now()){
+  if(!(planUsd>0)) return null;
+  const status=spendStatus(rows, now), month=status.month;
+  let savings=0;
+  for(const r of rows){ const d=rowDate(r); if(d&&d.startsWith(month)&&Number.isFinite(r.cacheSavingsUsd)) savings+=r.cacheSavingsUsd; }
+  return {plan:planUsd, monthToDate:status.monthToDate, projected:status.projected, costKnown:status.costKnown,
+    ratio:status.monthToDate/planUsd, projectedRatio:status.projected/planUsd, cacheSavings:savings};
+}
+function fmtRatio(x){ return (x>=10?x.toFixed(0):x.toFixed(1))+'×'; }
 function spendAlerts(status, prefs=S.prefs){
   const alerts=[], budget=prefs.spendBudgetUsd, spike=prefs.spendSpikeMultiple;
   if(budget>0){
@@ -1514,6 +1524,12 @@ function renderOverviewSummary(){
   html+=rollupCard(fmtTok(r30.totalTokens),'30d tokens',deltaBadge(deltaPercent(r30.totalTokens,p30.totalTokens)));
   html+=rollupCard(recordedCost({cost:spend.monthToDate,costKnown:spend.costKnown}),S.prefs.spendBudgetUsd>0?`month to date · ${fmtUsd(S.prefs.spendBudgetUsd)} budget`:'month to date','');
   html+=rollupCard(fmtUsd(spend.projected),'projected month','');
+  const planned = Object.entries(S.prefs.providers).filter(([id,p])=>p.visible!==false&&p.planUsd>0);
+  if(planned.length){
+    const ids = new Set(planned.map(([id])=>id.toLowerCase())), plan = planned.reduce((n,[,p])=>n+p.planUsd,0);
+    const value = planValue(dailyRows.filter(r=>ids.has(String(r.providerId).toLowerCase())), plan);
+    html+=rollupCard(fmtRatio(value.ratio), `plan value · ${fmtUsd(value.monthToDate)} of ${fmtUsd(plan)}/month`, '');
+  }
   html+=`</div>`;
   html+=overviewTrendHtml(trend);
   html+=topContributorsHtml(top, r30);
@@ -2413,6 +2429,7 @@ function refreshSettings(message='Settings saved.',repaint=true){
 }
 function setDashboardPref(key,value){S.prefs[key]=value;refreshSettings();}
 function updateProviderSetting(id,key,value){
+  if(key==='planUsd') value = Number(value)>0 ? Number(value) : undefined;
   S.prefs.providers[id]={...providerSetting(id),[key]:value};
   // A name saves on blur. Keep the current form nodes so the click that caused
   // the blur (for example Back to Overview) still reaches its original target.
@@ -2472,6 +2489,7 @@ function renderSettings(force=false){
             <div class="provider-setting-title"><input id="setting-visible-${esc(id)}" data-provider-option="visible" type="checkbox"${pref.visible?' checked':''}><label for="setting-visible-${esc(id)}"><span class="provider-setting-name">${providerIcon(id)}${esc(original)}</span><span class="provider-setting-state">${esc(state)}</span></label></div>
             <div class="provider-setting-field"><label for="setting-name-${esc(id)}">Display name</label><input class="ctrl-input" id="setting-name-${esc(id)}" data-provider-option="name" maxlength="80" value="${esc(pref.name)}" placeholder="${esc(original)}"></div>
             <div class="provider-setting-field"><label for="setting-primary-${esc(id)}">Summary quota</label><select class="ctrl-select" id="setting-primary-${esc(id)}" data-provider-option="primaryQuota">${selectOption('','Automatic',pref.primaryQuota)}${quotas.map(m=>selectOption(m.label,m.label,pref.primaryQuota)).join('')}</select></div>
+            <div class="provider-setting-field"><label for="setting-plan-${esc(id)}">Plan price · USD/month</label><input class="ctrl-input" type="number" min="0" step="1" id="setting-plan-${esc(id)}" data-provider-option="planUsd" value="${pref.planUsd||''}" placeholder="not set"><span class="setting-hint">Compares this month's API-equivalent cost with what you pay.</span></div>
             <div class="provider-order-actions"><button class="action-btn" type="button" data-move="-1" aria-label="Move ${esc(original)} up"${index===0?' disabled':''}>↑</button><button class="action-btn" type="button" data-move="1" aria-label="Move ${esc(original)} down"${index===ids.length-1?' disabled':''}>↓</button></div>
             ${providerDisplayExtras(id,snap,pref)}
           </div>`;
@@ -2995,6 +3013,8 @@ function buildUsageAnalytics(id, snap, rawHistory, reports){
   const firstDay = fallbackDaily.map(rowDate).sort()[0];
   let html = `<div class="u-range" style="margin-top:0">All recorded history${firstDay?` since ${esc(parseDateOnly(firstDay).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric',timeZone:'UTC'}))}`:''} · ${esc(sourceLabel)}</div><div class="u-totals" style="margin:6px 0 20px">`;
   html+=usageTotal('Today', today?recordedTokens(today):'—', today?recordedCost(today):'');
+  const value = planValue(fallbackDaily, providerSetting(id).planUsd);
+  if(value) html+=usageTotal('Plan value · this month', fmtRatio(value.ratio)+(value.costKnown?'':'+'), `${fmtUsd(value.monthToDate)} API-equivalent for a ${fmtUsd(value.plan)} plan · ${fmtRatio(value.projectedRatio)} projected${value.cacheSavings>0?` · cache saved ${fmtUsd(value.cacheSavings)}`:''}`);
   html+=usageTotal('Processed tokens', fallbackDaily.length?recordedTokens(totals):'—');
   html+=usageTotal(costLabel, fallbackDaily.length?recordedCost(totals):'—');
   html+=usageTotal('Active days', String(activeDays));

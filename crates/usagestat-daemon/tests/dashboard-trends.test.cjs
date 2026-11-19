@@ -793,6 +793,22 @@ test('spend preferences reject invalid values and keep alerts off by default',()
   assert.deepEqual([bad.spendBudgetUsd,bad.spendSpikeMultiple,bad.spendNotify],[0,0,false]);
 });
 
+test('plan value compares this month API-equivalent cost and cache savings with the plan price',()=>{
+  const prefs=settings.normalize({providers:{claude:{planUsd:200},codex:{planUsd:-1},amp:{planUsd:'x'}}});
+  assert.equal(prefs.providers.claude.planUsd,200);
+  assert.equal(prefs.providers.codex.planUsd,undefined);
+  assert.equal(prefs.providers.amp.planUsd,undefined);
+  const ui=dashboard();
+  ui.context.rows=[{...row('2026-09-10',1,300),cacheSavingsUsd:40},{...row('2026-09-01',1,100),cacheSavingsUsd:10},{...row('2026-08-31',1,999),cacheSavingsUsd:5}];
+  const value=ui.run(`planValue(rows,200,Date.parse('2026-09-15T00:00:00Z'))`);
+  assert.equal(value.monthToDate,400);
+  assert.equal(value.ratio,2);
+  assert.equal(value.cacheSavings,50);
+  assert.equal(Math.round(value.projectedRatio*10)/10,4.3);
+  assert.equal(ui.run('planValue(rows,0)'),null);
+  assert.equal(ui.run('fmtRatio(5.66)'),'5.7×');
+});
+
 test('chart CSV exports sum saved usage per period and keep formula text inert',()=>{
   const ui=dashboard();
   ui.context.rows=[row('2026-09-01',10,1),row('2026-09-02',20,2),row('2026-09-08',5,0.5),{...row('2026-09-08',1,0),costKnown:false}];
