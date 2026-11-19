@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.3.2 - 2026-11-19
+
+- Publish stable macOS (Apple Silicon and Intel) and Windows x64 builds alongside Linux: GitHub archives and the Windows per-user installer, npm platform packages, and the Homebrew formula on macOS. Binaries are unsigned; the daemon and CLI are unchanged from 2.3.1.
+- The alpha Homebrew formula now conflicts with the stable one on macOS as well as Linux.
+- Wait up to 45 minutes for npm to show a newly published package before failing.
+
+See [release notes](docs/releases/v2.3.2.md).
+
 ## 2.3.1 - 2026-11-19
 
 - A managed daemon now restarts itself into an upgraded executable. It checks its installed path once a minute and, after a replacement has settled for 30 seconds and reports a `usagestatd` version, shuts down normally and re-executes in place with the same process, settings and autostart. This works for every package format that replaces the file in place. Upgrading to this version still needs one manual restart; Homebrew needs `usagestat daemon relocate`.

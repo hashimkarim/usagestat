@@ -2,37 +2,30 @@
 
 Install the CLI (`usagestat`), daemon (`usagestatd`), and provider plugins together.
 Use the [published support table](../README.md#install) to choose a channel for
-your system. The current stable release is **v2.1.0**; the
-[publication record](releases/v2.1.0-publication.md) tracks package-feed availability. For work
+your system. The current stable release is **[v2.3.2](releases/v2.3.2.md)**; its
+[publication record](releases/v2.3.2-publication.md) tracks package-feed
+availability. Do not assume a queued feed build is already installable. For work
 from a source checkout, see [development](../README.md#development).
 
-For the Windows/macOS/Linux **v2.0.0-alpha.4** backend downloads, use the separate
-[alpha installation guide](alpha.md). Windows/macOS alpha archives are unsigned; alpha npm packages are available.
-The package-manager commands below select stable.
-
-The native macOS Homebrew adapter and installation rehearsal are tracked in
-[macOS distribution](macos-distribution.md). Stable macOS packages and signing
-remain pending; the commands for published Linux packages below retain their scope.
-Windows candidate ZIP and native development instructions are in
+Stable releases cover Linux x64/ARM64 (glibc 2.39+), macOS 11+ on Apple Silicon
+and Intel, and Windows 10 / Server 2016+ on x64. macOS and Windows builds are
+**unsigned**. Release CI installs and runs them on macOS 15 (both CPUs) and
+Windows Server 2025; older versions within those floors are untested. Desktop
+bar frontends for macOS and Windows are not included. Platform background is in
+[macOS distribution](macos-distribution.md) and
 [Windows distribution](windows-distribution.md).
 
-The stable version is [v2.1.0](releases/v2.1.0.md). Check its
-[publication record](releases/v2.1.0-publication.md) for per-channel availability;
-do not assume a queued feed build is already installable. Stable npm and native
-archives target Linux x64/ARM64 only. See the release notes for upgrade and SDK
-migration details.
+## npm
 
-## npm on Linux
-
-With Node 24+ and npm 11.5.1+, install the published stable version:
+With Node 24+ and npm 11.5.1+ on Linux, macOS or Windows:
 
 ```sh
-npm install --global @hashimkarim/usagestat@2.1.0 --include=optional --ignore-scripts
+npm install --global @hashimkarim/usagestat@latest --include=optional --ignore-scripts
 ```
 
-The package uses exact-version native dependencies for Linux x64/ARM64 with
-system glibc 2.39+. It does not configure a profile or start a service during
-installation. See [npm lifecycle details](../npm/README.md).
+npm selects the exact-version native package for your OS and CPU; Node 24 itself
+needs macOS 13.5+. Installation does not configure a profile or start a service.
+See [npm lifecycle details](../npm/README.md).
 
 ## Arch Linux / AUR
 
@@ -58,14 +51,13 @@ Review accompanying build/install files too. Run `makepkg` as your regular user.
 The package installs both binaries in `/usr/bin` and the bundled plugins in
 `/usr/share/usagestat/plugins`.
 
-## Homebrew on Linux
+## Homebrew
 
 The [tap formula](https://github.com/hashimkarim/homebrew-tap/blob/main/Formula/usagestat.rb)
-supports Linux x86-64 and ARM64 with **system glibc 2.39 or newer**. It does not
-provide macOS binaries. Homebrew itself can run on older Linux systems, but its
-bundled glibc does not make this formula's prebuilt binaries compatible with
-them. Check your system version with `getconf GNU_LIBC_VERSION`; use a
-[source build](#from-source) on older systems. After
+supports macOS 11+ (Apple Silicon and Intel) and Linux x86-64 and ARM64 with
+**system glibc 2.39 or newer**. On Linux, Homebrew's bundled glibc does not make
+the prebuilt binaries compatible with older systems; check with
+`getconf GNU_LIBC_VERSION` and use a [source build](#from-source) if needed. After
 [installing Homebrew](https://docs.brew.sh/Installation):
 
 ```bash
@@ -104,10 +96,9 @@ The package includes both binaries and `/usr/share/usagestat/plugins`.
 ## Ubuntu / PPA
 
 The [PPA](https://launchpad.net/~hashimkarim/+archive/ubuntu/usagestat) currently
-publishes **Ubuntu 24.04 LTS (Noble), amd64** with package `2.1.0-1ppa1`.
-The signed APT index and package checksum have been verified.
-The suffix is a Debian packaging revision; the program reports the upstream
-version. See the [v2.1.0 release record](releases/v2.1.0-publication.md) for
+publishes **Ubuntu 24.04 LTS (Noble), amd64**. Packages are versioned like
+`2.3.2-1ppa1`; the suffix is a Debian packaging revision; the program reports the upstream
+version. See the [v2.3.2 publication record](releases/v2.3.2-publication.md) for
 publication and verification evidence.
 Other Ubuntu series and ARM64 do not currently have published packages
 in this PPA. These instructions are for Ubuntu, not Debian.
@@ -137,7 +128,7 @@ Use a Linux system with **glibc 2.39+**, `curl`, `tar`, and coreutils (`sha256su
 `install`). The archive contains both binaries, plugins, and the license;
 standalone `usagestat-linux-*` downloads contain only the CLI.
 
-Check glibc with `getconf GNU_LIBC_VERSION`. Both v2.1.0 architectures require
+Check glibc with `getconf GNU_LIBC_VERSION`. Both Linux architectures require
 2.39; for an older host, build from source instead of using these archives.
 
 Run this in an empty working directory. It downloads the latest stable release,
@@ -173,6 +164,45 @@ under the same prefix as `lib/usagestat/plugins` so plugin discovery works
 when you leave the download directory. Avoid mixing this manual installation
 with a package-manager installation of the same commands.
 
+### macOS archive
+
+Choose `usagestat-macos-aarch64.tar.gz` for Apple Silicon (`uname -m` reports
+`arm64`) or `usagestat-macos-x86_64.tar.gz` for Intel, with its `.sha256` file:
+
+```sh
+usagestat_asset=usagestat-macos-aarch64.tar.gz
+usagestat_download="https://github.com/Hashim-K/usagestat/releases/latest/download"
+curl -fLO "${usagestat_download}/${usagestat_asset}"
+curl -fLO "${usagestat_download}/${usagestat_asset}.sha256"
+shasum -a 256 -c "${usagestat_asset}.sha256" &&
+mkdir usagestat && tar -xzf "${usagestat_asset}" -C usagestat &&
+./usagestat/usagestat --version
+```
+
+Keep the extracted directory together and add it to PATH, or install with
+Homebrew instead. The binaries are unsigned: a browser download can be blocked by
+Gatekeeper, while `curl` downloads and Homebrew are not quarantined. Do not
+disable Gatekeeper globally to run them.
+
+### Windows
+
+Download these assets from the release into one folder:
+`usagestat-windows-x86_64.zip`, `usagestat-windows-x86_64.manifest.json` and
+`Install-Usagestat.ps1`, each with its `.sha256` file. Check the hashes with
+`Get-FileHash`, then install per user without elevation:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Install-Usagestat.ps1 -Manifest .\usagestat-windows-x86_64.manifest.json
+& (Join-Path ([Environment]::GetFolderPath('LocalApplicationData')) 'Programs\usagestat\bin\usagestat.exe') --version
+```
+
+The execution-policy option applies to that one command. The binaries are
+unsigned, so SmartScreen or a local policy may warn. The installer verifies every
+checksum, installs to `%LOCALAPPDATA%\Programs\usagestat`, leaves PATH unchanged
+and does not enable a login task. To upgrade, stop the daemon, run the same
+command with the new release's files, and start it again. Details and recovery
+are in [Windows distribution](windows-distribution.md#transactional-per-user-candidate-installer).
+
 ## From source
 
 Use a current stable [Rust toolchain](https://www.rust-lang.org/tools/install),
@@ -187,7 +217,7 @@ sudo apt install build-essential pkg-config git
 Build the current stable tag and install both binaries plus plugins:
 
 ```bash
-git clone --branch v2.1.0 --depth 1 https://github.com/Hashim-K/usagestat.git
+git clone --branch v2.3.2 --depth 1 https://github.com/Hashim-K/usagestat.git
 cd usagestat
 cargo build --release --locked -p usagestat-cli -p usagestat-daemon
 install -d "$HOME/.local/bin" "$HOME/.local/lib/usagestat"
@@ -210,7 +240,7 @@ usagestat list
 usagestat config validate
 ```
 
-A v2.1.0 installation should report `usagestat 2.1.0`, `list` should find the
+A v2.3.2 installation should report `usagestat 2.3.2`, `list` should find the
 bundled providers, and config validation should succeed with an absent/default
 config or a valid custom config. Provider login is separate: use the
 [first-run setup](../README.md#first-run) before requesting live account usage.

@@ -171,6 +171,12 @@ class NativeArtifactTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             artifacts.inspect_binary(pe, 'x86_64-pc-windows-msvc')
 
+    def test_every_release_target_is_qualified_for_stable(self):
+        # Linux, macOS and Windows all ship in stable releases since v2.3.2.
+        self.assertEqual({m['os'] for m in artifacts.TARGETS.values() if m['qualified']},
+                         {'linux', 'darwin', 'win32'})
+        self.assertTrue(all(m['qualified'] for m in artifacts.TARGETS.values()))
+
     def test_stable_publication_excludes_candidates_and_prerelease_carries_them(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

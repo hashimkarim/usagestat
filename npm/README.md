@@ -1,9 +1,9 @@
 # usagestat native backend through npm
 
 The stable package contains the CLI, daemon, local dashboard and provider
-plugins for Linux x64/ARM64 with glibc 2.39+. Windows/macOS bar frontends are
-not included. The separate `alpha` channel retains the unsigned Windows/macOS
-backend candidates; stable installation on those platforms is not qualified.
+plugins for Linux x64/ARM64 with glibc 2.39+, macOS on Apple Silicon and Intel,
+and Windows x64. macOS and Windows binaries are unsigned. Desktop bar frontends
+are not included.
 
 ```sh
 npm install --global @hashimkarim/usagestat@latest --include=optional --ignore-scripts
@@ -18,10 +18,11 @@ Installation needs no Rust compiler, shell scripts or download hooks. It does
 not start a daemon or install a login service. Native packages also remain
 available separately for users who do not need Node.
 
-Candidate npm targets are Linux x64/ARM64 with glibc 2.39+, macOS 13.5+ on Intel/Apple
+npm targets are Linux x64/ARM64 with glibc 2.39+, macOS 13.5+ on Intel/Apple
 Silicon, and Windows 10 / Server 2016+ x64. musl/Alpine, Windows ARM64 and 32-bit
-systems are unsupported. Stable packages include only qualified targets;
-macOS/Windows minimum-system qualification and signing are still pending.
+systems are unsupported. Release CI installs and runs the packages on Ubuntu
+24.04 (both CPUs), macOS 15 (both CPUs) and Windows Server 2025; older versions
+within those floors are untested, and macOS/Windows signing is still pending.
 The Rust macOS artifact targets 11.0; the npm wrapper's higher floor comes from
 [Node.js 24's platform requirements](https://github.com/nodejs/node/blob/v24.x/BUILDING.md#platform-list).
 

@@ -22,11 +22,11 @@ import zipfile
 
 ROOT = Path(__file__).resolve().parents[3]
 TARGETS = {
-    "x86_64-unknown-linux-gnu": dict(os="linux", arch="x64", asset="usagestat-linux-x86_64", minimum="glibc 2.39", libc="glibc"),
-    "aarch64-unknown-linux-gnu": dict(os="linux", arch="arm64", asset="usagestat-linux-aarch64", minimum="glibc 2.39", libc="glibc"),
-    "aarch64-apple-darwin": dict(os="darwin", arch="arm64", asset="usagestat-macos-aarch64", minimum="11.0", libc=None),
-    "x86_64-apple-darwin": dict(os="darwin", arch="x64", asset="usagestat-macos-x86_64", minimum="11.0", libc=None),
-    "x86_64-pc-windows-msvc": dict(os="win32", arch="x64", asset="usagestat-windows-x86_64", minimum="Windows 10 / Server 2016", libc=None),
+    "x86_64-unknown-linux-gnu": dict(os="linux", arch="x64", asset="usagestat-linux-x86_64", minimum="glibc 2.39", libc="glibc", qualified=True),
+    "aarch64-unknown-linux-gnu": dict(os="linux", arch="arm64", asset="usagestat-linux-aarch64", minimum="glibc 2.39", libc="glibc", qualified=True),
+    "aarch64-apple-darwin": dict(os="darwin", arch="arm64", asset="usagestat-macos-aarch64", minimum="11.0", libc=None, qualified=True),
+    "x86_64-apple-darwin": dict(os="darwin", arch="x64", asset="usagestat-macos-x86_64", minimum="11.0", libc=None, qualified=True),
+    "x86_64-pc-windows-msvc": dict(os="win32", arch="x64", asset="usagestat-windows-x86_64", minimum="Windows 10 / Server 2016", libc=None, qualified=True),
 }
 
 def digest(data: bytes) -> str:
@@ -279,7 +279,7 @@ def stage(target: str, binary_dir: Path, output: Path, root=ROOT) -> Path:
         "sourceCommit": subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=root, text=True).strip(),
         "sourceDirty": bool(subprocess.check_output(["git", "status", "--porcelain", "--untracked-files=no"], cwd=root, text=True).strip()),
         "target": target, "os": metadata["os"], "arch": metadata["arch"], "libc": metadata["libc"],
-        "minimumSystem": metadata["minimum"], "minimumSystemQualified": metadata["os"] == "linux",
+        "minimumSystem": metadata["minimum"], "minimumSystemQualified": metadata["qualified"],
         "buildSystem": platform.platform(), "toolchain": subprocess.check_output(["rustc", "-vV"], text=True).strip(),
         "signing": "unsigned", "archive": {"name": archive_name, "sha256": digest(archive), "size": len(archive)},
         "executables": binaries,
@@ -437,7 +437,7 @@ def merge(directory: Path) -> Path:
     return result
 
 def prepare_publication(directory: Path, output: Path, channel: str) -> Path:
-    """Stable Linux remains available while new desktop floors are qualified."""
+    """Stable releases carry qualified targets; prereleases carry every target."""
     complete = json.loads(read_checked(directory / "usagestat-artifacts.json"))
     selected = [manifest for manifest in complete["targets"]
                 if channel == "prerelease" or manifest["minimumSystemQualified"]]

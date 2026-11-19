@@ -45,17 +45,16 @@ network requests, API exposure and deletion controls.
 
 ## Install
 
-The stable backend is **[v2.3.1](docs/releases/v2.3.1.md)** for Linux
-x64/ARM64 (glibc 2.39+). Its [publication record](docs/releases/v2.3.1-publication.md)
-tracks channels; package feeds can lag the GitHub release. It adds cost per
+The stable backend is **[v2.3.2](docs/releases/v2.3.2.md)** for Linux
+x64/ARM64 (glibc 2.39+), macOS 11+ (Apple Silicon and Intel) and Windows 10+ x64.
+macOS and Windows builds are unsigned. Its [publication record](docs/releases/v2.3.2-publication.md)
+tracks channels; package feeds can lag the GitHub release. v2.3 adds cost per
 repository and git branch, run-out forecasts, `usagestat sessions`, `whatif`,
-`top`, `statusline` and `mcp`, plus opt-in hooks, budgets and multi-machine sync.
-`/v1/providers`, `/v1/usage` and optional SDK run ingestion keep their existing
-contracts.
+`top`, `statusline` and `mcp`, opt-in hooks, budgets and multi-machine sync, and
+a daemon that restarts itself after upgrades. `/v1/providers`, `/v1/usage` and
+optional SDK run ingestion keep their existing contracts.
 
-**[Try v2.0.0-alpha.4 on Windows, macOS or Linux](docs/alpha.md).** The unsigned
-backend alpha includes native archives and a Windows per-user installer. Native
-bar frontends, desktop acceptance and signing remain pending. Stable package-manager instructions follow below.
+Desktop bar frontends for Windows and macOS are not included yet.
 
 Separate **[alpha packages and installation instructions](docs/alpha.md#alpha-package-repositories)**
 are available through Fedora COPR, the Ubuntu PPA, AUR, Homebrew (including macOS),
@@ -91,19 +90,19 @@ each channel's actual availability.
   </picture></a>
 </p>
 
-Choose a package manager already available on your system. Published packages
-and stable release downloads target **Linux**; the stable Homebrew formula is also
-Linux-only. See the [v2.3.1 publication record](docs/releases/v2.3.1-publication.md)
-for current versions and feed publication status.
+Choose a package manager already available on your system. See the
+[v2.3.2 publication record](docs/releases/v2.3.2-publication.md) for current
+versions and feed publication status, and [installation](docs/installation.md)
+for macOS and Windows steps.
 
 | Channel | Published OS / CPU support | Package |
 | --- | --- | --- |
-| [npm](https://www.npmjs.com/package/@hashimkarim/usagestat) | Linux with glibc 2.39+ · x86-64, ARM64; Node 24+ | `@hashimkarim/usagestat@2.3.1` |
+| [npm](https://www.npmjs.com/package/@hashimkarim/usagestat) | Linux glibc 2.39+ x86-64/ARM64, macOS 13.5+ Apple Silicon/Intel, Windows x64; Node 24+ | `@hashimkarim/usagestat@2.3.2` |
+| [Homebrew](https://github.com/hashimkarim/homebrew-tap/blob/main/Formula/usagestat.rb) | macOS 11+ Apple Silicon/Intel; Linux glibc 2.39+ x86-64/ARM64 | `hashimkarim/tap/usagestat` |
 | [Arch Linux / AUR](https://aur.archlinux.org/packages/usagestat-bin) | Arch Linux · x86-64 | `usagestat-bin` — release binaries |
-| [Homebrew](https://github.com/hashimkarim/homebrew-tap/blob/main/Formula/usagestat.rb) | Linux with system glibc 2.39+ · x86-64, ARM64 | `hashimkarim/tap/usagestat` |
 | [Fedora COPR](https://copr.fedorainfracloud.org/coprs/hashimkarim/usagestat/) | Fedora 43, 44, 45, Rawhide · x86-64 | `usagestat` |
 | [Ubuntu PPA](https://launchpad.net/~hashimkarim/+archive/ubuntu/usagestat) | Ubuntu 24.04 LTS (Noble) · amd64 | `usagestat` |
-| [GitHub Releases](https://github.com/Hashim-K/usagestat/releases/latest) | Linux with glibc 2.39+ · x86-64, ARM64 | CLI + daemon + plugins in `.tar.gz` archives |
+| [GitHub Releases](https://github.com/Hashim-K/usagestat/releases/latest) | Linux glibc 2.39+ x86-64/ARM64, macOS 11+, Windows x64 | `.tar.gz` / `.zip` archives and the Windows per-user installer |
 
 ### Arch Linux
 
