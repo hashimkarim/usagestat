@@ -859,22 +859,34 @@ fn serve_local_usage_report(rest: &str, query: &str) -> String {
     if report == "whatif" {
         return serve_what_if(provider_id, query);
     }
-    let limit = if query.is_empty() {
-        None
-    } else {
-        let limit = query
-            .strip_prefix("limit=")
-            .and_then(|limit| limit.parse::<usize>().ok())
-            .filter(|limit| (1..=1000).contains(limit));
-        if limit.is_none() || !matches!(report, "session" | "blocks") {
-            return response_json(
-                400,
-                "Bad Request",
-                r#"{"error":"limit must be 1-1000 for session or blocks reports"}"#,
-            );
+    // session and blocks take limit=1-1000; session also order=recent.
+    let (mut limit, mut recent) = (None, false);
+    for pair in query.split('&').filter(|p| !p.is_empty()) {
+        match pair.split_once('=') {
+            Some(("limit", v)) if matches!(report, "session" | "blocks") => {
+                limit = v
+                    .parse::<usize>()
+                    .ok()
+                    .filter(|limit| (1..=1000).contains(limit));
+                if limit.is_none() {
+                    break;
+                }
+            }
+            Some(("order", "recent")) if report == "session" => recent = true,
+            _ => {
+                limit = None;
+                recent = false;
+                break;
+            }
         }
-        limit
-    };
+    }
+    if !query.is_empty() && limit.is_none() && !recent {
+        return response_json(
+            400,
+            "Bad Request",
+            r#"{"error":"limit must be 1-1000 for session or blocks reports; session also takes order=recent"}"#,
+        );
+    }
     let Some(source) = local_usage::LocalSource::from_alias(provider_id) else {
         return serve_saved_usage_report(provider_id, report);
     };
@@ -908,6 +920,7 @@ fn serve_local_usage_report(rest: &str, query: &str) -> String {
         );
     }
 
+    let report = if recent { "session-recent" } else { report };
     match local_usage_cache::report_limited(provider, report, limit) {
         Ok(body) => response_json(200, "OK", &body),
         Err(e) => {

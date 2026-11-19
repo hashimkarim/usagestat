@@ -569,6 +569,11 @@ pub(super) fn report_limited<'a>(
         "weekly" => json!({"weekly": aggregate_usage(events, Bucket::Week)}),
         "monthly" => json!({"monthly": aggregate_usage(events, Bucket::Month)}),
         "session" => json!({"sessions": aggregate_sessions(events)}),
+        "session-recent" => {
+            let mut rows = aggregate_sessions(events);
+            rows.sort_by(|a, b| b.last_activity.cmp(&a.last_activity));
+            json!({"sessions": rows})
+        }
         "blocks" => json!({"blocks": aggregate_blocks(events)}),
         _ => anyhow::bail!("unsupported report"),
     };
@@ -577,7 +582,7 @@ pub(super) fn report_limited<'a>(
     value["pricingAsOf"] = json!(pricing::AS_OF);
     value["timeZone"] = json!("UTC");
     if let Some(limit) = limit {
-        let key = if report == "session" {
+        let key = if report.starts_with("session") {
             "sessions"
         } else {
             "blocks"

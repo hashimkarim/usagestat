@@ -8,6 +8,7 @@ mod mcp;
 mod project;
 mod sessions;
 mod statusline;
+mod top;
 mod whatif;
 
 use anyhow::{Context, Result};
@@ -152,6 +153,20 @@ enum Command {
     /// Add it to an agent's MCP configuration; it runs only while the agent
     /// has it open and reads the running daemon.
     Mcp {
+        /// Daemon address (defaults to the managed service address, then 127.0.0.1:6736)
+        #[arg(long, value_name = "ADDRESS:PORT")]
+        bind: Option<std::net::SocketAddr>,
+    },
+    /// Live terminal view of quotas, today's cost and active sessions
+    ///
+    /// Reads the running daemon. Prints once when stdout is not a terminal.
+    Top {
+        /// Seconds between refreshes
+        #[arg(long, default_value_t = 10, value_parser = clap::value_parser!(u64).range(2..=3600))]
+        interval: u64,
+        /// Print one frame and exit
+        #[arg(long)]
+        once: bool,
         /// Daemon address (defaults to the managed service address, then 127.0.0.1:6736)
         #[arg(long, value_name = "ADDRESS:PORT")]
         bind: Option<std::net::SocketAddr>,
@@ -568,6 +583,18 @@ fn run_cli() -> Result<()> {
             json,
         });
     }
+    if let Some(Command::Top {
+        interval,
+        once,
+        bind,
+    }) = &cli.command
+    {
+        return top::run(top::Options {
+            interval: *interval,
+            once: *once,
+            bind: *bind,
+        });
+    }
     if let Some(Command::Mcp { bind }) = &cli.command {
         let budgets = AppConfig::load_optional(&config_path)
             .map(|c| c.budgets)
@@ -634,6 +661,7 @@ fn run_cli() -> Result<()> {
         | Command::Sessions { .. }
         | Command::Whatif { .. }
         | Command::Mcp { .. }
+        | Command::Top { .. }
         | Command::Project { .. } => {
             unreachable!("daemon and dashboard commands are handled before provider discovery")
         }
@@ -888,6 +916,7 @@ fn effective_args() -> Vec<OsString> {
                     | "sessions"
                     | "whatif"
                     | "mcp"
+                    | "top"
                     | "doctor"
                     | "capabilities"
                     | "list"

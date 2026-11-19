@@ -242,6 +242,13 @@ usage, and `--days` (0 for all time). It's a rough guide: it applies base rates
 to the same token counts, while another model would have used a different number
 of tokens.
 
+### Live view
+
+`usagestat top` is a live terminal view: quotas with reset times and run-out
+forecasts, today's cost per agent, and sessions active in the last 30 minutes
+with their cost per hour. It refreshes every 10 seconds (`--interval`); Ctrl-C
+quits. `--once`, or piping the output, prints a single frame.
+
 ### MCP server for agents
 
 `usagestat mcp` lets an agent ask about its own usage: quota status and run-out
