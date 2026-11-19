@@ -9,6 +9,8 @@ Source0:        %{url}/archive/refs/tags/v%{version}.tar.gz
 
 BuildRequires:  cargo
 BuildRequires:  gcc
+# %check runs tests that create git worktrees.
+BuildRequires:  git
 BuildRequires:  openssl-devel
 BuildRequires:  pkgconfig
 BuildRequires:  rust

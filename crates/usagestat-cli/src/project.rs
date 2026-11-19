@@ -456,6 +456,11 @@ mod tests {
 
     #[test]
     fn names_a_git_worktree_after_its_repository() {
+        // Package build roots may not have git.
+        if Command::new("git").arg("--version").output().is_err() {
+            eprintln!("skipping: git is not installed");
+            return;
+        }
         let dir = usagestat_core::storage::temporary_directory().unwrap();
         let repo = dir.path().join("my-app");
         let tree = dir.path().join("t3-1234abcd");
