@@ -4,6 +4,7 @@ mod daemon;
 mod dashboard;
 mod doctor;
 mod history;
+mod mcp;
 mod project;
 mod sessions;
 mod statusline;
@@ -142,6 +143,15 @@ enum Command {
         /// Only the last N days (default 30; 0 for all time)
         #[arg(long, default_value_t = 30)]
         days: u32,
+        /// Daemon address (defaults to the managed service address, then 127.0.0.1:6736)
+        #[arg(long, value_name = "ADDRESS:PORT")]
+        bind: Option<std::net::SocketAddr>,
+    },
+    /// Serve read-only usage tools to an AI agent over MCP (stdio)
+    ///
+    /// Add it to an agent's MCP configuration; it runs only while the agent
+    /// has it open and reads the running daemon.
+    Mcp {
         /// Daemon address (defaults to the managed service address, then 127.0.0.1:6736)
         #[arg(long, value_name = "ADDRESS:PORT")]
         bind: Option<std::net::SocketAddr>,
@@ -558,6 +568,12 @@ fn run_cli() -> Result<()> {
             json,
         });
     }
+    if let Some(Command::Mcp { bind }) = &cli.command {
+        let budgets = AppConfig::load_optional(&config_path)
+            .map(|c| c.budgets)
+            .unwrap_or_default();
+        return mcp::run(*bind, budgets);
+    }
     if let Some(Command::Whatif {
         model,
         provider,
@@ -617,6 +633,7 @@ fn run_cli() -> Result<()> {
         | Command::Statusline { .. }
         | Command::Sessions { .. }
         | Command::Whatif { .. }
+        | Command::Mcp { .. }
         | Command::Project { .. } => {
             unreachable!("daemon and dashboard commands are handled before provider discovery")
         }
@@ -870,6 +887,7 @@ fn effective_args() -> Vec<OsString> {
                     | "project"
                     | "sessions"
                     | "whatif"
+                    | "mcp"
                     | "doctor"
                     | "capabilities"
                     | "list"

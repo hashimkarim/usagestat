@@ -242,6 +242,28 @@ usage, and `--days` (0 for all time). It's a rough guide: it applies base rates
 to the same token counts, while another model would have used a different number
 of tokens.
 
+### MCP server for agents
+
+`usagestat mcp` lets an agent ask about its own usage: quota status and run-out
+forecasts, the current repository's cost by agent and branch (with its budget),
+the costliest sessions, and model what-ifs. All tools are read-only. Nothing runs
+until you add it to an agent; the agent starts it when needed, and it reads the
+running daemon.
+
+```bash
+claude mcp add usagestat -- usagestat mcp      # Claude Code
+```
+
+```toml
+# Codex: ~/.codex/config.toml
+[mcp_servers.usagestat]
+command = "usagestat"
+args = ["mcp"]
+```
+
+If the agent runs with a different config or data directory than your daemon,
+add `--bind 127.0.0.1:6736` so it finds the daemon.
+
 ### Agent statuslines
 
 `usagestat statusline` prints one line of quotas, reset times and today's cost

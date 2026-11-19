@@ -71,6 +71,34 @@ pub fn run(mut options: Options) -> Result<()> {
     Ok(())
 }
 
+/// Quota summaries for providers that report quotas (or the named ones), as
+/// `--json` prints them. Never prints, so the MCP server can reuse it.
+pub(crate) fn quotas(bind: Option<std::net::SocketAddr>, providers: &[String]) -> Result<Value> {
+    let base = daemon::dashboard_base_url(bind)?;
+    let body: Value = daemon::local_client(Duration::from_secs(5))?
+        .get(format!("{base}/v1/usage"))
+        .send()?
+        .error_for_status()?
+        .json()?;
+    let now = Utc::now();
+    let rows: Vec<Value> = body
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter(|s| {
+            if providers.is_empty() {
+                !progress(s).is_empty()
+            } else {
+                providers
+                    .iter()
+                    .any(|id| s["providerId"].as_str() == Some(id.as_str()))
+            }
+        })
+        .map(|s| summary_json(s, now))
+        .collect();
+    Ok(Value::Array(rows))
+}
+
 /// Claude Code pipes a JSON description of the session on stdin. Read it
 /// briefly in the background so an open, silent stdin cannot stall the prompt.
 fn read_hook_input() -> Value {
