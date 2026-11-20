@@ -150,9 +150,12 @@ prompt tiers must be applied before aggregation. Retained daily rows whose logs
 are no longer available can fill missing model costs at base rates, labelled
 `api-rate-aggregate-estimate`; they cannot recover request-specific tier premiums.
 Reported billing and ccusage daily totals remain authoritative.
-The dated current rate schedule is applied to local logs, including
-historical events; it does not reconstruct past price changes. Saved billing and
-ccusage costs are retained. These estimates represent API-equivalent usage, not subscription charges or an
+Each event is priced at the rate that applied on its UTC day. A catalog entry
+may carry `from` (first day, inclusive); a price change adds a new dated entry
+instead of editing the old one, so earlier usage keeps its original price.
+Entries without `from` apply from the model's release, and usage before a
+model's first dated price stays unpriced. Saved billing and ccusage costs are
+retained. These estimates represent API-equivalent usage, not subscription charges or an
 invoice. `costKnown` means that the model's base rates are available; it does not
 claim knowledge of account discounts, service tiers, region premiums or every
 provider-specific cache-retention modifier. OpenAI long-context multipliers are
@@ -183,8 +186,10 @@ summaries, and saved daily estimates are repaired.
 A scheduled workflow (`.github/workflows/pricing-sync.yml`) runs
 `tools/pricing/sync_litellm.py`, which adds exact new model IDs from LiteLLM's
 public price list for the OpenAI and Anthropic families UsageStat reads, and
-opens a pull request. It never changes a curated entry; disagreements are
-listed in the pull request for review against the provider's pricing page.
+opens a pull request. It never edits an existing entry: when LiteLLM's rate
+for a known model changes, it adds a period starting that day, listed in the
+pull request for review against the provider's pricing page (a LiteLLM
+correction should instead be fixed in the original entry).
 
 Prices are matched to explicit model IDs (with optional snapshot-date suffixes).
 Unknown aliases remain unpriced. Sources:

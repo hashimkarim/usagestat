@@ -2,8 +2,11 @@
 """Add newly published model prices from LiteLLM to pricing/models.json.
 
 Only exact model IDs from the mapped providers and families are added. An
-entry already in the catalog is never changed: rate differences are listed in
-the report for a person to review. Prices are USD per million tokens.
+existing entry is never edited. When LiteLLM's rates differ from a model's
+latest catalog rates, a new period starting today is added, so usage before
+today keeps the old price; the pull request lists it for review (LiteLLM may
+have corrected an error rather than the provider changing its price). Prices
+are USD per million tokens.
 
     python3 tools/pricing/sync_litellm.py --source prices.json --report body.md
 """
@@ -110,22 +113,31 @@ def same(a: dict, b: dict) -> bool:
     )
 
 
-def sync(catalog: dict, source: dict, today: str) -> tuple[dict, list[str], list[str]]:
-    known = {}
+def latest(catalog: dict) -> dict[str, dict]:
+    """Each model's most recent price period."""
+    found = {}
     for entry in catalog["models"]:
         for model_id in entry["ids"]:
-            known[model_id] = entry
-    added, differs = [], []
+            current = found.get(model_id)
+            if current is None or entry.get("from", "") > current.get("from", ""):
+                found[model_id] = entry
+    return found
+
+
+def sync(catalog: dict, source: dict, today: str) -> tuple[dict, list[str], list[str]]:
+    known = latest(catalog)
+    added, changed = [], []
     for model, rates in sorted(candidates(source).items()):
         entry = known.get(model)
         if entry is None:
             catalog["models"].append({"ids": [model], **rates})
             added.append(model)
-        elif not same(entry, rates):
-            differs.append(model)
-    if added:
+        elif not same(entry, rates) and entry.get("from") != today:
+            catalog["models"].append({"ids": [model], "from": today, **rates})
+            changed.append(model)
+    if added or changed:
         catalog["asOf"] = max(catalog["asOf"], today)
-    return catalog, added, differs
+    return catalog, added, changed
 
 
 def describe(rates: dict) -> str:
@@ -136,20 +148,23 @@ def describe(rates: dict) -> str:
     return text
 
 
-def report(catalog: dict, source: dict, added: list[str], differs: list[str]) -> str:
+def report(catalog: dict, source: dict, added: list[str], changed: list[str]) -> str:
     rates = candidates(source)
     lines = ["Model prices from LiteLLM's `model_prices_and_context_window.json`, USD per million tokens.", ""]
     if added:
         lines.append("Added:")
         lines += [f"- `{m}`: {describe(rates[m])}" for m in added]
         lines.append("")
-    if differs:
-        lines.append("Differ from the catalog (not changed; review against the provider's pricing page):")
-        for model in differs:
-            entry = next(e for e in catalog["models"] if model in e["ids"])
-            lines.append(f"- `{model}`: catalog {describe(entry)}; LiteLLM {describe(rates[model])}")
+    if changed:
+        lines.append("Price changes, as a new period from today (usage before today keeps the earlier rate):")
+        for model in changed:
+            periods = sorted((e for e in catalog["models"] if model in e["ids"]), key=lambda e: e.get("from", ""))
+            lines.append(f"- `{model}`: was {describe(periods[-2])}; now {describe(rates[model])}")
         lines.append("")
-    lines.append("Check each added price against the provider's own pricing page before merging.")
+        lines.append("If LiteLLM corrected an error rather than the provider changing its price, "
+                     "edit the original entry instead and drop the dated one.")
+        lines.append("")
+    lines.append("Check each price against the provider's own pricing page before merging.")
     return "\n".join(lines) + "\n"
 
 
@@ -174,12 +189,12 @@ def main(argv: list[str] | None = None) -> int:
 
     catalog = json.loads(args.catalog.read_text())
     source = load_source(args.source)
-    catalog, added, differs = sync(catalog, source, args.today)
-    if added:
+    catalog, added, changed = sync(catalog, source, args.today)
+    if added or changed:
         args.catalog.write_text(json.dumps(catalog, indent=2) + "\n")
-    if args.report and (added or differs):
-        args.report.write_text(report(catalog, source, added, differs))
-    print(f"added {len(added)}, differing {len(differs)}")
+        if args.report:
+            args.report.write_text(report(catalog, source, added, changed))
+    print(f"added {len(added)}, price changes {len(changed)}")
     return 0
 
 

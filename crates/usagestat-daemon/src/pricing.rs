@@ -40,7 +40,19 @@ struct Rates {
 #[serde(rename_all = "camelCase")]
 struct Entry {
     ids: Vec<String>,
+    /// First UTC day these rates apply (inclusive). Absent: since the model's
+    /// release. A price change adds an entry instead of editing the old one,
+    /// so earlier usage keeps the rate that applied then.
+    #[serde(default)]
+    from: Option<String>,
     #[serde(flatten)]
+    rates: Rates,
+}
+
+/// Rates for one model from `from` until the next period starts.
+#[derive(Clone, Copy, Debug, PartialEq)]
+struct Period {
+    from: Option<chrono::NaiveDate>,
     rates: Rates,
 }
 
@@ -56,7 +68,7 @@ struct CatalogFile {
 #[derive(Clone, Debug, PartialEq)]
 pub(super) struct Parsed {
     as_of: String,
-    models: BTreeMap<String, Rates>,
+    models: BTreeMap<String, Vec<Period>>,
 }
 
 fn valid_rate(value: f64) -> bool {
@@ -103,13 +115,23 @@ pub(super) fn parse(text: &str) -> anyhow::Result<Parsed> {
         if !rates_ok || entry.ids.is_empty() {
             anyhow::bail!("pricing catalog has invalid rates for {:?}", entry.ids);
         }
+        let from = match entry.from.as_deref() {
+            None => None,
+            Some(day) => Some(
+                chrono::NaiveDate::parse_from_str(day, "%Y-%m-%d")
+                    .map_err(|_| anyhow::anyhow!("pricing catalog from must be YYYY-MM-DD"))?,
+            ),
+        };
         for id in entry.ids {
             if !valid_id(&id) {
                 anyhow::bail!("pricing catalog has an invalid model ID {id:?}");
             }
-            if models.insert(id.clone(), r).is_some() {
-                anyhow::bail!("pricing catalog lists {id} twice");
+            let periods: &mut Vec<Period> = models.entry(id.clone()).or_default();
+            if periods.iter().any(|period| period.from == from) {
+                anyhow::bail!("pricing catalog lists {id} twice for the same start date");
             }
+            periods.push(Period { from, rates: r });
+            periods.sort_by_key(|period| period.from);
         }
     }
     Ok(Parsed {
@@ -131,17 +153,18 @@ pub(super) struct Catalog {
     /// Changes whenever any active rate changes; cached costs are repriced then.
     pub version: String,
     pub layers: Vec<Layer>,
-    models: BTreeMap<String, Rates>,
+    models: BTreeMap<String, Vec<Period>>,
 }
 
 impl Catalog {
     /// Bundled rates, then a downloaded catalog, then a local override. Later
-    /// layers add models or replace their rates; they never remove one.
+    /// layers add models or replace a model's whole price history; they never
+    /// remove a model.
     pub(super) fn merge(layers: &[(&'static str, &Parsed)]) -> Self {
         use sha2::{Digest, Sha256};
         let mut models = BTreeMap::new();
         for (_, layer) in layers {
-            models.extend(layer.models.iter().map(|(id, rates)| (id.clone(), *rates)));
+            models.extend(layer.models.iter().map(|(id, periods)| (id.clone(), periods.clone())));
         }
         let as_of = layers
             .iter()
@@ -171,20 +194,31 @@ impl Catalog {
         }
     }
 
-    /// Exact ID, optionally followed by an ISO or compact snapshot date.
-    fn rates(&self, model: &str) -> Option<Rates> {
+    /// Price history for an exact ID, optionally followed by an ISO or
+    /// compact snapshot date.
+    fn periods(&self, model: &str) -> Option<&[Period]> {
         let model = model.to_ascii_lowercase();
-        if let Some(rates) = self.models.get(&model) {
-            return Some(*rates);
+        if let Some(periods) = self.models.get(&model) {
+            return Some(periods);
         }
         [8usize, 10].into_iter().find_map(|len| {
             let split = model.len().checked_sub(len + 1)?;
             let (base, suffix) = model.split_at(split);
             let suffix = suffix.strip_prefix('-')?;
             (suffix.chars().all(|c| c.is_ascii_digit() || c == '-'))
-                .then(|| self.models.get(base).copied())
+                .then(|| self.models.get(base).map(Vec::as_slice))
                 .flatten()
         })
+    }
+
+    /// The rates that applied on `day` (UTC). Usage before a model's first
+    /// dated price stays unpriced.
+    fn rates(&self, model: &str, day: chrono::NaiveDate) -> Option<Rates> {
+        self.periods(model)?
+            .iter()
+            .rev()
+            .find(|period| period.from.is_none_or(|from| from <= day))
+            .map(|period| period.rates)
     }
 }
 
@@ -374,19 +408,21 @@ pub(super) fn status_json() -> String {
     .to_string()
 }
 
-fn rates(model: &str) -> Option<Rates> {
-    active().rates(model)
+fn rates(model: &str, day: chrono::NaiveDate) -> Option<Rates> {
+    active().rates(model, day)
 }
 
+/// Whether the model has any price, on any date.
 pub(super) fn is_priced(model: &str) -> bool {
-    rates(model).is_some()
+    active().periods(model).is_some()
 }
 
 /// What an event's tokens would cost on another model, at base rates: cached
 /// rows no longer have request boundaries, so long-context tiers are skipped.
 pub(super) fn cost_as(event: &LocalUsageEvent, model: &str) -> Option<f64> {
-    rates(model)?;
+    is_priced(model).then_some(())?;
     let mut copy = LocalUsageEvent {
+        ts: event.ts,
         model: model.to_string(),
         input_tokens: event.input_tokens,
         output_tokens: event.output_tokens,
@@ -403,7 +439,7 @@ pub(super) fn apply(event: &mut LocalUsageEvent) {
 }
 
 fn price(event: &mut LocalUsageEvent, request_context: bool) {
-    let Some(mut rates) = rates(&event.model) else {
+    let Some(mut rates) = rates(&event.model, event.ts.date_naive()) else {
         event.cost_usd = 0.0;
         event.cost_components = UsageCostComponents::default();
         event.cost_known = false;
@@ -458,7 +494,11 @@ pub(super) fn backfill_daily(row: &mut usagestat_core::usage_daily::UsageDailyRo
         {
             continue;
         }
+        let Ok(day) = chrono::NaiveDate::parse_from_str(&row.date, "%Y-%m-%d") else {
+            continue;
+        };
         let mut event = LocalUsageEvent {
+            ts: day.and_hms_opt(12, 0, 0).unwrap_or_default().and_utc(),
             model: name.clone(),
             input_tokens: model.input_tokens,
             output_tokens: model.output_tokens,
@@ -509,6 +549,10 @@ pub(super) fn backfill_daily(row: &mut usagestat_core::usage_daily::UsageDailyRo
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn today() -> chrono::NaiveDate {
+        chrono::Utc::now().date_naive()
+    }
 
     /// The hard-coded table that `pricing/models.json` replaced.
     struct Legacy {
@@ -607,8 +651,12 @@ mod tests {
     fn bundled_catalog_reproduces_the_previous_rate_table_exactly() {
         let catalog = Catalog::merge(&[("bundled", &bundled())]);
         let close = |a: f64, b: f64| (a - b).abs() < 1e-12;
-        let mut ids: Vec<String> = catalog.models.keys().cloned().collect();
-        for id in catalog.models.keys() {
+        // Models added after the old table are covered by the catalog tests.
+        let previous: Vec<String> =
+            catalog.models.keys().filter(|id| legacy(id).is_some()).cloned().collect();
+        assert_eq!(previous.len(), 30, "every model of the old table is still bundled");
+        let mut ids = previous.clone();
+        for id in &previous {
             ids.extend([
                 format!("{id}-20260101"),
                 format!("{id}-2026-01-01"),
@@ -618,9 +666,9 @@ mod tests {
                 id.to_ascii_uppercase(),
             ]);
         }
-        ids.extend(["gpt-5.4-mini-x", "claude-sonnet-5-5-foo", "gpt-6.2-astra", "gpt-6", "claude"].map(String::from));
+        ids.extend(["gpt-5.4-mini-x", "claude-sonnet-5-5-foo", "gpt-6", "claude"].map(String::from));
         for id in ids {
-            let new = catalog.rates(&id);
+            let new = catalog.rates(&id, today());
             let old = legacy(&id);
             assert_eq!(new.is_some(), old.is_some(), "{id}");
             let (Some(new), Some(old)) = (new, old) else { continue };
@@ -654,7 +702,7 @@ mod tests {
     #[test]
     fn catalogs_are_validated_whole_and_layers_only_add_or_replace() {
         let file = |models: &str| format!(r#"{{"schema":1,"asOf":"2026-12-01","models":[{models}]}}"#);
-        let astra = r#"{"ids":["gpt-6.2-astra"],"input":8,"output":40,"cacheWrite":10,"cacheRead":0.4,
+        let astra = r#"{"ids":["gpt-9-test"],"input":8,"output":40,"cacheWrite":10,"cacheRead":0.4,
             "above":{"tokens":272000,"input":16,"output":60,"cacheWrite":20,"cacheRead":0.8}}"#;
         let downloaded = parse(&file(astra)).unwrap();
         for bad in [
@@ -672,20 +720,34 @@ mod tests {
         let base = bundled();
         let before = Catalog::merge(&[("bundled", &base)]);
         let after = Catalog::merge(&[("bundled", &base), ("downloaded", &downloaded)]);
-        assert!(before.rates("gpt-6.2-astra").is_none());
-        assert_eq!(after.rates("gpt-6.2-astra-2026-11-20").unwrap().input, 8.0);
+        assert!(before.rates("gpt-9-test", today()).is_none());
+        assert_eq!(after.rates("gpt-9-test-2026-11-20", today()).unwrap().input, 8.0);
         // Nothing bundled disappears, and the version follows the rates.
-        assert!(base.models.keys().all(|id| after.rates(id).is_some()));
+        assert!(base.models.keys().all(|id| after.rates(id, today()).is_some()));
         assert_ne!(before.version, after.version);
         assert!(after.version.starts_with("2026-12-01+"));
         assert_eq!(before.version, Catalog::merge(&[("bundled", &base)]).version);
 
+        // A price change is a new dated period: earlier usage keeps its rate.
+        let rise = parse(&file(&format!(
+            "{astra},{}",
+            astra.replace(r#""input":8,"#, r#""from":"2027-01-01","input":12,"#)
+        )))
+        .unwrap();
+        let dated = Catalog::merge(&[("bundled", &base), ("downloaded", &rise)]);
+        let day = |s: &str| chrono::NaiveDate::parse_from_str(s, "%Y-%m-%d").unwrap();
+        assert_eq!(dated.rates("gpt-9-test", day("2026-12-31")).unwrap().input, 8.0);
+        assert_eq!(dated.rates("gpt-9-test", day("2027-01-01")).unwrap().input, 12.0);
+        let first_dated = parse(&file(&astra.replace(r#""input":8,"#, r#""from":"2027-01-01","input":8,"#))).unwrap();
+        assert!(Catalog::merge(&[("d", &first_dated)]).rates("gpt-9-test", day("2026-06-01")).is_none());
+        assert!(parse(&file(&format!("{astra},{}", astra.replace("8,", "9,")))).is_err(), "same start twice");
+
         // An outdated download is ignored; a local override wins over both.
         let stale = parse(&file(astra).replace("2026-12-01", "2026-01-01")).unwrap();
-        assert!(combine(&base, Some(&stale), None).rates("gpt-6.2-astra").is_none());
+        assert!(combine(&base, Some(&stale), None).rates("gpt-9-test", today()).is_none());
         let local = parse(&file(&astra.replace(r#""input":8,"#, r#""input":9,"#))).unwrap();
         let layered = combine(&base, Some(&downloaded), Some(&local));
-        assert_eq!(layered.rates("gpt-6.2-astra").unwrap().input, 9.0);
+        assert_eq!(layered.rates("gpt-9-test", today()).unwrap().input, 9.0);
         assert_eq!(
             layered.layers.iter().map(|layer| layer.source).collect::<Vec<_>>(),
             ["bundled", "downloaded", "override"]
