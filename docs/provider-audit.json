@@ -538,7 +538,7 @@
       "id": "claude",
       "manifest": "plugins/claude/plugin.json",
       "entry": "plugins/claude/plugin.js",
-      "entrySha256": "a0ee308beb3995ea97b954eb1025177706b078b2e0fac21dbf1ca948b57f2287",
+      "entrySha256": "212c12ed41bb12e3f08d5872c08ee83c0624997edc00a15e501897e4d89a9873",
       "declaredModes": [
         "oauth",
         "cli",
@@ -574,6 +574,7 @@
         "fs.writeText",
         "keychain.writeGenericPassword",
         "keychain.writeGenericPasswordForCurrentUser",
+        "localUsage.daily",
         "usageDaily.ingest"
       ],
       "literalPathEvidence": [
@@ -787,7 +788,7 @@
       "id": "codex",
       "manifest": "plugins/codex/plugin.json",
       "entry": "plugins/codex/plugin.js",
-      "entrySha256": "28c2eb0c4b3657498b0c4808dd5e1f139dc0951d9eb62ca46406179192e61ce9",
+      "entrySha256": "1de6aef533646d4e043cce6c357988232f0ad64c3907a1afff9573233718d2b0",
       "declaredModes": [
         "oauth",
         "local",
@@ -817,6 +818,7 @@
         "fs.writeText",
         "keychain.readGenericPassword",
         "keychain.writeGenericPassword",
+        "localUsage.daily",
         "usageDaily.ingest"
       ],
       "literalPathEvidence": [
