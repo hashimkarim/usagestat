@@ -160,6 +160,8 @@ fn main() -> Result<()> {
     // Saved downloaded and override prices apply before anything is priced.
     pricing::reload();
     let pricing_updates = config.pricing_updates != Some(false);
+    icon_catalog::load();
+    let icon_updates = config.icon_updates != Some(false);
     // Repairs saved counters only; this also applies to ingestion-only previews.
     if let Err(error) = usagestat_core::usage_daily::backfill_api_estimates(pricing::backfill_daily)
     {
@@ -233,6 +235,9 @@ fn main() -> Result<()> {
         start_usage_summarizer(Arc::clone(&state), Arc::clone(&shutdown));
         if pricing_updates {
             pricing::start_updates(Arc::clone(&shutdown));
+        }
+        if icon_updates {
+            icon_catalog::start_updates(Arc::clone(&shutdown));
         }
         start_status_poller(Arc::clone(&state), Arc::clone(&shutdown));
     }
@@ -730,7 +735,7 @@ fn route(
                     .unwrap_or(false)
                 {
                     if let Ok(svg) = std::fs::read_to_string(file) {
-                        return response_text(200, "OK", "image/svg+xml", &svg);
+                        return icon_catalog::response_svg(&svg);
                     }
                 }
             }

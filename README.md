@@ -336,6 +336,17 @@ Shared artwork comes from `@agenticdriver/provider-icons`, pinned and vendored
 under `plugins/_provider-icons`; custom provider icons still take precedence.
 Run `node tools/provider-icons.mjs --check` to verify the selected assets.
 
+The daemon also checks the library's latest stable GitHub release a minute
+after start and then daily, so new and refreshed logos arrive without an app
+update. A release is used only after its archive matches the published SHA-256
+and every SVG passes validation (plain vector artwork, no scripts or external
+references); it is kept under `provider-icons/` in the data directory with the
+previous version, and the bundled copy remains the offline fallback.
+`/v1/icon-catalog` reports the active `version` and `source`. Provider IDs whose
+mark has another name are mapped in
+`crates/usagestat-daemon/src/provider-icon-aliases.json`. Set
+`iconUpdates = false` in the config to keep the bundled icons.
+
 <details>
 <summary>Configuration paths and advanced example</summary>
 

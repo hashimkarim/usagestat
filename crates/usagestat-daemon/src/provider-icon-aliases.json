@@ -1,0 +1,19 @@
+{
+  "abacus-ai": "abacus",
+  "alibaba-token-plan": "bailian",
+  "antigravity-cli": "antigravity",
+  "antigravity-ide": "antigravity",
+  "aws-bedrock": "bedrock",
+  "azure-openai": "azureai",
+  "command-code": "commandcode",
+  "crofai": "crof",
+  "cursor-nightly": "cursor",
+  "droid": "factory",
+  "fireworks-ai": "fireworks",
+  "gemini-apps": "gemini",
+  "groqcloud": "groq",
+  "nous": "nousresearch",
+  "qwencloud": "qwen",
+  "typesafe": "typesafeai",
+  "vertex-ai": "vertexai"
+}

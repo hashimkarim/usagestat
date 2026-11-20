@@ -6,14 +6,9 @@ import {fileURLToPath} from 'node:url';
 import {resolveProviderIcon} from '../plugins/_provider-icons/index.js';
 
 const plugins = fileURLToPath(new URL('../plugins/', import.meta.url));
-const aliases = {
-  'abacus-ai': 'abacus', 'alibaba-token-plan': 'bailian',
-  'antigravity-cli': 'antigravity', 'antigravity-ide': 'antigravity',
-  'aws-bedrock': 'bedrock', 'azure-openai': 'azureai',
-  'command-code': 'commandcode', crofai: 'crof', 'cursor-nightly': 'cursor',
-  droid: 'factory', 'fireworks-ai': 'fireworks', 'gemini-apps': 'gemini',
-  groqcloud: 'groq', nous: 'nousresearch', qwencloud: 'qwen', 'vertex-ai': 'vertexai',
-};
+// Provider IDs whose mark has another name. The daemon reads the same table
+// so a downloaded icon library reaches these providers too.
+const aliases = JSON.parse(fs.readFileSync(new URL('../crates/usagestat-daemon/src/provider-icon-aliases.json', import.meta.url), 'utf8'));
 const check = process.argv.includes('--check');
 let count = 0;
 for (const id of fs.readdirSync(plugins).sort()) {

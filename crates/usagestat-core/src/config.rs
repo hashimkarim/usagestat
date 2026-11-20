@@ -39,6 +39,9 @@ pub struct AppConfig {
     /// only the prices bundled with this release and any local override.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub pricing_updates: Option<bool>,
+    /// Daily download of newer provider icons. Unset means on.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub icon_updates: Option<bool>,
 }
 
 impl Default for AppConfig {
@@ -51,6 +54,7 @@ impl Default for AppConfig {
             budgets: Vec::new(),
             sync: None,
             pricing_updates: None,
+            icon_updates: None,
         }
     }
 }
