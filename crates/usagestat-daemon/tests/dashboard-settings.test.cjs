@@ -308,3 +308,13 @@ test('collection settings explain a disabled backend apart from an older one', a
   await assert.rejects(backend.create(reply({ error: 'dashboard_settings_disabled' }), null).load(), /off for this backend.*--no-poll/);
   await assert.rejects(backend.create(reply({ error: 'not_found' }), null).load(), /newer local backend/);
 });
+
+test('display settings list only providers that collect or have saved usage',()=>{
+  const ui=dashboard({providerOrder:['never-enabled','claude','codex']});
+  ui.run('S.allProviders=[{id:"codex",enabled:true},{id:"claude",enabled:true},{id:"never-enabled",enabled:false},{id:"paused",enabled:false}];S.snapshots.push({...snapshot,providerId:"paused"})');
+  assert.deepEqual([...ui.run('settingsProviderIds()')],['claude','codex','paused']);
+  assert.match(ui.run('unlistedProvidersNote(settingsProviderIds())'),/^<p[^>]*>1 more installed provider is not collecting usage/);
+  // Reordering the listed providers keeps the unlisted one's saved position.
+  ui.run('S.active="settings";moveDashboardProvider("codex",-1)');
+  assert.deepEqual([...ui.run('S.prefs.providerOrder')],['codex','claude','paused','never-enabled']);
+});

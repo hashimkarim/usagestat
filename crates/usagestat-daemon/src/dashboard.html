@@ -715,7 +715,7 @@ html[data-density="compact"] .overview-panel{padding:12px 14px}
 .settings-heading{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin:8px 0 20px}
 .settings-heading h1{font-size:24px;line-height:1.25;color:var(--hi);margin-bottom:7px}
 .settings-description{color:var(--mu);font-size:13px;max-width:700px}
-.settings-layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;align-items:start}
+.settings-layout{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,360px),1fr));gap:16px;align-items:start}
 .settings-section{background:var(--s0);border:1px solid var(--bd);border-radius:var(--r);padding:20px;min-width:0}
 .settings-section h2{font-size:16px;color:var(--hi);margin-bottom:6px}
 .settings-section>p{font-size:13px;color:var(--mu);margin-bottom:16px}
@@ -761,10 +761,15 @@ html[data-density="compact"] .overview-panel{padding:12px 14px}
 .action-btn:disabled{opacity:.4;cursor:default}
 .settings-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:16px}
 .settings-note{font-size:12px;color:var(--mu);margin-top:14px}
+.link-btn{background:none;border:0;padding:0;font:inherit;color:var(--blue);cursor:pointer;text-decoration:underline}
 .settings-status{font-size:12px;color:var(--green);min-height:20px;margin-top:10px}
 .settings-status.is-error{color:var(--red)}
 .settings-nav{display:flex;gap:8px;margin:0 0 18px}
 .settings-nav .active{background:var(--blue);color:#fff}
+.settings-nav{flex-wrap:wrap}
+.settings-section[hidden],[data-collection-view][hidden]{display:none!important}
+.collection-nav{margin:16px 0 12px}
+.collection-search{width:100%;max-width:360px;margin:0 0 12px}
 .provider-extra{grid-column:1/-1;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px;border-top:1px solid var(--bd);padding-top:14px}
 .provider-extra>div{min-width:0}
 .provider-extra label,.collection-field label{display:block;color:var(--mu);font-size:12px;margin-bottom:5px}
@@ -884,7 +889,8 @@ const S = {
   providers:[],
   allProviders:[],
   iconCatalog:null,
-  settingsSection:'display',
+  settingsSection:'appearance',
+  collectionView:'sources',
   dailyRows:[],
   dailyError:false,
   costs:{},
@@ -2443,14 +2449,18 @@ function updateProviderSetting(id,key,value){
   // the blur (for example Back to Overview) still reaches its original target.
   refreshSettings('Settings saved.',key!=='name');
 }
+// Display settings cover what the dashboard can show: providers with collection
+// on, plus any with saved usage. Installed providers that were never enabled
+// have nothing to display and are configured under Collection instead.
 function settingsProviderIds(){
-  return UsageDashboardSettings.order([...new Set([...(S.allProviders||[]).map(p=>p.id),...S.providers.map(p=>p.id),...S.snapshots.map(s=>s.providerId)])],S.prefs,id=>id);
+  return UsageDashboardSettings.order([...new Set([...S.providers.map(p=>p.id),...S.snapshots.map(s=>s.providerId)])],S.prefs,id=>id);
 }
 function moveDashboardProvider(id,direction){
   const order=settingsProviderIds(),index=order.indexOf(id),next=index+direction;
   if(index<0 || next<0 || next>=order.length)return;
   [order[index],order[next]]=[order[next],order[index]];
-  S.prefs.providerOrder=order;S.prefs.sort='order';refreshSettings('Provider order saved.');
+  // Keep saved positions of providers that are not listed right now.
+  S.prefs.providerOrder=[...order,...S.prefs.providerOrder.filter(other=>!order.includes(other))];S.prefs.sort='order';refreshSettings('Provider order saved.');
 }
 function resetDashboardSettings(){
   S.prefsUndo=cleanPreferences(S.prefs);S.prefs=cleanPreferences({});
@@ -2464,11 +2474,12 @@ function renderSettings(force=false){
   const root=document.getElementById('panel-settings');
   // A background refresh must not discard text while the user is editing it.
   if(!force && (root.contains?.(document.activeElement)||(S.settingsSection==='collection'&&S.collectionDirty)))return;
+  if(!SETTINGS_TABS.some(([id])=>id===S.settingsSection))S.settingsSection='appearance';
   if(S.settingsSection==='collection'){renderCollectionSettings(root);return;}
   const select=(id,label,value,options,hint='')=>`<div class="setting-row"><label for="${id}">${label}${hint?`<span class="setting-hint">${hint}</span>`:''}</label><select class="ctrl-select" id="${id}">${options.map(([v,text])=>selectOption(v,text,String(value))).join('')}</select></div>`;
   const check=(id,label,checked,hint='')=>`<div class="setting-row"><label for="${id}">${label}${hint?`<span class="setting-hint">${hint}</span>`:''}</label><input type="checkbox" id="${id}"${checked?' checked':''}></div>`;
   const ids=settingsProviderIds();
-  root.innerHTML=`<div class="settings-heading"><div><h1>Dashboard settings</h1><p class="settings-description">Display settings belong to this browser, independently of UsageStat Bar. Collection settings control what the shared backend measures.</p></div><button class="action-btn" type="button" onclick="switchTab('overview')">Back to Overview</button></div>${settingsNavigation()}
+  root.innerHTML=`<div class="settings-heading"><div><h1>Dashboard settings</h1><p class="settings-description">These tabs change only this browser, independently of UsageStat Bar. Collection controls what the shared backend measures.</p></div><button class="action-btn" type="button" onclick="switchTab('overview')">Back to Overview</button></div>${settingsNavigation()}
     <div class="settings-layout">
       <section class="settings-section" aria-labelledby="appearance-heading"><h2 id="appearance-heading">Appearance</h2><p>Choose how the dashboard looks and presents usage.</p>
         ${select('setting-theme','Theme',S.prefs.theme,[['dark','Comfy dark'],['light','Light'],['system','Follow system']])}
@@ -2487,7 +2498,7 @@ function renderSettings(force=false){
         <div class="settings-actions"><button class="action-btn" id="settings-export" type="button">Export settings</button><button class="action-btn" id="settings-import" type="button">Import settings</button><button class="action-btn" id="settings-reset" type="button">Reset dashboard</button>${S.prefsUndo?'<button class="action-btn" id="settings-undo" type="button">Undo reset</button>':''}</div>
         <p class="settings-status${S.settingsMessageError?' is-error':''}" id="settings-status" role="status">${esc(S.settingsMessage||'')}</p>
       </section>
-      <section class="settings-section providers" aria-labelledby="providers-heading"><h2 id="providers-heading">Providers</h2><p>Choose which providers appear in Overview and the tab bar, give them display names, and select the quota shown in their summary. Saved history remains available.</p>
+      <section class="settings-section providers" aria-labelledby="providers-heading"><h2 id="providers-heading">Providers</h2><p>Choose which providers appear in Overview and the tab bar, give them display names, and select the quota shown in their summary. Saved history remains available.</p>${unlistedProvidersNote(ids)}
         <div id="settingsProviders">${ids.length?ids.map((id,index)=>{
           const pref=providerSetting(id),snap=S.snapshots.find(s=>s.providerId===id);
           const original=S.allProviders.find(p=>p.id===id)?.name||S.providers.find(p=>p.id===id)?.name||snap?.displayName||id;
@@ -2521,10 +2532,28 @@ function renderSettings(force=false){
   root.querySelector('#settings-undo')?.addEventListener('click',undoDashboardReset);
   bindDisplayExtras(root);
   bindSettingsNavigation(root);
+  showSettingsTab(root);
 }
 
+function unlistedProvidersNote(ids){
+  const count=(S.allProviders||[]).filter(p=>!ids.includes(p.id)).length;
+  return count?`<p class="settings-note">${count} more installed provider${count===1?' is':'s are'} not collecting usage. Turn them on under <button class="settings-tab link-btn" type="button" data-section="collection">Collection</button>.</p>`:'';
+}
+// Display tabs are saved in this browser; Collection is shared with the backend.
+const SETTINGS_TABS=[
+  ['appearance','Appearance','This browser'],
+  ['view','View','This browser'],
+  ['providers','Providers','This browser'],
+  ['alerts','Details & alerts','This browser'],
+  ['collection','Collection','Shared backend'],
+];
+const SETTINGS_SECTION_TABS={'appearance-heading':'appearance','view-heading':'view','providers-heading':'providers','details-heading':'alerts','threshold-heading':'alerts','spend-heading':'alerts'};
+function showSettingsTab(root){
+  root.querySelectorAll('.settings-section[aria-labelledby]').forEach(section=>{section.hidden=SETTINGS_SECTION_TABS[section.getAttribute('aria-labelledby')]!==S.settingsSection;});
+}
 function settingsNavigation(){
-  return `<nav class="settings-nav" aria-label="Settings scope"><button class="action-btn settings-tab${S.settingsSection==='display'?' active':''}" data-section="display">Display · this browser</button><button class="action-btn settings-tab${S.settingsSection==='collection'?' active':''}" data-section="collection">Collection · shared backend</button></nav>`;
+  const tab=([id,label,hint])=>`<button class="action-btn settings-tab${S.settingsSection===id?' active':''}" data-section="${id}" title="${hint}"${S.settingsSection===id?' aria-current="page"':''}>${label}</button>`;
+  return `<nav class="settings-nav" aria-label="Settings sections">${SETTINGS_TABS.map(tab).join('')}</nav>`;
 }
 function bindSettingsNavigation(root){root.querySelectorAll('.settings-tab').forEach(button=>button.addEventListener('click',()=>{if(S.settingsSection==='collection'&&S.collectionDirty)S.collectionDrafts=captureCollectionDrafts();S.settingsSection=button.dataset.section;renderSettings(true);}));}
 function preferenceSelect(key,label,options){return `<div class="setting-row"><label for="pref-${key}">${label}</label><select class="ctrl-select" id="pref-${key}" data-pref="${key}">${options.map(([value,name])=>selectOption(value,name,String(S.prefs[key]))).join('')}</select></div>`;}
@@ -2602,11 +2631,12 @@ function renderCollectionSettings(root){
   }
   if(!data){if(!S.collectionLoading&&!S.collectionError)loadCollectionSettings();return;}
   const groups=data.providers.slice().sort((a,b)=>Number(b.enabled)-Number(a.enabled)||(a.displayName||a.id).localeCompare(b.displayName||b.id));
-  root.insertAdjacentHTML('beforeend',`<form class="settings-section collection-provider" id="collection-global"><h2>Polling and provider discovery</h2><p>Polling measures usage; refreshing the view only reads saved measurements.</p><div class="collection-fields"><div class="collection-field"><label for="collection-refresh">Poll every · seconds</label><input class="ctrl-input" type="number" min="5" max="86400" id="collection-refresh" name="refreshSec" value="${data.refreshSec}"${data.refreshOverride!=null?' disabled':''}><span class="setting-hint">${data.refreshOverride!=null?'This daemon was launched with a polling override of '+data.effectiveRefreshSec+' seconds.':'Applies without restarting the daemon.'}</span></div><div class="collection-field"><label for="collection-plugins">Additional plugin directories · one per line</label><textarea id="collection-plugins" name="pluginDirs">${esc(data.pluginDirs.join('\n'))}</textarea></div></div><div class="settings-actions"><button class="action-btn" type="submit">Save polling settings</button></div></form>
-    <section class="settings-section collection-provider"><h2>Add another account or source</h2><p>Create an independent measurement source. New sources start with collection paused until you configure and enable them.</p><form id="collection-add" class="collection-fields"><div class="collection-field"><label>Provider</label><select class="ctrl-select" name="id">${data.catalog.map(p=>`<option value="${esc(p.id)}">${esc(p.name)}</option>`).join('')}</select></div><div class="collection-field"><label>Source name</label><input class="ctrl-input" name="displayName" placeholder="Work account"></div><button class="action-btn" type="submit">Add source</button></form></section>
+  root.insertAdjacentHTML('beforeend',`<form class="settings-section collection-provider" id="collection-global" data-collection-view="polling"><h2>Polling and provider discovery</h2><p>Polling measures usage; refreshing the view only reads saved measurements.</p><div class="collection-fields"><div class="collection-field"><label for="collection-refresh">Poll every · seconds</label><input class="ctrl-input" type="number" min="5" max="86400" id="collection-refresh" name="refreshSec" value="${data.refreshSec}"${data.refreshOverride!=null?' disabled':''}><span class="setting-hint">${data.refreshOverride!=null?'This daemon was launched with a polling override of '+data.effectiveRefreshSec+' seconds.':'Applies without restarting the daemon.'}</span></div><div class="collection-field"><label for="collection-plugins">Additional plugin directories · one per line</label><textarea id="collection-plugins" name="pluginDirs">${esc(data.pluginDirs.join('\n'))}</textarea></div></div><div class="settings-actions"><button class="action-btn" type="submit">Save polling settings</button></div></form>
+    ${collectionNavigation(groups)}<input class="ctrl-input collection-search" id="collection-search" type="search" placeholder="Filter providers" aria-label="Filter providers" data-collection-view="available">
+    <section class="settings-section collection-provider" data-collection-view="available"><h2>Add another account or source</h2><p>Create an independent measurement source. New sources start with collection paused until you configure and enable them.</p><form id="collection-add" class="collection-fields"><div class="collection-field"><label>Provider</label><select class="ctrl-select" name="id">${data.catalog.map(p=>`<option value="${esc(p.id)}">${esc(p.name)}</option>`).join('')}</select></div><div class="collection-field"><label>Source name</label><input class="ctrl-input" name="displayName" placeholder="Work account"></div><button class="action-btn" type="submit">Add source</button></form></section>
     <div id="collection-providers">${groups.map(entry=>{
       const catalog=data.catalog.find(p=>p.id===entry.id),key=UsageDashboardBackend.key(entry),name=entry.displayName||catalog?.name||entry.id;
-      return `<details class="settings-section collection-provider" data-collection-key="${esc(key)}"><summary>${providerIcon(key)}${esc(name)} <span class="badge">${entry.enabled?'Collecting':'Paused'}</span><span class="setting-hint">${esc(entry.instanceId||entry.id)}</span></summary><form data-collection-form="${esc(key)}"><div class="collection-fields">
+      return `<details class="settings-section collection-provider" data-collection-key="${esc(key)}" data-collection-view="${entry.enabled?'sources':'available'}" data-collection-name="${esc(name.toLowerCase()+' '+entry.id)}"><summary>${providerIcon(key)}${esc(name)} <span class="badge">${entry.enabled?'Collecting':'Paused'}</span><span class="setting-hint">${esc(entry.instanceId||entry.id)}</span></summary><form data-collection-form="${esc(key)}"><div class="collection-fields">
         <label><input type="checkbox" name="enabled"${entry.enabled?' checked':''}> Measure this source</label>
         <div class="collection-field"><label>Usage source<select class="ctrl-select" name="source">${UsageDashboardBackend.modes(catalog).map(mode=>selectOption(mode,mode==='auto'?'Auto · '+(catalog?.autoMode||'provider default'):mode,entry.source)).join('')}</select></label></div>
         ${collectionField('displayName','Source name',entry.displayName||'')}
@@ -2629,6 +2659,25 @@ function renderCollectionSettings(root){
     form.querySelector('[data-remove-source]')?.addEventListener('click',()=>saveCollectionPatch({removeProvider:form.dataset.collectionForm},form.dataset.collectionForm));
   });
   restoreCollectionDrafts(root);
+  bindCollectionNavigation(root);
+}
+function collectionNavigation(groups){
+  const enabled=groups.filter(entry=>entry.enabled).length;
+  const views=[['sources',`Collecting · ${enabled}`],['available',`Paused · ${groups.length-enabled}`],['polling','Polling']];
+  return `<nav class="settings-nav collection-nav" aria-label="Collection views">${views.map(([id,label])=>`<button type="button" class="action-btn collection-view${S.collectionView===id?' active':''}" data-collection-tab="${id}">${label}</button>`).join('')}</nav>`;
+}
+function showCollectionView(root){
+  const filter=(S.collectionFilter||'').trim().toLowerCase();
+  root.querySelectorAll('[data-collection-view]').forEach(el=>{
+    el.hidden=el.dataset.collectionView!==S.collectionView||(!!filter&&!!el.dataset.collectionName&&!el.dataset.collectionName.includes(filter));
+  });
+  root.querySelectorAll('.collection-view').forEach(button=>button.classList.toggle('active',button.dataset.collectionTab===S.collectionView));
+}
+function bindCollectionNavigation(root){
+  root.querySelectorAll('.collection-view').forEach(button=>button.addEventListener('click',()=>{S.collectionView=button.dataset.collectionTab;showCollectionView(root);}));
+  const search=root.querySelector('#collection-search');
+  if(search){search.value=S.collectionFilter||'';search.addEventListener('input',()=>{S.collectionFilter=search.value;showCollectionView(root);});}
+  showCollectionView(root);
 }
 function captureCollectionDrafts(exclude){
   const result=new Map();
