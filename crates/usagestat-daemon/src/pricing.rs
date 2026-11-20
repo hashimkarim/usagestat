@@ -217,6 +217,163 @@ pub(super) fn version() -> String {
     active().version.clone()
 }
 
+/// Newer prices published with the source, fetched at most daily.
+const CATALOG_URL: &str =
+    "https://raw.githubusercontent.com/hashimkarim/usagestat/main/pricing/models.json";
+const UPDATE_INTERVAL: std::time::Duration = std::time::Duration::from_secs(24 * 60 * 60);
+
+fn downloaded_path() -> anyhow::Result<std::path::PathBuf> {
+    Ok(usagestat_core::paths::data_dir()?.join("pricing-catalog.json"))
+}
+
+/// A user's own rates, for a model or correction not yet published.
+fn override_path() -> anyhow::Result<std::path::PathBuf> {
+    Ok(usagestat_core::paths::config_dir()?.join("pricing.json"))
+}
+
+fn read_layer(path: &std::path::Path) -> Option<Parsed> {
+    let text = match std::fs::read_to_string(path) {
+        Ok(text) => text,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return None,
+        Err(error) => {
+            log::warn!("pricing catalog {} unreadable: {error}", path.display());
+            return None;
+        }
+    };
+    parse(&text)
+        .inspect_err(|error| log::warn!("pricing catalog {} ignored: {error}", path.display()))
+        .ok()
+}
+
+/// Rebuilds the active catalog from the bundled, downloaded and override
+/// files. Returns true when the active rates changed.
+pub(super) fn reload() -> bool {
+    let downloaded = downloaded_path().ok().and_then(|path| read_layer(&path));
+    let local = override_path().ok().and_then(|path| read_layer(&path));
+    install(combine(&bundled(), downloaded.as_ref(), local.as_ref()))
+}
+
+fn combine(bundled: &Parsed, downloaded: Option<&Parsed>, local: Option<&Parsed>) -> Catalog {
+    let mut layers = vec![("bundled", bundled)];
+    // A download older than this release's own table could undo its corrections.
+    layers.extend(
+        downloaded
+            .filter(|layer| layer.as_of >= bundled.as_of)
+            .map(|layer| ("downloaded", layer)),
+    );
+    layers.extend(local.map(|layer| ("override", layer)));
+    Catalog::merge(&layers)
+}
+
+/// Size and modification time of the files `reload` reads.
+fn layer_stamps() -> Vec<Option<(u64, std::time::SystemTime)>> {
+    [downloaded_path(), override_path()]
+        .into_iter()
+        .map(|path| {
+            let meta = std::fs::metadata(path.ok()?).ok()?;
+            Some((meta.len(), meta.modified().ok()?))
+        })
+        .collect()
+}
+
+/// Downloads the published catalog when it changed. Returns true when a new
+/// valid file was saved. Sends nothing but a generic User-Agent.
+fn download() -> anyhow::Result<bool> {
+    use std::io::Read;
+    let _ = rustls::crypto::ring::default_provider().install_default();
+    let client = reqwest::blocking::Client::builder()
+        .redirect(reqwest::redirect::Policy::none())
+        .https_only(true)
+        .timeout(std::time::Duration::from_secs(30))
+        .connect_timeout(std::time::Duration::from_secs(10))
+        .user_agent(concat!("usagestat/", env!("CARGO_PKG_VERSION")))
+        .build()?;
+    let path = downloaded_path()?;
+    let etag_path = path.with_extension("etag");
+    let mut request = client.get(CATALOG_URL);
+    if let (Ok(etag), true) = (std::fs::read_to_string(&etag_path), path.exists()) {
+        request = request.header(reqwest::header::IF_NONE_MATCH, etag.trim());
+    }
+    let response = request.send()?;
+    let status = response.status();
+    // Not published yet, or unchanged: keep the current rates quietly.
+    if status == reqwest::StatusCode::NOT_MODIFIED || status == reqwest::StatusCode::NOT_FOUND {
+        return Ok(false);
+    }
+    if !status.is_success() {
+        anyhow::bail!("pricing catalog download returned {status}");
+    }
+    let etag = response
+        .headers()
+        .get(reqwest::header::ETAG)
+        .and_then(|value| value.to_str().ok())
+        .map(str::to_string);
+    let mut body = Vec::new();
+    response
+        .take(MAX_CATALOG_BYTES as u64 + 1)
+        .read_to_end(&mut body)?;
+    let text = String::from_utf8(body)?;
+    parse(&text)?;
+    usagestat_core::storage::write_atomic(&path, text.as_bytes())?;
+    match etag {
+        Some(etag) => usagestat_core::storage::write_atomic(&etag_path, etag.as_bytes())?,
+        None => {
+            let _ = std::fs::remove_file(&etag_path);
+        }
+    }
+    Ok(true)
+}
+
+/// Checks for newer prices a minute after start and then daily. New rates
+/// reprice cached usage on its next refresh and repair saved estimates now.
+pub(super) fn start_updates(shutdown: Arc<std::sync::atomic::AtomicBool>) {
+    use std::sync::atomic::Ordering;
+    use std::time::{Duration, Instant};
+    std::thread::spawn(move || {
+        let mut next = Instant::now() + Duration::from_secs(60);
+        let mut stamps = layer_stamps();
+        let mut tick = 0u64;
+        while !shutdown.load(Ordering::Relaxed) {
+            std::thread::sleep(Duration::from_secs(1));
+            tick += 1;
+            if Instant::now() >= next {
+                next = Instant::now() + UPDATE_INTERVAL;
+                if let Err(error) = download() {
+                    log::warn!("pricing catalog update failed: {error}");
+                }
+            } else if tick % 60 != 0 {
+                continue;
+            }
+            // Also picks up an edited override file within a minute.
+            let current = layer_stamps();
+            if current == stamps {
+                continue;
+            }
+            stamps = current;
+            if reload() {
+                log::info!("installed pricing catalog {}", version());
+                if let Err(error) =
+                    usagestat_core::usage_daily::backfill_api_estimates(backfill_daily)
+                {
+                    log::warn!("retained estimate backfill failed: {error}");
+                }
+            }
+        }
+    });
+}
+
+/// `/v1/pricing`: the active version and where its rates came from.
+pub(super) fn status_json() -> String {
+    let catalog = active();
+    serde_json::json!({
+        "version": catalog.version,
+        "models": catalog.models.len(),
+        "layers": catalog.layers,
+        "updateUrl": CATALOG_URL,
+    })
+    .to_string()
+}
+
 fn rates(model: &str) -> Option<Rates> {
     active().rates(model)
 }
@@ -522,6 +679,17 @@ mod tests {
         assert_ne!(before.version, after.version);
         assert!(after.version.starts_with("2026-12-01+"));
         assert_eq!(before.version, Catalog::merge(&[("bundled", &base)]).version);
+
+        // An outdated download is ignored; a local override wins over both.
+        let stale = parse(&file(astra).replace("2026-12-01", "2026-01-01")).unwrap();
+        assert!(combine(&base, Some(&stale), None).rates("gpt-6.2-astra").is_none());
+        let local = parse(&file(&astra.replace(r#""input":8,"#, r#""input":9,"#))).unwrap();
+        let layered = combine(&base, Some(&downloaded), Some(&local));
+        assert_eq!(layered.rates("gpt-6.2-astra").unwrap().input, 9.0);
+        assert_eq!(
+            layered.layers.iter().map(|layer| layer.source).collect::<Vec<_>>(),
+            ["bundled", "downloaded", "override"]
+        );
     }
 
     #[test]

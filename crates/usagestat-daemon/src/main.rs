@@ -157,6 +157,9 @@ fn main() -> Result<()> {
     let cache = UsageCache::load_optional(&cache_path)
         .with_context(|| format!("load cache {}", cache_path.display()))?;
 
+    // Saved downloaded and override prices apply before anything is priced.
+    pricing::reload();
+    let pricing_updates = config.pricing_updates != Some(false);
     // Repairs saved counters only; this also applies to ingestion-only previews.
     if let Err(error) = usagestat_core::usage_daily::backfill_api_estimates(pricing::backfill_daily)
     {
@@ -228,6 +231,9 @@ fn main() -> Result<()> {
         // Plugins read the summarizer's results instead of running ccusage.
         usagestat_plugins::register_local_usage_daily(local_usage_cache::plugin_daily);
         start_usage_summarizer(Arc::clone(&state), Arc::clone(&shutdown));
+        if pricing_updates {
+            pricing::start_updates(Arc::clone(&shutdown));
+        }
         start_status_poller(Arc::clone(&state), Arc::clone(&shutdown));
     }
     let result = serve(
@@ -832,6 +838,10 @@ fn route(
             }
         }
         return serve_saved_usage_report(provider_id, "daily");
+    }
+
+    if path == "/v1/pricing" {
+        return response_json(200, "OK", &pricing::status_json());
     }
 
     if let Some(provider_id) = path.strip_prefix("/v1/cost/") {

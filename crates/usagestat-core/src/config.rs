@@ -35,6 +35,10 @@ pub struct AppConfig {
         skip_serializing_if = "Option::is_none"
     )]
     pub sync: Option<crate::sync::SyncConfig>,
+    /// Daily download of newer model prices. Unset means on; `false` keeps
+    /// only the prices bundled with this release and any local override.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pricing_updates: Option<bool>,
 }
 
 impl Default for AppConfig {
@@ -46,6 +50,7 @@ impl Default for AppConfig {
             hooks: Vec::new(),
             budgets: Vec::new(),
             sync: None,
+            pricing_updates: None,
         }
     }
 }
