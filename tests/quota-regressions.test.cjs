@@ -414,3 +414,42 @@ for (const [id, body, provider] of [
     assert.throws(load(id, { provider, request: () => response(body) }).probe);
   });
 }
+
+test("local Claude totals come from the host summary without running ccusage", () => {
+  const asked = [];
+  const app = load("claude", {
+    ccusage: () => { throw new Error("ccusage must not run"); },
+    localUsage: (opts) => {
+      asked.push(opts);
+      return { status: "ok", data: { daily: [
+        { date: "2026-09-05", totalTokens: 150, costUSD: 1.25, costKnown: false },
+        { date: "2026-09-04", totalTokens: 100, costUSD: 2, costKnown: true },
+      ] } };
+    },
+  });
+  const result = app.probe();
+  assert.equal(JSON.stringify(asked), JSON.stringify([{ since: "20260806" }]));
+  assert.equal(metric(result, "Today").value, "$1.25+ · 150 tokens");
+  assert.equal(metric(result, "Yesterday").value, "$2.00 · 100 tokens");
+  assert.match(metric(result, "Last 30 Days").value, /^\$\d+\.\d\d\+ · /);
+  // The host saves its own summary as transcript history; the plugin adds no ccusage copy.
+  assert.equal(app.ingested.length, 0);
+});
+
+test("a warming host summary shows no local totals instead of scanning through ccusage", () => {
+  let ran = 0;
+  const app = load("claude", { ccusage: () => { ran++; return { status: "no_runner" }; }, localUsage: () => ({ status: "warming" }) });
+  assert.throws(app.probe, /no local Claude usage/);
+  assert.equal(ran, 0);
+});
+
+test("ccusage still serves a log root the host does not summarize", () => {
+  const app = load("claude", {
+    env: { CLAUDE_CONFIG_DIR: "/other/claude" },
+    localUsage: (opts) => { assert.equal(opts.homePath, "/other/claude"); return { status: "not_covered" }; },
+    ccusage: (opts) => { assert.equal(opts.homePath, "/other/claude");
+      return { status: "ok", data: { daily: [{ date: "2026-09-05", totalCost: 1, totalTokens: 10 }] } }; },
+  });
+  assert.equal(metric(app.probe(), "Today").value, "$1.00 · 10 tokens");
+  assert.equal(app.ingested.length, 1);
+});

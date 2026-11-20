@@ -75,6 +75,7 @@ function load(id, options = {}) {
       command: { run: options.command || (() => ({ status: 1, stdout: "", stderr: "" })) },
       claude: options.claude,
       ccusage: { query: options.ccusage || (() => ({ status: "no_runner" })) },
+      localUsage: options.localUsage ? { daily: options.localUsage } : undefined,
       usageDaily: { ingest: (payload) => ingested.push(payload) },
       crypto: { sha256: (value) => createHash("sha256").update(value).digest("hex"), sha1Hex: (value) => createHash("sha1").update(value).digest("hex") },
     },

@@ -524,7 +524,14 @@ pub(super) fn scan(
             mirrors.push(mirror(&row.turn, derived, row.total, Some(ts)));
             mirrors.push(mirror(&row.turn, derived, None, Some(ts)));
         }
-        let adjacent = vec![mirror(&row.turn, row.usage, row.total, None)];
+        // A ledger record and its token_count mirror are written next to each
+        // other for the same turn with identical usage, but their cumulative
+        // totals can come from different counters (thread vs. rollout), so
+        // neighbours of opposite kinds also pair without the total.
+        let adjacent = vec![
+            mirror(&row.turn, row.usage, row.total, None),
+            mirror(&row.turn, row.usage, None, None),
+        ];
         if let Some(total) = row.request.as_ref().and_then(|r| r.turn_total) {
             mirrors.push(mirror(&row.turn, row.usage, Some(total), Some(ts)));
         }
@@ -626,6 +633,31 @@ mod tests {
             "usage":{"input_tokens":used,"output_tokens":10,"cached_input_tokens":2,"reasoning_output_tokens":3},
             "thread_token_usage":{"input_tokens":total,"output_tokens":20,"cached_input_tokens":4,"reasoning_output_tokens":6},
             "turn_token_usage":{"input_tokens":used,"output_tokens":10,"cached_input_tokens":2,"reasoning_output_tokens":3}}})
+    }
+
+    #[test]
+    fn ledger_mirror_pairs_with_its_neighbour_when_cumulative_counters_differ() {
+        // Codex writes the ledger record, then the token_count a few seconds
+        // later. Its rollout total lags the ledger's thread total, so neither
+        // the timestamp nor the total matches; the request must count once.
+        let mut rows = vec![
+            meta(Value::Null),
+            json!({"type":"turn_context","payload":{"turn_id":"turn","model":"gpt-5"}}),
+        ];
+        for (id, used, thread, rollout, second) in [("one", 100, 300, 250, 0), ("two", 60, 360, 310, 20)] {
+            let mut ledger = record(id, used, thread);
+            ledger["timestamp"] = json!(format!("2026-09-11T00:00:{second:02}Z"));
+            let mut legacy = usage(Value::Null, Some(rollout), used);
+            legacy["timestamp"] = json!(format!("2026-09-11T00:00:{:02}Z", second + 2));
+            legacy["payload"]["turn_id"] = json!("turn");
+            legacy["payload"]["info"]["last_token_usage"] = ledger["payload"]["usage"].clone();
+            legacy["payload"]["info"]["total_token_usage"]["output_tokens"] = json!(15);
+            rows.extend([ledger, legacy]);
+        }
+        let events = parse(&rows);
+        assert_eq!(events.len(), 2);
+        assert!(events.iter().all(|e| e.codex_identity.as_ref().unwrap().response_id.is_some()));
+        assert_eq!(events.iter().map(|e| e.metrics().total_tokens).sum::<u64>(), 180);
     }
 
     #[test]

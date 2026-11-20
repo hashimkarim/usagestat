@@ -432,6 +432,7 @@ pub fn inject<'js>(
     inject_aws(ctx, &host)?;
     inject_sqlite(ctx, &host)?;
     inject_ccusage(ctx, &host, plugin_id)?;
+    inject_local_usage(ctx, &host, plugin_id)?;
     inject_usage_daily(ctx, &host, usage_id)?;
     inject_cursor_logs(ctx, &host)?;
     inject_cursor_usage_export(ctx, &host)?;
@@ -440,6 +441,7 @@ pub fn inject<'js>(
     patch_http_wrapper(ctx)?;
     patch_ls_wrapper(ctx)?;
     patch_ccusage_wrapper(ctx)?;
+    patch_local_usage_wrapper(ctx)?;
     patch_usage_daily_wrapper(ctx)?;
     patch_cursor_logs_wrapper(ctx)?;
     patch_cursor_usage_export_wrapper(ctx)?;
@@ -1549,6 +1551,61 @@ fn inject_ccusage<'js>(
 
     host.set("ccusage", ccusage_obj)?;
     Ok(())
+}
+
+/// Daily usage summarized by the host from its own transcript cache.
+/// Arguments are the calling plugin's id and its JSON options; the result is
+/// a JSON status object. Registered by the daemon, absent elsewhere.
+pub type LocalUsageDaily = fn(&str, &str) -> String;
+static LOCAL_USAGE_DAILY: std::sync::OnceLock<LocalUsageDaily> = std::sync::OnceLock::new();
+
+/// Lets plugins read the host's native daily usage instead of running ccusage.
+pub fn register_local_usage_daily(query: LocalUsageDaily) {
+    let _ = LOCAL_USAGE_DAILY.set(query);
+}
+
+fn inject_local_usage<'js>(
+    ctx: &Ctx<'js>,
+    host: &Object<'js>,
+    plugin_id: &str,
+) -> rquickjs::Result<()> {
+    let Some(query) = LOCAL_USAGE_DAILY.get().copied() else {
+        return Ok(());
+    };
+    let local = Object::new(ctx.clone())?;
+    // The provider is the calling plugin, never a value the plugin chooses.
+    let pid = plugin_id.to_string();
+    local.set(
+        "_dailyRaw",
+        Function::new(ctx.clone(), move |opts_json: String| -> String {
+            query(&pid, &opts_json)
+        })?,
+    )?;
+    host.set("localUsage", local)?;
+    Ok(())
+}
+
+fn patch_local_usage_wrapper(ctx: &Ctx<'_>) -> rquickjs::Result<()> {
+    ctx.eval::<(), _>(
+        r#"
+        (function() {
+            var local = __usagestat_ctx.host.localUsage;
+            if (local && local._dailyRaw) {
+                var rawFn = local._dailyRaw;
+                local.daily = function(opts) {
+                    try {
+                        var parsed = JSON.parse(rawFn(JSON.stringify(opts || {})));
+                        if (parsed && typeof parsed === "object" && typeof parsed.status === "string") {
+                            return parsed;
+                        }
+                    } catch (e) {}
+                    return { status: "unavailable" };
+                };
+            }
+        })();
+        "#
+        .as_bytes(),
+    )
 }
 
 fn inject_usage_daily<'js>(

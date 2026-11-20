@@ -1,5 +1,9 @@
 //! Incremental per-profile transcript cache. Only changed files are reparsed;
 //! HTTP requests share the scan and serialized reports for 30 seconds.
+//!
+//! On disk the cache is a full snapshot plus a small delta of the files that
+//! changed since that snapshot, so an active session rewrites only its own
+//! entries instead of the whole cache.
 use super::local_usage::{self, LocalUsageEvent};
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
@@ -15,7 +19,8 @@ use usagestat_core::{paths, usage_daily};
 // 11: worktree projects are labelled with their repository.
 // 12: live checkouts resolve subfolders and linked worktrees to the main repo.
 // 13: events keep the git branch recorded by Claude Code and Codex.
-const VERSION: u32 = 13;
+// 14: Codex ledger records pair with their token_count neighbour across counters.
+const VERSION: u32 = 14;
 const TTL: Duration = Duration::from_secs(30);
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -43,15 +48,108 @@ struct Cache {
     version: u32,
     #[serde(default)]
     pricing_as_of: String,
+    /// Identifies the snapshot a delta was written against. 0: never written.
+    #[serde(default)]
+    generation: u64,
     files: BTreeMap<PathBuf, CachedFile>,
     #[serde(skip)]
     checked: Option<Instant>,
     #[serde(skip)]
     reports: HashMap<String, String>,
+    /// Entries changed or removed since the snapshot on disk.
+    #[serde(skip)]
+    dirty: std::collections::BTreeSet<PathBuf>,
+    #[serde(skip)]
+    removed: std::collections::BTreeSet<PathBuf>,
+    /// Set when most entries changed at once (format or price migration).
+    #[serde(skip)]
+    needs_snapshot: bool,
+    /// Positions (file, event) of the deduplicated events. Reconciling Codex
+    /// mirrors hashes every request key, so it runs once per change, not per report.
+    #[serde(skip)]
+    unique: Option<Vec<(u32, u32)>>,
+}
+
+/// A delta larger than this is folded into a new snapshot.
+const DELTA_LIMIT: usize = 32 * 1024 * 1024;
+
+#[derive(Serialize)]
+struct DeltaOut<'a> {
+    version: u32,
+    pricing_as_of: &'a str,
+    generation: u64,
+    files: BTreeMap<&'a PathBuf, &'a CachedFile>,
+    removed: &'a std::collections::BTreeSet<PathBuf>,
+}
+
+#[derive(Deserialize)]
+struct DeltaIn {
+    version: u32,
+    pricing_as_of: String,
+    generation: u64,
+    files: BTreeMap<PathBuf, CachedFile>,
+    removed: std::collections::BTreeSet<PathBuf>,
+}
+
+fn delta_path(snapshot: &Path) -> PathBuf {
+    snapshot.with_extension("delta.json")
 }
 
 impl Cache {
     fn refresh(
+        &mut self,
+        files: Vec<PathBuf>,
+        scan: impl FnMut(&Path) -> Result<Vec<LocalUsageEvent>>,
+    ) -> Result<bool> {
+        let refreshed = self.refresh_files(files, scan);
+        if matches!(refreshed, Ok(false)) {
+            // Unchanged logs give unchanged reports, except the active block.
+            self.reports.retain(|key, _| !key.starts_with("blocks:"));
+        } else {
+            self.reports.clear();
+            self.unique = None;
+        }
+        refreshed
+    }
+
+    /// Deduplicated events across all cached files.
+    fn unique_events(&mut self) -> Vec<&LocalUsageEvent> {
+        if self.unique.is_none() {
+            let all: Vec<_> = self
+                .files
+                .values()
+                .enumerate()
+                .flat_map(|(file, cached)| {
+                    cached
+                        .events
+                        .iter()
+                        .enumerate()
+                        .map(move |(event, row)| ((file as u32, event as u32), row))
+                })
+                .collect();
+            let kept = super::codex_usage::unique(&all.iter().map(|(_, row)| *row).collect::<Vec<_>>());
+            // `unique` keeps the input order, so one pass maps rows back to positions.
+            let mut kept = kept.into_iter().peekable();
+            let positions = all
+                .iter()
+                .filter(|(_, row)| kept.next_if(|next| std::ptr::eq(*next, *row)).is_some())
+                .map(|(position, _)| *position)
+                .collect();
+            self.unique = Some(positions);
+        }
+        let files: Vec<_> = self.files.values().collect();
+        self.unique
+            .as_ref()
+            .map(|positions| {
+                positions
+                    .iter()
+                    .map(|&(file, event)| &files[file as usize].events[event as usize])
+                    .collect()
+            })
+            .unwrap_or_default()
+    }
+
+    fn refresh_files(
         &mut self,
         files: Vec<PathBuf>,
         mut scan: impl FnMut(&Path) -> Result<Vec<LocalUsageEvent>>,
@@ -62,11 +160,22 @@ impl Cache {
         if changed && !migrate_models {
             self.files.clear();
         }
-        let before = self.files.len();
+        if changed || migrate_prices {
+            self.needs_snapshot = true;
+        }
         let files: std::collections::BTreeSet<_> = files.into_iter().collect();
-        self.files.retain(|path, _| files.contains(path));
-        changed |= before != self.files.len();
-        self.reports.clear();
+        let gone: Vec<_> = self
+            .files
+            .keys()
+            .filter(|path| !files.contains(*path))
+            .cloned()
+            .collect();
+        for path in gone {
+            self.files.remove(&path);
+            self.dirty.remove(&path);
+            self.removed.insert(path);
+            changed = true;
+        }
         if migrate_models {
             let mut unsupported = Vec::new();
             for (path, file) in &mut self.files {
@@ -123,6 +232,8 @@ impl Cache {
                 continue;
             }
             let events = compact(scan(&path)?);
+            self.removed.remove(&path);
+            self.dirty.insert(path.clone());
             self.files.insert(
                 path,
                 CachedFile {
@@ -138,6 +249,79 @@ impl Cache {
         Ok(changed)
     }
 
+    /// Writes the changed entries as a delta, or a fresh snapshot when there
+    /// is none to build on or the delta has grown large.
+    fn persist(&mut self, snapshot: &Path) -> Result<()> {
+        use usagestat_core::storage::write_atomic;
+        if !self.needs_snapshot && self.generation != 0 {
+            let delta = DeltaOut {
+                version: self.version,
+                pricing_as_of: &self.pricing_as_of,
+                generation: self.generation,
+                files: self
+                    .dirty
+                    .iter()
+                    .filter_map(|path| self.files.get_key_value(path))
+                    .collect(),
+                removed: &self.removed,
+            };
+            let bytes = serde_json::to_vec(&delta)?;
+            if bytes.len() <= DELTA_LIMIT {
+                write_atomic(&delta_path(snapshot), &bytes)?;
+                return Ok(());
+            }
+        }
+        let previous = self.generation;
+        self.generation = SystemTime::now()
+            .duration_since(SystemTime::UNIX_EPOCH)
+            .map_or(1, |since| since.as_nanos() as u64)
+            .max(previous + 1);
+        if let Err(error) = serde_json::to_vec(&*self)
+            .map_err(anyhow::Error::from)
+            .and_then(|bytes| write_atomic(snapshot, &bytes).map_err(Into::into))
+        {
+            // The old snapshot and its delta are still a consistent pair.
+            self.generation = previous;
+            return Err(error);
+        }
+        // A delta left by a crash here names the old generation and is ignored.
+        let _ = std::fs::remove_file(delta_path(snapshot));
+        self.dirty.clear();
+        self.removed.clear();
+        self.needs_snapshot = false;
+        Ok(())
+    }
+
+    /// Reads a snapshot and the delta written against it.
+    fn load(snapshot: &Path) -> Self {
+        let Some(mut cache) = std::fs::read(snapshot)
+            .ok()
+            .and_then(|bytes| serde_json::from_slice::<Cache>(&bytes).ok())
+            .filter(|cache| cache.version == VERSION)
+        else {
+            return Self::default();
+        };
+        let delta = std::fs::read(delta_path(snapshot))
+            .ok()
+            .and_then(|bytes| serde_json::from_slice::<DeltaIn>(&bytes).ok())
+            .filter(|delta| {
+                cache.generation != 0
+                    && delta.generation == cache.generation
+                    && delta.version == cache.version
+                    && delta.pricing_as_of == cache.pricing_as_of
+            });
+        if let Some(delta) = delta {
+            for path in &delta.removed {
+                cache.files.remove(path);
+            }
+            // Still unsaved in the snapshot: the next delta must carry them too.
+            cache.dirty = delta.files.keys().cloned().collect();
+            cache.removed = delta.removed;
+            cache.files.extend(delta.files);
+        }
+        cache
+    }
+
     fn report(&mut self, report: &str) -> Result<String> {
         self.report_limited(report, None)
     }
@@ -147,14 +331,7 @@ impl Cache {
         if let Some(body) = self.reports.get(&key) {
             return Ok(body.clone());
         }
-        let events = super::codex_usage::unique(
-            &self
-                .files
-                .values()
-                .flat_map(|file| file.events.iter())
-                .collect::<Vec<_>>(),
-        );
-        let body = local_usage::report_limited(events.into_iter(), report, limit)?;
+        let body = local_usage::report_limited(self.unique_events().into_iter(), report, limit)?;
         // Bound arbitrary limit variants requested by API clients.
         if self.reports.len() >= 8 {
             self.reports.clear();
@@ -220,15 +397,8 @@ pub(super) fn with_events<T>(
     f: impl FnOnce(&[&LocalUsageEvent]) -> T,
 ) -> Result<T> {
     let cache = refreshed(provider)?;
-    let cache = cache.lock().unwrap_or_else(|e| e.into_inner());
-    let events = super::codex_usage::unique(
-        &cache
-            .files
-            .values()
-            .flat_map(|file| file.events.iter())
-            .collect::<Vec<_>>(),
-    );
-    Ok(f(&events))
+    let mut cache = cache.lock().unwrap_or_else(|e| e.into_inner());
+    Ok(f(&cache.unique_events()))
 }
 
 fn refreshed(provider: &str) -> Result<Arc<Mutex<Cache>>> {
@@ -251,18 +421,12 @@ fn refreshed(provider: &str) -> Result<Arc<Mutex<Cache>>> {
         .lock()
         .unwrap_or_else(|e| e.into_inner())
         .entry(key)
-        .or_insert_with(|| {
-            let cache = std::fs::read(&cache_path)
-                .ok()
-                .and_then(|bytes| serde_json::from_slice::<Cache>(&bytes).ok())
-                .filter(|cache| cache.version == VERSION)
-                .unwrap_or_default();
-            Arc::new(Mutex::new(cache))
-        })
+        .or_insert_with(|| Arc::new(Mutex::new(Cache::load(&cache_path))))
         .clone();
     let shared = cache;
     let mut cache = shared.lock().unwrap_or_else(|e| e.into_inner());
     if cache.checked.is_none_or(|at| at.elapsed() >= TTL) {
+        let first = cache.checked.is_none();
         let files = roots.iter().flat_map(|root| source.files(root)).collect();
         let changed = cache.refresh(files, |path| {
             let mut events = Vec::new();
@@ -271,20 +435,164 @@ fn refreshed(provider: &str) -> Result<Arc<Mutex<Cache>>> {
         })?;
         if changed {
             // Persist only token/cost metadata, never conversation contents.
-            if let Err(error) = serde_json::to_vec(&*cache)
-                .map_err(anyhow::Error::from)
-                .and_then(|bytes| {
-                    usagestat_core::storage::write_atomic(&cache_path, &bytes).map_err(Into::into)
-                })
-            {
+            if let Err(error) = cache.persist(&cache_path) {
                 log::warn!("could not persist local usage cache: {error}");
             }
         }
-        let daily = cache.report("daily")?;
-        usage_daily::ingest_json(provider, &daily)?;
+        // Saved history changes only with the logs; once per process covers a
+        // store that was replaced or pruned while the cache stayed current.
+        if changed || first {
+            let daily = cache.report("daily")?;
+            usage_daily::ingest_json(provider, &daily)?;
+        }
+        let today = chrono::Local::now().date_naive();
+        let stale = local_daily_slot(provider)
+            .is_none_or(|published| published.day != today || published.roots != roots);
+        if changed || stale {
+            let rows = cache.local_daily(today);
+            publish_local_daily(provider, LocalDaily { roots, day: today, rows });
+        }
     }
     drop(cache);
     Ok(shared)
+}
+
+/// Days of local-time history kept ready for plugin probes: today plus the
+/// previous 30, with a few spare for a probe that straddles midnight.
+const LOCAL_DAILY_DAYS: i64 = 33;
+
+/// Recent per-day usage in the daemon's local time zone, published after each
+/// refresh. Plugin probes read it without scanning logs or waiting for the
+/// cache lock, so a quota poll never repeats the background summarizer's work.
+struct LocalDaily {
+    roots: Vec<PathBuf>,
+    day: chrono::NaiveDate,
+    /// Newest first, like `ccusage daily --order desc`.
+    rows: Vec<serde_json::Value>,
+}
+
+fn local_daily_slots() -> &'static Mutex<HashMap<String, Arc<LocalDaily>>> {
+    static SLOTS: OnceLock<Mutex<HashMap<String, Arc<LocalDaily>>>> = OnceLock::new();
+    SLOTS.get_or_init(Default::default)
+}
+
+fn local_daily_slot(provider: &str) -> Option<Arc<LocalDaily>> {
+    local_daily_slots()
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .get(provider)
+        .cloned()
+}
+
+fn publish_local_daily(provider: &str, daily: LocalDaily) {
+    local_daily_slots()
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .insert(provider.to_string(), Arc::new(daily));
+}
+
+impl Cache {
+    fn local_daily(&mut self, today: chrono::NaiveDate) -> Vec<serde_json::Value> {
+        use chrono::TimeZone;
+        let first_day = today - chrono::Duration::days(LOCAL_DAILY_DAYS);
+        // A UTC day of margin; exact local-day filtering happens on the rows.
+        let since = chrono::Local
+            .from_local_datetime(&first_day.and_hms_opt(0, 0, 0).unwrap_or_default())
+            .earliest()
+            .map(|at| at.with_timezone(&chrono::Utc))
+            .unwrap_or_default()
+            - chrono::Duration::days(1);
+        let events = self.unique_events();
+        let first_key = first_day.format("%Y-%m-%d").to_string();
+        local_usage::aggregate_usage(
+            events.into_iter().filter(|event| event.ts >= since),
+            local_usage::Bucket::LocalDay,
+        )
+        .into_iter()
+        .filter(|row| row.date >= first_key)
+        .map(|row| plugin_daily_row(&row))
+        .collect()
+    }
+}
+
+/// The fields bundled plugins read from a ccusage daily row. Unknown cost stays
+/// unknown: a partly priced day carries its known part and `costKnown: false`.
+fn plugin_daily_row(row: &local_usage::UsageAggregate) -> serde_json::Value {
+    let usage = &row.usage;
+    let cost = (usage.cost_known || usage.cost_usd > 0.0).then_some(usage.cost_usd);
+    serde_json::json!({
+        "date": row.date,
+        "inputTokens": usage.input_tokens,
+        "outputTokens": usage.output_tokens,
+        "cacheReadTokens": usage.cache_read_tokens,
+        "cacheCreationTokens": usage.cache_creation_tokens,
+        "reasoningOutputTokens": usage.reasoning_output_tokens,
+        "totalTokens": usage.total_tokens,
+        "tokensKnown": usage.tokens_known,
+        "costUSD": cost,
+        "costKnown": usage.cost_known,
+        "models": row.models.keys().collect::<Vec<_>>(),
+    })
+}
+
+#[derive(Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+struct LocalDailyQuery {
+    since: Option<String>,
+    home_path: Option<String>,
+}
+
+/// Plugin host entry point: `ctx.host.localUsage.daily({since, homePath})`.
+/// Answers from the published summary only. `warming` means the background
+/// summarizer has not finished its first pass; `not_covered` means the plugin
+/// asked about a log root this daemon does not summarize.
+pub(super) fn plugin_daily(plugin_id: &str, opts_json: &str) -> String {
+    let status = |status: &str| serde_json::json!({ "status": status }).to_string();
+    let Some(source) = local_usage::LocalSource::from_provider_id(plugin_id) else {
+        return status("not_covered");
+    };
+    let opts: LocalDailyQuery = serde_json::from_str(opts_json).unwrap_or_default();
+    // Plugins pass the same home override the native roots derive from.
+    let home_var = match source {
+        local_usage::LocalSource::Codex => Some("CODEX_HOME"),
+        local_usage::LocalSource::Claude => Some("CLAUDE_CONFIG_DIR"),
+        _ => None,
+    };
+    if let Some(var) = home_var {
+        let normalize = |value: Option<String>| {
+            value
+                .map(|value| value.trim().to_string())
+                .filter(|value| !value.is_empty())
+        };
+        if normalize(opts.home_path) != normalize(std::env::var(var).ok()) {
+            return status("not_covered");
+        }
+    }
+    let Some(published) = local_daily_slot(source.id()) else {
+        return status("warming");
+    };
+    if source.roots().ok().as_ref() != Some(&published.roots) {
+        return status("not_covered");
+    }
+    // `since` is ccusage's inclusive YYYYMMDD in local time.
+    let since = opts
+        .since
+        .filter(|since| since.len() == 8 && since.bytes().all(|b| b.is_ascii_digit()))
+        .map(|since| format!("{}-{}-{}", &since[..4], &since[4..6], &since[6..]));
+    let daily: Vec<_> = published
+        .rows
+        .iter()
+        .filter(|row| {
+            since.as_deref().is_none_or(|since| {
+                row.get("date").and_then(serde_json::Value::as_str) >= Some(since)
+            })
+        })
+        .collect();
+    serde_json::json!({
+        "status": "ok",
+        "data": { "daily": daily, "source": "local-transcript-v2" },
+    })
+    .to_string()
 }
 
 #[cfg(test)]
@@ -633,4 +941,126 @@ mod tests {
         }
         std::fs::remove_dir_all(dir).unwrap();
     }
+
+    #[test]
+    fn plugin_daily_rows_use_local_days_and_keep_unknown_cost_unknown() {
+        let today = chrono::Local::now().date_naive();
+        let at = |days_ago: i64, hour: u32| {
+            chrono::Local
+                .from_local_datetime(&(today - chrono::Duration::days(days_ago)).and_hms_opt(hour, 0, 0).unwrap())
+                .earliest()
+                .unwrap()
+                .with_timezone(&Utc)
+        };
+        let event = |ts, model: &str, cost: Option<f64>| LocalUsageEvent {
+            ts,
+            session_id: "s".into(),
+            model: model.into(),
+            input_tokens: 10,
+            cost_known: cost.is_some(),
+            cost_usd: cost.unwrap_or(0.0),
+            ..Default::default()
+        };
+        let mut cache = Cache::default();
+        cache.files.insert(
+            "a.jsonl".into(),
+            CachedFile {
+                fingerprint: Fingerprint { len: 0, modified: SystemTime::UNIX_EPOCH },
+                events: vec![
+                    // Local midnight boundaries decide the day, not UTC.
+                    event(at(0, 0), "priced", Some(1.0)),
+                    event(at(0, 23), "unknown", None),
+                    event(at(1, 12), "unknown", None),
+                    event(at(LOCAL_DAILY_DAYS + 2, 12), "priced", Some(5.0)),
+                ],
+            },
+        );
+        let rows = cache.local_daily(today);
+        let dates: Vec<_> = rows.iter().map(|row| row["date"].as_str().unwrap().to_string()).collect();
+        assert_eq!(
+            dates,
+            [today.to_string(), (today - chrono::Duration::days(1)).to_string()],
+            "newest first, local days, old days dropped"
+        );
+        assert_eq!(rows[0]["totalTokens"], 20);
+        assert_eq!(rows[0]["costUSD"], 1.0);
+        assert_eq!(rows[0]["costKnown"], false);
+        assert!(rows[1]["costUSD"].is_null(), "an unpriced day is not a $0 day");
+    }
+
+    #[test]
+    fn plugin_daily_answers_only_for_the_summarized_log_root() {
+        let status = |provider: &str, opts: &str| {
+            serde_json::from_str::<serde_json::Value>(&plugin_daily(provider, opts)).unwrap()["status"]
+                .as_str()
+                .unwrap()
+                .to_string()
+        };
+        assert_eq!(status("cursor", "{}"), "not_covered");
+        if std::env::var_os("CODEX_HOME").is_none() {
+            assert_eq!(status("codex", r#"{"homePath":"/another/account"}"#), "not_covered");
+        }
+        // Never published in this process: the summarizer has not run yet.
+        assert_eq!(status("amp", "{}"), "warming");
+    }
+
+
+    #[test]
+    fn appends_persist_as_a_delta_and_reload_to_the_same_cache() {
+        let dir = tempfile::tempdir().unwrap();
+        let snapshot = dir.path().join("cache.json");
+        let (a, b) = (dir.path().join("a.jsonl"), dir.path().join("b.jsonl"));
+        std::fs::write(&a, "a").unwrap();
+        std::fs::write(&b, "b").unwrap();
+        let scan = |path: &Path| {
+            Ok(vec![LocalUsageEvent {
+                ts: Utc.with_ymd_and_hms(2026, 9, 1, 0, 0, 0).unwrap(),
+                input_tokens: std::fs::metadata(path)?.len(),
+                ..Default::default()
+            }])
+        };
+        let tokens = |cache: &Cache| {
+            cache
+                .files
+                .iter()
+                .map(|(path, file)| (path.clone(), file.events[0].input_tokens))
+                .collect::<Vec<_>>()
+        };
+        let mut cache = Cache::default();
+        assert!(cache.refresh(vec![a.clone(), b.clone()], scan).unwrap());
+        cache.persist(&snapshot).unwrap();
+        assert!(!delta_path(&snapshot).exists(), "the first write is a snapshot");
+        let daily: serde_json::Value = serde_json::from_str(&cache.report("daily").unwrap()).unwrap();
+        assert_eq!(daily["daily"][0]["inputTokens"], 2);
+        let written = std::fs::read(&snapshot).unwrap();
+
+        std::fs::write(&a, "a grows").unwrap();
+        assert!(cache.refresh(vec![a.clone(), b.clone()], scan).unwrap());
+        cache.persist(&snapshot).unwrap();
+        assert_eq!(std::fs::read(&snapshot).unwrap(), written, "an append leaves the snapshot alone");
+        let delta: DeltaIn = serde_json::from_slice(&std::fs::read(delta_path(&snapshot)).unwrap()).unwrap();
+        assert_eq!(delta.files.keys().collect::<Vec<_>>(), [&a], "only the changed file is rewritten");
+        assert_eq!(tokens(&Cache::load(&snapshot)), tokens(&cache));
+        // Reports follow the change rather than a remembered deduplication.
+        let daily: serde_json::Value = serde_json::from_str(&cache.report("daily").unwrap()).unwrap();
+        assert_eq!(daily["daily"][0]["inputTokens"], 8);
+
+        // A removal after a reload still carries the earlier, unsnapshotted append.
+        let mut reloaded = Cache::load(&snapshot);
+        assert!(reloaded.refresh(vec![a.clone()], scan).unwrap());
+        reloaded.persist(&snapshot).unwrap();
+        assert_eq!(tokens(&Cache::load(&snapshot)), [(a.clone(), 7)]);
+
+        // A delta written against another snapshot is never applied.
+        let mut other = Cache::load(&snapshot);
+        other.needs_snapshot = true;
+        other.persist(&snapshot).unwrap();
+        std::fs::write(&a, "a grows again").unwrap();
+        let mut stale = Cache::load(&snapshot);
+        stale.generation -= 1;
+        assert!(stale.refresh(vec![a.clone()], scan).unwrap());
+        stale.persist(&snapshot).unwrap();
+        assert_eq!(tokens(&Cache::load(&snapshot)), [(a, 7)]);
+    }
+
 }

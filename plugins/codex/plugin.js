@@ -402,8 +402,28 @@
   var PERIOD_SESSION_MS = 5 * 60 * 60 * 1000    // 5 hours
   var PERIOD_WEEKLY_MS = 7 * 24 * 60 * 60 * 1000 // 7 days
 
+  function hasLocalUsage(ctx) {
+    return !!(ctx.host.localUsage && typeof ctx.host.localUsage.daily === "function")
+  }
+
+  // The host summarizes local logs in the background. Reading its result keeps
+  // a quota probe from scanning every transcript again through ccusage. Returns
+  // null only when the host cannot cover this log root, so ccusage still can.
+  function queryLocalUsage(ctx, sinceStr, homePath) {
+    if (!hasLocalUsage(ctx)) return null
+    const opts = { since: sinceStr }
+    if (homePath) opts.homePath = homePath
+    const result = ctx.host.localUsage.daily(opts)
+    if (result && result.status === "ok" && result.data && Array.isArray(result.data.daily)) {
+      return { status: "ok", data: result.data, native: true }
+    }
+    if (result && result.status === "not_covered") return null
+    // Still warming up: show no local totals this round rather than start a scan.
+    return { status: (result && result.status) || "unavailable", data: null }
+  }
+
   function queryTokenUsage(ctx) {
-    if (!ctx.host.ccusage || typeof ctx.host.ccusage.query !== "function") {
+    if (!hasLocalUsage(ctx) && (!ctx.host.ccusage || typeof ctx.host.ccusage.query !== "function")) {
       return { status: "no_runner", data: null }
     }
 
@@ -419,6 +439,9 @@
     if (codexHome) {
       queryOpts.homePath = codexHome
     }
+
+    const local = queryLocalUsage(ctx, sinceStr, codexHome)
+    if (local) return local
 
     const result = ctx.host.ccusage.query(queryOpts)
     if (!result || typeof result !== "object" || typeof result.status !== "string") {
@@ -505,7 +528,8 @@
   function costAndTokensLabel(data, opts) {
     const includeZeroTokens = !!(opts && opts.includeZeroTokens)
     const parts = []
-    if (data.costUSD != null) parts.push("$" + data.costUSD.toFixed(2))
+    // A partly priced day shows its known cost as a lower bound.
+    if (data.costUSD != null) parts.push("$" + data.costUSD.toFixed(2) + (data.costKnown === false ? "+" : ""))
     if (data.tokens > 0 || (includeZeroTokens && data.tokens === 0)) {
       parts.push(fmtTokens(data.tokens) + " tokens")
     }
@@ -647,7 +671,7 @@
     if (tokens > 0) {
       lines.push(ctx.line.text({
         label: label,
-        value: costAndTokensLabel({ tokens: tokens, costUSD: cost })
+        value: costAndTokensLabel({ tokens: tokens, costUSD: cost, costKnown: dayEntry.costKnown })
       }))
       return
     }
@@ -935,6 +959,7 @@
           let totalTokens = 0
           let totalCostNanos = 0
           let hasCost = false
+          let costKnown = true
           for (let i = 0; i < tokenUsage.daily.length; i++) {
             const day = tokenUsage.daily[i]
             const dayTokens = Number(day.totalTokens)
@@ -947,17 +972,19 @@
               totalCostNanos += Math.round(dayCost * 1e9)
               hasCost = true
             }
+            if (day.costKnown === false) costKnown = false
           }
 
           if (totalTokens > 0) {
             lines.push(ctx.line.text({
               label: "Last 30 Days",
-              value: costAndTokensLabel({ tokens: totalTokens, costUSD: hasCost ? totalCostNanos / 1e9 : null })
+              value: costAndTokensLabel({ tokens: totalTokens, costUSD: hasCost ? totalCostNanos / 1e9 : null, costKnown: costKnown })
             }))
           }
 
           pushUsageChartLine(lines, ctx, tokenUsage.daily)
-          persistUsageDaily(ctx, tokenUsage.daily, "Codex")
+          // The host already saves its own summary as higher-priority history.
+          if (!tokenUsageResult.native) persistUsageDaily(ctx, tokenUsage.daily, "Codex")
         }
       } catch (e) {
         ctx.host.log.warn("local Codex token usage failed: " + String(e))

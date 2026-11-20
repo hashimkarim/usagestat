@@ -87,3 +87,39 @@ test('Codex preserves a permission denial after reloading changed CLI credential
   assert.throws(() => harness.probe(), error => /access denied.*403/.test(String(error)));
   assert.equal(requests, 2);
 });
+
+test('Codex local totals come from the host summary without running ccusage', () => {
+  const day = offset => { const d = new Date(); d.setDate(d.getDate() - offset);
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+  const asked = [], ingested = [];
+  const harness = providerHarness('codex', {env: {CODEX_HOME: '/codex home'}, host: {
+    codex: {readAuth: () => JSON.stringify(state('keyring')), writeAuth() { assert.fail('unexpected refresh'); }},
+    ccusage: {query() { assert.fail('ccusage must not run during a quota probe'); }},
+    usageDaily: {ingest: payload => ingested.push(payload)},
+    localUsage: {daily(opts) { asked.push(opts); return {status: 'ok', data: {daily: [
+      {date: day(0), totalTokens: 2000000, costUSD: 7.44, costKnown: false},
+      {date: day(1), totalTokens: 1000, costUSD: 0.5, costKnown: true},
+    ]}}; }},
+  }, http: () => response(200, usage)});
+  const lines = harness.probe().lines;
+  const value = label => lines.find(line => line.label === label).value;
+  assert.equal(asked.length, 1);
+  assert.equal(asked[0].homePath, '/codex home');
+  assert.match(asked[0].since, /^\d{8}$/);
+  assert.equal(value('Today'), '$7.44+ · 2M tokens');
+  assert.equal(value('Yesterday'), '$0.50 · 1K tokens');
+  assert.equal(value('Last 30 Days'), '$7.94+ · 2M tokens');
+  assert.ok(lines.some(line => line.label === 'Usage Trend'));
+  assert.equal(ingested.length, 0);
+});
+
+test('Codex shows no local totals while the host summary warms up', () => {
+  const harness = providerHarness('codex', {host: {
+    codex: {readAuth: () => JSON.stringify(state('keyring')), writeAuth() {}},
+    ccusage: {query() { assert.fail('ccusage must not run during a quota probe'); }},
+    localUsage: {daily: () => ({status: 'warming'})},
+  }, http: () => response(200, usage)});
+  const lines = harness.probe().lines;
+  assert.equal(lines[0].used, 25);
+  assert.ok(!lines.some(line => line.label === 'Today'));
+});

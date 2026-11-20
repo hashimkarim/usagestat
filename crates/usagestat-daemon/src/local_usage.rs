@@ -62,6 +62,8 @@ impl LocalUsageEvent {
 pub(super) enum Bucket {
     Hour,
     Day,
+    /// Calendar day in the daemon's local time zone, the zone plugins use.
+    LocalDay,
     Week,
     Month,
 }
@@ -466,6 +468,7 @@ fn bucket_key_for(ts: DateTime<Utc>, bucket: Bucket) -> String {
     match bucket {
         Bucket::Hour => ts.format("%Y-%m-%dT%H:00:00Z").to_string(),
         Bucket::Day => ts.format("%Y-%m-%d").to_string(),
+        Bucket::LocalDay => ts.with_timezone(&chrono::Local).format("%Y-%m-%d").to_string(),
         Bucket::Month => ts.format("%Y-%m").to_string(),
         Bucket::Week => {
             let date = ts.date_naive();

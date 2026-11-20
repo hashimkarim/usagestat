@@ -225,6 +225,8 @@ fn main() -> Result<()> {
         upgrade::start(path, Arc::clone(&shutdown), Arc::clone(&restart));
     }
     if !cli.no_poll {
+        // Plugins read the summarizer's results instead of running ccusage.
+        usagestat_plugins::register_local_usage_daily(local_usage_cache::plugin_daily);
         start_usage_summarizer(Arc::clone(&state), Arc::clone(&shutdown));
         start_status_poller(Arc::clone(&state), Arc::clone(&shutdown));
     }

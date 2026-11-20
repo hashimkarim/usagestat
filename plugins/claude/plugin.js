@@ -683,8 +683,28 @@
     return mins + "m"
   }
 
+  function hasLocalUsage(ctx) {
+    return !!(ctx.host.localUsage && typeof ctx.host.localUsage.daily === "function")
+  }
+
+  // The host summarizes local logs in the background. Reading its result keeps
+  // a quota probe from scanning every transcript again through ccusage. Returns
+  // null only when the host cannot cover this log root, so ccusage still can.
+  function queryLocalUsage(ctx, sinceStr, homePath) {
+    if (!hasLocalUsage(ctx)) return null
+    const opts = { since: sinceStr }
+    if (homePath) opts.homePath = homePath
+    const result = ctx.host.localUsage.daily(opts)
+    if (result && result.status === "ok" && result.data && Array.isArray(result.data.daily)) {
+      return { status: "ok", data: result.data, native: true }
+    }
+    if (result && result.status === "not_covered") return null
+    // Still warming up: show no local totals this round rather than start a scan.
+    return { status: (result && result.status) || "unavailable", data: null }
+  }
+
   function queryTokenUsage(ctx, homePath) {
-    if (!ctx.host.ccusage || typeof ctx.host.ccusage.query !== "function") {
+    if (!hasLocalUsage(ctx) && (!ctx.host.ccusage || typeof ctx.host.ccusage.query !== "function")) {
       return { status: "unavailable", data: null }
     }
 
@@ -700,6 +720,9 @@
     if (homePath) {
       queryOpts.homePath = homePath
     }
+
+    const local = queryLocalUsage(ctx, sinceStr, homePath)
+    if (local) return local
 
     const result = ctx.host.ccusage.query(queryOpts)
     if (!result || typeof result !== "object" || typeof result.status !== "string") {
@@ -1036,7 +1059,8 @@
   function costAndTokensLabel(data, opts) {
     const includeZeroTokens = !!(opts && opts.includeZeroTokens)
     const parts = []
-    if (data.costUSD != null) parts.push("$" + data.costUSD.toFixed(2))
+    // A partly priced day shows its known cost as a lower bound.
+    if (data.costUSD != null) parts.push("$" + data.costUSD.toFixed(2) + (data.costKnown === false ? "+" : ""))
     if (data.tokens > 0 || (includeZeroTokens && data.tokens === 0)) {
       parts.push(fmtTokens(data.tokens) + " tokens")
     }
@@ -1069,7 +1093,7 @@
         label: usageDayLabel(day.date),
         value: hasCost ? cost : tokens,
         valueLabel: hasCost
-          ? "$" + cost.toFixed(2) + " · " + fmtTokens(tokens) + " tokens"
+          ? "$" + cost.toFixed(2) + (day.costKnown === false ? "+" : "") + " · " + fmtTokens(tokens) + " tokens"
           : fmtTokens(tokens) + " tokens",
       })
     }
@@ -1111,7 +1135,7 @@
       lines.push(ctx.line.text({
         label: label,
         value: costAndTokensLabel(
-          { tokens: tokens, costUSD: cost === null ? 0 : cost },
+          { tokens: tokens, costUSD: cost === null ? 0 : cost, costKnown: dayEntry && dayEntry.costKnown },
           { includeZeroTokens: true }
         )
       }))
@@ -1125,7 +1149,7 @@
   }
 
   function summarizeUsageDaily(daily) {
-    const summary = { tokens: 0, costUSD: 0, hasCost: false }
+    const summary = { tokens: 0, costUSD: 0, hasCost: false, costKnown: true }
     const selectedDaily = (daily || []).slice(-30)
     for (let i = 0; i < selectedDaily.length; i++) {
       const day = selectedDaily[i]
@@ -1136,6 +1160,7 @@
         summary.costUSD += dayCost
         summary.hasCost = true
       }
+      if (day && day.costKnown === false) summary.costKnown = false
     }
     return summary
   }
@@ -1171,6 +1196,7 @@
         value: costAndTokensLabel({
           tokens: summary.tokens,
           costUSD: summary.hasCost ? summary.costUSD : null,
+          costKnown: summary.costKnown,
         }, { includeZeroTokens: true })
       }))
     }
@@ -1914,7 +1940,8 @@
         if (usageResult.status === "ok") {
           const usage = usageResult.data
           appendUsageDailyLines(lines, ctx, usage.daily, "Estimated from local Claude logs at API rates.")
-          persistUsageDaily(ctx, usage.daily, "Claude")
+          // The host already saves its own summary as higher-priority history.
+          if (!usageResult.native) persistUsageDaily(ctx, usage.daily, "Claude")
         }
       } catch (e) {
         ctx.host.log.warn("local Claude token usage failed: " + String(e))
