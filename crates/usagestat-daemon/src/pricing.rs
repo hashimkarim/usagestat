@@ -1,22 +1,369 @@
-//! Standard API-equivalent estimates, not subscription invoices. Table updated
-//! 2026-11-16 (historical Codex and Haiku coverage) using the model pages and pricing tables linked in
-//! docs/history-accounting.md. Unknown model IDs never inherit a family's price.
+//! Standard API-equivalent estimates, not subscription invoices. Rates live in
+//! `pricing/models.json` (sources in docs/history-accounting.md). A daemon can
+//! add newer rates from a downloaded catalog and a local override file without
+//! a release; neither can remove a bundled model. Unknown model IDs never
+//! inherit a family's price.
 use super::local_usage::LocalUsageEvent;
+use serde::Deserialize;
+use std::collections::BTreeMap;
+use std::sync::{Arc, RwLock};
 use usagestat_core::usage_daily::UsageCostComponents;
 
-pub(super) const AS_OF: &str = "2026-11-16";
+const BUNDLED: &str = include_str!("../../../pricing/models.json");
+/// A downloaded or override catalog larger than this is rejected.
+pub(super) const MAX_CATALOG_BYTES: usize = 1024 * 1024;
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug, PartialEq, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct Tier {
+    tokens: u64,
+    input: f64,
+    output: f64,
+    cache_write: f64,
+    cache_read: f64,
+}
+
+/// USD per million tokens. `above` replaces every rate for a request whose
+/// input, cache-read and cache-write tokens together exceed `tokens`.
+#[derive(Clone, Copy, Debug, PartialEq, Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct Rates {
     input: f64,
     output: f64,
-    write: f64,
-    read: f64,
-    long_context: bool,
-    haiku_tier: bool,
+    cache_write: f64,
+    cache_read: f64,
+    #[serde(default)]
+    above: Option<Tier>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct Entry {
+    ids: Vec<String>,
+    #[serde(flatten)]
+    rates: Rates,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct CatalogFile {
+    schema: u32,
+    as_of: String,
+    models: Vec<Entry>,
+}
+
+/// One validated catalog file: lower-case model ID to rates.
+#[derive(Clone, Debug, PartialEq)]
+pub(super) struct Parsed {
+    as_of: String,
+    models: BTreeMap<String, Rates>,
+}
+
+fn valid_rate(value: f64) -> bool {
+    value.is_finite() && (0.0..=10_000.0).contains(&value)
+}
+
+fn valid_id(id: &str) -> bool {
+    (1..=128).contains(&id.len())
+        && id.bytes().next().is_some_and(|b| b.is_ascii_alphanumeric())
+        && id
+            .bytes()
+            .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b"._:/-".contains(&b))
+}
+
+fn valid_date(value: &str) -> bool {
+    chrono::NaiveDate::parse_from_str(value, "%Y-%m-%d").is_ok()
+}
+
+/// Parses and validates a catalog. Any invalid entry rejects the whole file,
+/// so a damaged download can never half-apply.
+pub(super) fn parse(text: &str) -> anyhow::Result<Parsed> {
+    if text.len() > MAX_CATALOG_BYTES {
+        anyhow::bail!("pricing catalog is larger than {MAX_CATALOG_BYTES} bytes");
+    }
+    let file: CatalogFile = serde_json::from_str(text)?;
+    if file.schema != 1 {
+        anyhow::bail!("unsupported pricing catalog schema {}", file.schema);
+    }
+    if !valid_date(&file.as_of) {
+        anyhow::bail!("pricing catalog asOf must be YYYY-MM-DD");
+    }
+    let mut models = BTreeMap::new();
+    for entry in file.models {
+        let r = entry.rates;
+        let rates_ok = [r.input, r.output, r.cache_write, r.cache_read]
+            .into_iter()
+            .all(valid_rate)
+            && r.above.is_none_or(|t| {
+                t.tokens > 0
+                    && [t.input, t.output, t.cache_write, t.cache_read]
+                        .into_iter()
+                        .all(valid_rate)
+            });
+        if !rates_ok || entry.ids.is_empty() {
+            anyhow::bail!("pricing catalog has invalid rates for {:?}", entry.ids);
+        }
+        for id in entry.ids {
+            if !valid_id(&id) {
+                anyhow::bail!("pricing catalog has an invalid model ID {id:?}");
+            }
+            if models.insert(id.clone(), r).is_some() {
+                anyhow::bail!("pricing catalog lists {id} twice");
+            }
+        }
+    }
+    Ok(Parsed {
+        as_of: file.as_of,
+        models,
+    })
+}
+
+/// Where the active rates came from, newest layer last.
+#[derive(Clone, Debug, PartialEq, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(super) struct Layer {
+    pub source: &'static str,
+    pub as_of: String,
+    pub models: usize,
+}
+
+pub(super) struct Catalog {
+    /// Changes whenever any active rate changes; cached costs are repriced then.
+    pub version: String,
+    pub layers: Vec<Layer>,
+    models: BTreeMap<String, Rates>,
+}
+
+impl Catalog {
+    /// Bundled rates, then a downloaded catalog, then a local override. Later
+    /// layers add models or replace their rates; they never remove one.
+    pub(super) fn merge(layers: &[(&'static str, &Parsed)]) -> Self {
+        use sha2::{Digest, Sha256};
+        let mut models = BTreeMap::new();
+        for (_, layer) in layers {
+            models.extend(layer.models.iter().map(|(id, rates)| (id.clone(), *rates)));
+        }
+        let as_of = layers
+            .iter()
+            .map(|(_, layer)| layer.as_of.as_str())
+            .max()
+            .unwrap_or_default()
+            .to_string();
+        let mut hash = Sha256::new();
+        for (id, r) in &models {
+            hash.update(format!("{id}={r:?};").as_bytes());
+        }
+        let digest = hash.finalize();
+        Self {
+            version: format!(
+                "{as_of}+{}",
+                digest[..4].iter().map(|b| format!("{b:02x}")).collect::<String>()
+            ),
+            layers: layers
+                .iter()
+                .map(|(source, layer)| Layer {
+                    source,
+                    as_of: layer.as_of.clone(),
+                    models: layer.models.len(),
+                })
+                .collect(),
+            models,
+        }
+    }
+
+    /// Exact ID, optionally followed by an ISO or compact snapshot date.
+    fn rates(&self, model: &str) -> Option<Rates> {
+        let model = model.to_ascii_lowercase();
+        if let Some(rates) = self.models.get(&model) {
+            return Some(*rates);
+        }
+        [8usize, 10].into_iter().find_map(|len| {
+            let split = model.len().checked_sub(len + 1)?;
+            let (base, suffix) = model.split_at(split);
+            let suffix = suffix.strip_prefix('-')?;
+            (suffix.chars().all(|c| c.is_ascii_digit() || c == '-'))
+                .then(|| self.models.get(base).copied())
+                .flatten()
+        })
+    }
+}
+
+pub(super) fn bundled() -> Parsed {
+    parse(BUNDLED).expect("bundled pricing/models.json is valid")
+}
+
+fn active_slot() -> &'static RwLock<Arc<Catalog>> {
+    static ACTIVE: std::sync::OnceLock<RwLock<Arc<Catalog>>> = std::sync::OnceLock::new();
+    ACTIVE.get_or_init(|| RwLock::new(Arc::new(Catalog::merge(&[("bundled", &bundled())]))))
+}
+
+pub(super) fn active() -> Arc<Catalog> {
+    active_slot()
+        .read()
+        .unwrap_or_else(|e| e.into_inner())
+        .clone()
+}
+
+/// Installs a new catalog. Returns true when its rates differ from the current ones.
+pub(super) fn install(catalog: Catalog) -> bool {
+    let mut slot = active_slot().write().unwrap_or_else(|e| e.into_inner());
+    let changed = slot.version != catalog.version;
+    *slot = Arc::new(catalog);
+    changed
+}
+
+/// Identifies the active rates. Cached and saved costs record it.
+pub(super) fn version() -> String {
+    active().version.clone()
 }
 
 fn rates(model: &str) -> Option<Rates> {
+    active().rates(model)
+}
+
+pub(super) fn is_priced(model: &str) -> bool {
+    rates(model).is_some()
+}
+
+/// What an event's tokens would cost on another model, at base rates: cached
+/// rows no longer have request boundaries, so long-context tiers are skipped.
+pub(super) fn cost_as(event: &LocalUsageEvent, model: &str) -> Option<f64> {
+    rates(model)?;
+    let mut copy = LocalUsageEvent {
+        model: model.to_string(),
+        input_tokens: event.input_tokens,
+        output_tokens: event.output_tokens,
+        cache_read_tokens: event.cache_read_tokens,
+        cache_creation_tokens: event.cache_creation_tokens,
+        ..LocalUsageEvent::default()
+    };
+    price(&mut copy, false);
+    copy.cost_known.then_some(copy.cost_usd)
+}
+
+pub(super) fn apply(event: &mut LocalUsageEvent) {
+    price(event, true);
+}
+
+fn price(event: &mut LocalUsageEvent, request_context: bool) {
+    let Some(mut rates) = rates(&event.model) else {
+        event.cost_usd = 0.0;
+        event.cost_components = UsageCostComponents::default();
+        event.cost_known = false;
+        event.cache_savings_usd = None;
+        return;
+    };
+    let input = event
+        .input_tokens
+        .saturating_add(event.cache_read_tokens)
+        .saturating_add(event.cache_creation_tokens);
+    if let Some(tier) = rates.above.filter(|tier| request_context && input > tier.tokens) {
+        rates.input = tier.input;
+        rates.output = tier.output;
+        rates.cache_write = tier.cache_write;
+        rates.cache_read = tier.cache_read;
+    }
+    let input = event.input_tokens as f64 * rates.input / 1_000_000.0;
+    let read = event.cache_read_tokens as f64 * rates.cache_read / 1_000_000.0;
+    let write = event.cache_creation_tokens as f64 * rates.cache_write / 1_000_000.0;
+    let output = event.output_tokens as f64 * rates.output / 1_000_000.0;
+    event.cost_usd = input + read + write + output;
+    event.cost_known = event.cost_usd.is_finite();
+    event.cost_components = if event.cost_known {
+        UsageCostComponents {
+            input_cost_usd: Some(input),
+            cache_read_cost_usd: Some(read),
+            cache_write_cost_usd: Some(write),
+            output_cost_usd: Some(output),
+        }
+    } else {
+        UsageCostComponents::default()
+    };
+    // Read discount only. Cache-write premiums are included in cost_usd.
+    event.cache_savings_usd =
+        Some(event.cache_read_tokens as f64 * (rates.input - rates.cache_read) / 1_000_000.0);
+}
+
+// Retained daily counters have no request boundaries. Use base rates explicitly,
+// never treat a whole day's input as one long-context request.
+pub(super) fn backfill_daily(row: &mut usagestat_core::usage_daily::UsageDailyRow) -> bool {
+    let reported = (row.source == "ccusage").then_some((
+        row.cost_usd,
+        row.cost_known,
+        row.cost_components,
+        row.cache_savings_usd,
+    ));
+    let mut changed = false;
+    for (name, model) in &mut row.models {
+        if model.cost_known
+            || !model.tokens_known
+            || (row.source == "ccusage" && model.cost_usd != 0.0)
+        {
+            continue;
+        }
+        let mut event = LocalUsageEvent {
+            model: name.clone(),
+            input_tokens: model.input_tokens,
+            output_tokens: model.output_tokens,
+            cache_read_tokens: model.cache_read_tokens,
+            cache_creation_tokens: model.cache_creation_tokens,
+            ..Default::default()
+        };
+        price(&mut event, false);
+        if !event.cost_known {
+            continue;
+        }
+        row.cost_usd += event.cost_usd - model.cost_usd;
+        model.cost_usd = event.cost_usd;
+        model.cost_known = true;
+        model.cost_components = event.cost_components;
+        model.cache_savings_usd = event.cache_savings_usd;
+        changed = true;
+    }
+    if changed {
+        let tokens = row
+            .models
+            .values()
+            .try_fold(0u64, |n, m| n.checked_add(m.total_tokens));
+        row.cost_known =
+            tokens == Some(row.total_tokens) && row.models.values().all(|m| m.cost_known);
+        row.cost_components = UsageCostComponents::zero();
+        row.cache_savings_usd = Some(0.0);
+        for model in row.models.values() {
+            row.cost_components.add(&model.cost_components);
+            row.cache_savings_usd = row
+                .cache_savings_usd
+                .zip(model.cache_savings_usd)
+                .map(|(a, b)| a + b);
+        }
+        row.pricing_as_of = Some(version());
+        row.cost_source = Some("api-rate-aggregate-estimate".into());
+        if let Some((cost, known, components, savings)) = reported {
+            row.cost_usd = cost;
+            row.cost_known = known;
+            row.cost_components = components;
+            row.cache_savings_usd = savings;
+            row.cost_source = Some("reported-with-api-model-estimates".into());
+        }
+    }
+    changed
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The hard-coded table that `pricing/models.json` replaced.
+    struct Legacy {
+        input: f64,
+        output: f64,
+        write: f64,
+        read: f64,
+        long_context: bool,
+        haiku_tier: bool,
+    }
+
+    fn legacy(model: &str) -> Option<Legacy> {
     let model = model.to_ascii_lowercase();
     // Match an exact ID, optionally followed by an ISO/compact snapshot date.
     let matches = |id: &str| {
@@ -89,7 +436,7 @@ fn rates(model: &str) -> Option<Rates> {
     } else {
         return None;
     };
-    Some(Rates {
+    Some(Legacy {
         input,
         output,
         write,
@@ -99,152 +446,83 @@ fn rates(model: &str) -> Option<Rates> {
     })
 }
 
-// Compacted Claude rows must be replayed for tiered request pricing. Codex
-// retains request counters, so its new rates can be applied without log replay.
-pub(super) fn needs_reprice(event: &LocalUsageEvent) -> bool {
-    rates(&event.model).is_some_and(|r| {
-        !event.cost_known
-            || (!r.haiku_tier
-                && event
-                    .model
-                    .to_ascii_lowercase()
-                    .starts_with("claude-sonnet-5-5"))
-    })
-}
-
-/// What an event's tokens would cost on another model, at base rates: cached
-/// rows no longer have request boundaries, so long-context tiers are skipped.
-pub(super) fn cost_as(event: &LocalUsageEvent, model: &str) -> Option<f64> {
-    rates(model)?;
-    let mut copy = LocalUsageEvent {
-        model: model.to_string(),
-        input_tokens: event.input_tokens,
-        output_tokens: event.output_tokens,
-        cache_read_tokens: event.cache_read_tokens,
-        cache_creation_tokens: event.cache_creation_tokens,
-        ..LocalUsageEvent::default()
-    };
-    price(&mut copy, false);
-    copy.cost_known.then_some(copy.cost_usd)
-}
-
-pub(super) fn apply(event: &mut LocalUsageEvent) {
-    price(event, true);
-}
-
-fn price(event: &mut LocalUsageEvent, request_context: bool) {
-    let Some(mut rates) = rates(&event.model) else {
-        event.cost_usd = 0.0;
-        event.cost_components = UsageCostComponents::default();
-        event.cost_known = false;
-        event.cache_savings_usd = None;
-        return;
-    };
-    let input = event
-        .input_tokens
-        .saturating_add(event.cache_read_tokens)
-        .saturating_add(event.cache_creation_tokens);
-    if request_context && rates.long_context && input > 272_000 {
-        rates.input *= 2.0;
-        rates.write *= 2.0;
-        rates.read *= 2.0;
-        rates.output *= 1.5;
-    }
-    if request_context && rates.haiku_tier && input > 100_000 {
-        rates.input *= 5.0;
-        rates.read *= 5.0;
-        rates.write *= 5.0;
-        rates.output *= 5.0;
-    }
-    let input = event.input_tokens as f64 * rates.input / 1_000_000.0;
-    let read = event.cache_read_tokens as f64 * rates.read / 1_000_000.0;
-    let write = event.cache_creation_tokens as f64 * rates.write / 1_000_000.0;
-    let output = event.output_tokens as f64 * rates.output / 1_000_000.0;
-    event.cost_usd = input + read + write + output;
-    event.cost_known = event.cost_usd.is_finite();
-    event.cost_components = if event.cost_known {
-        UsageCostComponents {
-            input_cost_usd: Some(input),
-            cache_read_cost_usd: Some(read),
-            cache_write_cost_usd: Some(write),
-            output_cost_usd: Some(output),
+    #[test]
+    fn bundled_catalog_reproduces_the_previous_rate_table_exactly() {
+        let catalog = Catalog::merge(&[("bundled", &bundled())]);
+        let close = |a: f64, b: f64| (a - b).abs() < 1e-12;
+        let mut ids: Vec<String> = catalog.models.keys().cloned().collect();
+        for id in catalog.models.keys() {
+            ids.extend([
+                format!("{id}-20260101"),
+                format!("{id}-2026-01-01"),
+                format!("{id}-x"),
+                format!("{id}-foo"),
+                format!("{id}-2026010"),
+                id.to_ascii_uppercase(),
+            ]);
         }
-    } else {
-        UsageCostComponents::default()
-    };
-    // Read discount only. Cache-write premiums are included in cost_usd.
-    event.cache_savings_usd =
-        Some(event.cache_read_tokens as f64 * (rates.input - rates.read) / 1_000_000.0);
-}
-
-// Retained daily counters have no request boundaries. Use base rates explicitly,
-// never treat a whole day's input as one long-context request.
-pub(super) fn backfill_daily(row: &mut usagestat_core::usage_daily::UsageDailyRow) -> bool {
-    let reported = (row.source == "ccusage").then_some((
-        row.cost_usd,
-        row.cost_known,
-        row.cost_components,
-        row.cache_savings_usd,
-    ));
-    let mut changed = false;
-    for (name, model) in &mut row.models {
-        if model.cost_known
-            || !model.tokens_known
-            || (row.source == "ccusage" && model.cost_usd != 0.0)
-        {
-            continue;
-        }
-        let mut event = LocalUsageEvent {
-            model: name.clone(),
-            input_tokens: model.input_tokens,
-            output_tokens: model.output_tokens,
-            cache_read_tokens: model.cache_read_tokens,
-            cache_creation_tokens: model.cache_creation_tokens,
-            ..Default::default()
-        };
-        price(&mut event, false);
-        if !event.cost_known {
-            continue;
-        }
-        row.cost_usd += event.cost_usd - model.cost_usd;
-        model.cost_usd = event.cost_usd;
-        model.cost_known = true;
-        model.cost_components = event.cost_components;
-        model.cache_savings_usd = event.cache_savings_usd;
-        changed = true;
-    }
-    if changed {
-        let tokens = row
-            .models
-            .values()
-            .try_fold(0u64, |n, m| n.checked_add(m.total_tokens));
-        row.cost_known =
-            tokens == Some(row.total_tokens) && row.models.values().all(|m| m.cost_known);
-        row.cost_components = UsageCostComponents::zero();
-        row.cache_savings_usd = Some(0.0);
-        for model in row.models.values() {
-            row.cost_components.add(&model.cost_components);
-            row.cache_savings_usd = row
-                .cache_savings_usd
-                .zip(model.cache_savings_usd)
-                .map(|(a, b)| a + b);
-        }
-        row.pricing_as_of = Some(AS_OF.into());
-        row.cost_source = Some("api-rate-aggregate-estimate".into());
-        if let Some((cost, known, components, savings)) = reported {
-            row.cost_usd = cost;
-            row.cost_known = known;
-            row.cost_components = components;
-            row.cache_savings_usd = savings;
-            row.cost_source = Some("reported-with-api-model-estimates".into());
+        ids.extend(["gpt-5.4-mini-x", "claude-sonnet-5-5-foo", "gpt-6.2-astra", "gpt-6", "claude"].map(String::from));
+        for id in ids {
+            let new = catalog.rates(&id);
+            let old = legacy(&id);
+            assert_eq!(new.is_some(), old.is_some(), "{id}");
+            let (Some(new), Some(old)) = (new, old) else { continue };
+            assert!(
+                close(new.input, old.input) && close(new.output, old.output)
+                    && close(new.cache_write, old.write) && close(new.cache_read, old.read),
+                "{id}"
+            );
+            let tier = if old.haiku_tier {
+                Some((100_000, 5.0, 5.0))
+            } else if old.long_context {
+                Some((272_000, 2.0, 1.5))
+            } else {
+                None
+            };
+            match (new.above, tier) {
+                (None, None) => {}
+                (Some(t), Some((tokens, input, output))) => assert!(
+                    t.tokens == tokens
+                        && close(t.input, old.input * input)
+                        && close(t.cache_write, old.write * input)
+                        && close(t.cache_read, old.read * input)
+                        && close(t.output, old.output * output),
+                    "{id} tier"
+                ),
+                _ => panic!("{id}: tier mismatch"),
+            }
         }
     }
-    changed
-}
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+    #[test]
+    fn catalogs_are_validated_whole_and_layers_only_add_or_replace() {
+        let file = |models: &str| format!(r#"{{"schema":1,"asOf":"2026-12-01","models":[{models}]}}"#);
+        let astra = r#"{"ids":["gpt-6.2-astra"],"input":8,"output":40,"cacheWrite":10,"cacheRead":0.4,
+            "above":{"tokens":272000,"input":16,"output":60,"cacheWrite":20,"cacheRead":0.8}}"#;
+        let downloaded = parse(&file(astra)).unwrap();
+        for bad in [
+            file(r#"{"ids":["Upper"],"input":1,"output":1,"cacheWrite":1,"cacheRead":1}"#),
+            file(r#"{"ids":["x"],"input":-1,"output":1,"cacheWrite":1,"cacheRead":1}"#),
+            file(r#"{"ids":["x"],"input":1e9,"output":1,"cacheWrite":1,"cacheRead":1}"#),
+            file(r#"{"ids":[],"input":1,"output":1,"cacheWrite":1,"cacheRead":1}"#),
+            file(&format!("{astra},{astra}")),
+            r#"{"schema":2,"asOf":"2026-12-01","models":[]}"#.to_string(),
+            r#"{"schema":1,"asOf":"soon","models":[]}"#.to_string(),
+            "x".repeat(MAX_CATALOG_BYTES + 1),
+        ] {
+            assert!(parse(&bad).is_err(), "{bad:.80}");
+        }
+        let base = bundled();
+        let before = Catalog::merge(&[("bundled", &base)]);
+        let after = Catalog::merge(&[("bundled", &base), ("downloaded", &downloaded)]);
+        assert!(before.rates("gpt-6.2-astra").is_none());
+        assert_eq!(after.rates("gpt-6.2-astra-2026-11-20").unwrap().input, 8.0);
+        // Nothing bundled disappears, and the version follows the rates.
+        assert!(base.models.keys().all(|id| after.rates(id).is_some()));
+        assert_ne!(before.version, after.version);
+        assert!(after.version.starts_with("2026-12-01+"));
+        assert_eq!(before.version, Catalog::merge(&[("bundled", &base)]).version);
+    }
 
     #[test]
     fn cost_as_reprices_tokens_at_another_models_base_rates() {

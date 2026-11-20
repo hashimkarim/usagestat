@@ -156,7 +156,10 @@ impl Cache {
     ) -> Result<bool> {
         let mut changed = self.version != VERSION;
         let migrate_models = self.version == 8;
-        let migrate_prices = self.pricing_as_of != super::pricing::AS_OF;
+        // Read once: a catalog installed mid-refresh leaves this stamp stale,
+        // so the next refresh reprices again instead of mixing two catalogs.
+        let pricing = super::pricing::version();
+        let migrate_prices = self.pricing_as_of != pricing;
         if changed && !migrate_models {
             self.files.clear();
         }
@@ -188,13 +191,20 @@ impl Cache {
             }
         }
         if migrate_prices {
+            // Any rate may have been added or corrected. An event without a
+            // price before or after keeps its unknown cost.
+            let needs_reprice = |event: &LocalUsageEvent| {
+                event.cost_known || super::pricing::is_priced(&event.model)
+            };
             for (path, file) in &mut self.files {
-                if !file.events.iter().any(super::pricing::needs_reprice) {
+                if !file.events.iter().any(needs_reprice) {
                     continue;
                 }
-                if file.events.iter().any(|event| {
-                    event.codex_identity.is_none() && super::pricing::needs_reprice(event)
-                }) {
+                if file
+                    .events
+                    .iter()
+                    .any(|event| event.codex_identity.is_none() && needs_reprice(event))
+                {
                     // Claude cache rows are compacted. Recover request boundaries
                     // before applying tiered prompt prices, never price a day as a request.
                     let stamp = fingerprint(path)?;
@@ -203,7 +213,7 @@ impl Cache {
                     file.fingerprint = stamp;
                 } else {
                     for event in &mut file.events {
-                        if super::pricing::needs_reprice(event) {
+                        if needs_reprice(event) {
                             super::pricing::apply(event);
                         }
                     }
@@ -215,7 +225,7 @@ impl Cache {
         // independently handles files appended since the saved fingerprints.
         if (migrate_models || migrate_prices) && self.files.len() == files.len() {
             self.version = VERSION;
-            self.pricing_as_of = super::pricing::AS_OF.into();
+            self.pricing_as_of = pricing;
             self.checked = Some(Instant::now());
             return Ok(true);
         }
@@ -244,7 +254,7 @@ impl Cache {
             changed = true;
         }
         self.version = VERSION;
-        self.pricing_as_of = super::pricing::AS_OF.into();
+        self.pricing_as_of = pricing;
         self.checked = Some(Instant::now());
         Ok(changed)
     }
@@ -651,7 +661,7 @@ mod tests {
             "successful retry must request persistence"
         );
         let restored: Cache = serde_json::from_slice(&serde_json::to_vec(&cache).unwrap()).unwrap();
-        assert_eq!(restored.pricing_as_of, super::super::pricing::AS_OF);
+        assert_eq!(restored.pricing_as_of, super::super::pricing::version());
         assert!((restored.files[&known].events[0].cost_usd - 0.15).abs() < 1e-10);
         std::fs::remove_dir_all(dir).unwrap();
     }
@@ -778,6 +788,8 @@ mod tests {
         std::fs::write(&missing, "missing").unwrap();
         let mut cache = Cache {
             version: 8,
+            // Only the model migration is under test here, not repricing.
+            pricing_as_of: super::super::pricing::version(),
             ..Default::default()
         };
         for (path, model) in [(&known, "gpt-6-astra"), (&missing, "unknown")] {

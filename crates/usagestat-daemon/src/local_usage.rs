@@ -582,7 +582,7 @@ pub(super) fn report_limited<'a>(
     };
     value["source"] = json!("local-transcript-v2");
     value["costSource"] = json!("api-rate-estimate");
-    value["pricingAsOf"] = json!(pricing::AS_OF);
+    value["pricingAsOf"] = json!(pricing::version());
     value["timeZone"] = json!("UTC");
     if let Some(limit) = limit {
         let key = if report.starts_with("session") {
