@@ -1,5 +1,16 @@
 # Changelog
 
+## 2.4.0 - 2026-11-20
+
+- Quota probes no longer run ccusage. The Codex and Claude plugins read Today, Yesterday, Last 30 Days and Usage Trend from the daemon's background log summary (`ctx.host.localUsage`), in local time. On a machine with 20 GB of Codex logs this cut steady-state CPU from about 0.8 cores to 0.02 and disk reads from about 140 GB to under 1 GB per 10 minutes. ccusage remains for log roots the daemon does not summarize and for `--no-poll` hosts. Partly priced days show their known cost as a lower bound (`$8.32+`).
+- Fix Codex double counting: a request ledger record and its `token_count` mirror now pair even when their cumulative counters differ, which counted most requests in recent rollouts twice (30-day totals were about 60% high). Recounts also include archived sessions, which ccusage skips. The local log cache rebuilds once (cache v14).
+- The local log cache writes only changed entries to a small delta file instead of rewriting the full snapshot each minute, deduplicates requests once per change, and rewrites saved daily history only when logs change.
+- Model prices move to `pricing/models.json`. The daemon downloads the published catalog daily, a local `pricing.json` in the config directory can add or correct rates, and new rates reprice saved usage. Each event is priced at the rate that applied on its day; a price change adds a dated entry, so earlier usage keeps its price. `GET /v1/pricing` shows the active version; `pricingUpdates = false` stops downloads. A daily workflow proposes new prices from LiteLLM, starting with 25 OpenAI models including GPT-6.2 Astra and Sol.
+- Provider icons update from AgenticDriver provider-icons releases without an app update: the daemon checks the latest stable release daily, verifies its SHA-256 and every SVG, and keeps the bundled copy as a fallback. Installed apps gain library logos for 117 of 124 providers. SVG replies are sandboxed. `/v1/icon-catalog` shows the active version; `iconUpdates = false` keeps the bundled icons.
+- Dashboard settings are split into tabs (Appearance, View, Providers, Details & alerts, Collection) and use the full width. Display settings list only providers that collect or have saved usage; Collection has Collecting, Paused and Polling views with a filter.
+
+See [release notes](docs/releases/v2.4.0.md).
+
 ## 2.3.2 - 2026-11-19
 
 - Publish stable macOS (Apple Silicon and Intel) and Windows x64 builds alongside Linux: GitHub archives and the Windows per-user installer, npm platform packages, and the Homebrew formula on macOS. Binaries are unsigned; the daemon and CLI are unchanged from 2.3.1.
