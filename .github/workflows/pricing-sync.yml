@@ -1,0 +1,67 @@
+name: Pricing catalog sync
+
+# Proposes newly published model prices from LiteLLM as a pull request.
+# Running daemons download pricing/models.json from main once it is merged.
+on:
+  schedule:
+    - cron: '17 6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: pricing-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      CARGO_TERM_COLOR: never
+      BRANCH: pricing-sync
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Test the sync script
+        run: python -m unittest discover -s tools/pricing -p 'test_*.py' -v
+      - name: Add new prices from LiteLLM
+        run: python tools/pricing/sync_litellm.py --report "$RUNNER_TEMP/pricing.md"
+      - name: Stop when nothing changed
+        id: changes
+        run: |
+          if git diff --quiet -- pricing/models.json; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+      # A pull request opened with the workflow token does not start other
+      # workflows, so the catalog is checked by the daemon's own tests here.
+      - name: Check the catalog with the daemon's pricing tests
+        if: steps.changes.outputs.changed == 'true'
+        run: |
+          rustup default 1.89.0
+          cargo test -p usagestat-daemon pricing
+      - name: Open or update the pull request
+        if: steps.changes.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -C "$BRANCH"
+          git commit -am "Add model prices from LiteLLM"
+          git push --force origin "$BRANCH"
+          if [ -n "$(gh pr list --head "$BRANCH" --state open --json number --jq '.[].number')" ]; then
+            gh pr edit "$BRANCH" --body-file "$RUNNER_TEMP/pricing.md"
+          else
+            gh pr create --head "$BRANCH" --base main \
+              --title "Add model prices from LiteLLM" --body-file "$RUNNER_TEMP/pricing.md"
+          fi
+      - name: Report prices that differ from the catalog
+        if: always()
+        run: test ! -f "$RUNNER_TEMP/pricing.md" || cat "$RUNNER_TEMP/pricing.md" >> "$GITHUB_STEP_SUMMARY"

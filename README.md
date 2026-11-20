@@ -431,6 +431,9 @@ and `/v1/history/daily/<provider>/<period>` (`month`, `all`, or a day count).
 `/metrics` exports provider health and quota gauges for Prometheus without
 credential or account labels. See [history accounting](docs/history-accounting.md)
 for source precedence, model estimates, cache savings, and pricing coverage.
+Model prices come from [`pricing/models.json`](pricing/models.json); the daemon
+picks up newly published prices daily without an app update, and a local
+`pricing.json` in the config directory can add or correct a rate.
 
 The v2.0.1 dashboard's **Settings** tab separates **Display** preferences from
 shared backend **Collection** setup. Display includes visibility, names, ordering,

@@ -141,8 +141,9 @@ session to its last active day.
 Local `costSource: "api-rate-estimate"` values use standard API rates verified on
 2026-09-27, with Sonnet 5.5 added from its published rates on 2026-09-29.
 GPT-6.1 Sol was added from its official model page on 2026-11-15.
-The rate schedule and its verification date live in
-[`pricing.rs`](../crates/usagestat-daemon/src/pricing.rs). Price upgrades repair
+The rate schedule and its date live in
+[`pricing/models.json`](../pricing/models.json); request tiers are data there
+(a token threshold with replacement rates). Price upgrades repair
 cached request estimates without discarding token counters. Compacted Claude
 summaries affected by new rates are replayed from their original logs because
 prompt tiers must be applied before aggregation. Retained daily rows whose logs
@@ -159,6 +160,31 @@ applied per usage event before aggregation. Haiku prompt-length tiers count all
 input classes, including cached input, and exclude output. Claude cache writes use the standard
 five-minute rate. `cacheSavingsUsd` measures the read discount relative to normal
 input pricing; cache-write premiums remain included in `costUsd`.
+
+### Updating prices without a release
+
+The daemon applies three catalog layers, later ones adding models or replacing
+their rates and never removing one:
+
+1. `pricing/models.json` bundled into the release.
+2. The same file downloaded from `main`, checked a minute after start and then
+   daily over HTTPS with ETag revalidation. It is validated whole, capped at
+   1 MB, saved in the data directory and loaded at startup. A download older
+   than the bundled table is ignored. Set `pricingUpdates = false` in the
+   config to stop downloading.
+3. `pricing.json` in the config directory, the same format, for a local
+   correction. Edits apply within a minute.
+
+The active rates have a version (`asOf` plus a hash of every rate) shown at
+`GET /v1/pricing` and recorded as `pricingAsOf`. When it changes, cached usage
+reprices every priced event on its next refresh, replaying compacted Claude
+summaries, and saved daily estimates are repaired.
+
+A scheduled workflow (`.github/workflows/pricing-sync.yml`) runs
+`tools/pricing/sync_litellm.py`, which adds exact new model IDs from LiteLLM's
+public price list for the OpenAI and Anthropic families UsageStat reads, and
+opens a pull request. It never changes a curated entry; disagreements are
+listed in the pull request for review against the provider's pricing page.
 
 Prices are matched to explicit model IDs (with optional snapshot-date suffixes).
 Unknown aliases remain unpriced. Sources:
