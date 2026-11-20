@@ -84,7 +84,7 @@ test('daemon serves compact history and saved model days with source and price c
   assert.equal(days[day].sessions,1);
   assert.equal(days[day].models['gpt-6-astra'].costKnown,true);
   assert.equal(days[day].costSource,'api-rate-estimate');
-  assert.match(days[day].pricingAsOf,/^\d{4}-\d{2}-\d{2}$/,'local estimates carry a dated rate schedule');
+  assert.match(days[day].pricingAsOf,/^\d{4}-\d{2}-\d{2}\+[0-9a-f]{8}$/,'local estimates carry their rate catalog version');
   assert.equal(days['2026-09-02'].totalTokens,95);
   assert.equal(days['2026-09-02'].models.unknown.costKnown,false);
   assert.equal(days['2026-09-02'].costKnown,false);

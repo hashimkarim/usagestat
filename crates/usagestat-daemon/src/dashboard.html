@@ -2124,12 +2124,12 @@ function modelBreakdown(model){
   const dailyCost = model.providers.filter(p=>ids.includes(p.id)).reduce((a,p)=>a+p.current.cost,0);
   const drift = Math.abs(totalCost-dailyCost) > Math.max(0.01, dailyCost*0.01);
   const missing = model.rows.filter(r=>!daily.get(r.providerId.toLowerCase()+'\u0000'+r.date)?.models || !Object.keys(daily.get(r.providerId.toLowerCase()+'\u0000'+r.date).models).length).length;
-  const pricingDates = [...new Set([...daily.values()].map(r=>r.pricingAsOf).filter(Boolean))].sort();
+  const pricingDates = [...new Set([...daily.values()].map(r=>(r.pricingAsOf||'').split('+')[0]).filter(Boolean))].sort();
   let html = `<div class="trends-table-wrap"><table class="u-table"><thead><tr><th>Model</th><th>Cost</th><th>Share of priced cost</th><th>Tokens</th><th>Cached input</th><th>Session-days</th></tr></thead><tbody>`;
   for(const r of rows.slice(0,40)){
     html+=`<tr><td><span class="u-cell-name">${providerIcon(r.id)}${esc(r.name)}</span></td><td>${recordedCost(r)}</td><td>${r.costKnown||r.cost>0?(r.costKnown?'':'≈')+shareText(r.cost,pricedCost):'—'}</td><td>${fmtTok(r.tokens)}</td><td>${fmtTok(r.cached)}</td><td>${r.sessionsKnown?r.sessions.toLocaleString('en-US'):'—'}</td></tr>`;
   }
-  html+=`</tbody></table></div><div class="small-note">${loading?'Updating daily model history… ':''}${failed?'Some model history could not be loaded. ':''}Usage is assigned to its actual UTC day. Session-days count a session once on each active day.${missing?` Model detail is missing for ${missing} provider-day${missing===1?'':'s'}.`:''}${drift?` Model costs total ${recordedCost({cost:totalCost,costKnown:allPriced})}; saved daily totals are ${recordedCost(model.current)}. Sources or coverage differ.`:''} Local-log costs use standard API-rate estimates, not subscription charges.${pricingDates.length?` Rates dated ${esc(pricingDates.join(', '))} also apply to historical usage.`:''}</div>`;
+  html+=`</tbody></table></div><div class="small-note">${loading?'Updating daily model history… ':''}${failed?'Some model history could not be loaded. ':''}Usage is assigned to its actual UTC day. Session-days count a session once on each active day.${missing?` Model detail is missing for ${missing} provider-day${missing===1?'':'s'}.`:''}${drift?` Model costs total ${recordedCost({cost:totalCost,costKnown:allPriced})}; saved daily totals are ${recordedCost(model.current)}. Sources or coverage differ.`:''} Local-log costs use standard API-rate estimates, not subscription charges.${pricingDates.length?` Each day is priced at the rate that applied then (rate catalog ${esc(pricingDates.join(', '))}).`:''}</div>`;
   return html;
 }
 
