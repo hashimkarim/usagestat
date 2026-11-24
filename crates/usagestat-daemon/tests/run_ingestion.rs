@@ -348,6 +348,9 @@ fn lost_destination_acknowledgement_retries_the_same_event_once() {
                 thread::sleep(Duration::from_millis(10));
                 continue;
             };
+            // Windows hands out accepted sockets with the listener's
+            // non-blocking mode, so a read before the request arrives fails.
+            stream.set_nonblocking(false).unwrap();
             stream
                 .set_read_timeout(Some(Duration::from_secs(2)))
                 .unwrap();
