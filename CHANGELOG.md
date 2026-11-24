@@ -1,7 +1,14 @@
 # Changelog
 
-## Unreleased
+## 2.4.1 - 2026-11-24
 
+- Notion reads the personal Standard and Select allowance pools (with credit counts) that workspaces now report, including when the old rate-limit status is `not_applicable`, which previously failed. A Notion Credits balance is shown when available.
+- Amp recognises workspaces paid by an enterprise (plan Enterprise, one row per workspace) instead of showing $0.00 credits, and reads `Amp Free: N% remaining today` and per-workspace `$N remaining` balances.
+- Grok shows the prepaid balance, and a balance-only account is no longer rejected.
+- MiMo can read the Token Plan API with a `tp-` key (`MIMO_API_KEY`, region `cn` or `sgp`); auto mode prefers it over browser cookies.
+- OpenAI API sends `OpenAI-Organization` (setting, `OPENAI_ORGANIZATION_ID` or `OPENAI_ORG_ID`) on the legacy credit-grant balance request.
+- MuseAI finds its subscription action on deploys that serve `static/immutable/chunks`. Claude Platform lists at most 24 other credit grants.
+- New provider: TrustedRouter (API key spend limit and daily, weekly and monthly usage).
 - Correct GPT-6 Rosalind prices to OpenAI's published rates: cache writes $12.50 (was $18.75) and long-context requests $20 in / $75 out / $2 cache read / $25 cache write (were 1.5× higher). Saved Rosalind usage reprices once the new catalog arrives.
 - Bundle provider-icons 1.1.0 (was 0.1.0-alpha.1), so fresh installs show the current logos before their first icon download. 116 providers take their icon from the library, up from 64.
 

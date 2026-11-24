@@ -45,9 +45,9 @@ network requests, API exposure and deletion controls.
 
 ## Install
 
-The stable backend is **[v2.4.0](docs/releases/v2.4.0.md)** for Linux
+The stable backend is **[v2.4.1](docs/releases/v2.4.1.md)** for Linux
 x64/ARM64 (glibc 2.39+), macOS 11+ (Apple Silicon and Intel) and Windows 10+ x64.
-macOS and Windows builds are unsigned. Its [publication record](docs/releases/v2.4.0-publication.md)
+macOS and Windows builds are unsigned. Its [publication record](docs/releases/v2.4.1-publication.md)
 tracks channels; package feeds can lag the GitHub release. v2.3 adds cost per
 repository and git branch, run-out forecasts, `usagestat sessions`, `whatif`,
 `top`, `statusline` and `mcp`, opt-in hooks, budgets and multi-machine sync, and
@@ -91,13 +91,13 @@ each channel's actual availability.
 </p>
 
 Choose a package manager already available on your system. See the
-[v2.4.0 publication record](docs/releases/v2.4.0-publication.md) for current
+[v2.4.1 publication record](docs/releases/v2.4.1-publication.md) for current
 versions and feed publication status, and [installation](docs/installation.md)
 for macOS and Windows steps.
 
 | Channel | Published OS / CPU support | Package |
 | --- | --- | --- |
-| [npm](https://www.npmjs.com/package/@hashimkarim/usagestat) | Linux glibc 2.39+ x86-64/ARM64, macOS 13.5+ Apple Silicon/Intel, Windows x64; Node 24+ | `@hashimkarim/usagestat@2.4.0` |
+| [npm](https://www.npmjs.com/package/@hashimkarim/usagestat) | Linux glibc 2.39+ x86-64/ARM64, macOS 13.5+ Apple Silicon/Intel, Windows x64; Node 24+ | `@hashimkarim/usagestat@2.4.1` |
 | [Homebrew](https://github.com/hashimkarim/homebrew-tap/blob/main/Formula/usagestat.rb) | macOS 11+ Apple Silicon/Intel; Linux glibc 2.39+ x86-64/ARM64 | `hashimkarim/tap/usagestat` |
 | [Arch Linux / AUR](https://aur.archlinux.org/packages/usagestat-bin) | Arch Linux · x86-64 | `usagestat-bin` — release binaries |
 | [Fedora COPR](https://copr.fedorainfracloud.org/coprs/hashimkarim/usagestat/) | Fedora 43, 44, 45, Rawhide · x86-64 | `usagestat` |
