@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.4.2 - 2026-11-24
+
+- Codex requests on the Fast or Ultrafast service tier are priced at OpenAI's published rates instead of Standard: Fast 2× on GPT-6 and GPT-6.x (2× or 2.5× on GPT-5.x up to 272K input tokens), Ultrafast 6× on GPT-6 Astra and GPT-6.1 Sol and 3× on GPT-6.2 Astra and Sol until 2027-03-01 08:00 UTC, then 6×. The tier comes from each rollout's thread settings; a turn that sees two tiers stays Standard and subagents do not inherit a parent's tier. Ultrafast on a model without a published rate shows no cost. The local log cache rebuilds once (cache v15).
+- Cursor spend falls back to Tokscale's local cache (`~/.config/tokscale/cursor-cache` or `$TOKSCALE_CONFIG_DIR`) when the dashboard query fails, for automatically detected logins only. These days are labelled "Tokscale cache", rank below live billing, and show no cost when any event is incomplete.
+
 ## 2.4.1 - 2026-11-24
 
 - Notion reads the personal Standard and Select allowance pools (with credit counts) that workspaces now report, including when the old rate-limit status is `not_applicable`, which previously failed. A Notion Credits balance is shown when available.

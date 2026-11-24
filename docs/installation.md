@@ -2,8 +2,8 @@
 
 Install the CLI (`usagestat`), daemon (`usagestatd`), and provider plugins together.
 Use the [published support table](../README.md#install) to choose a channel for
-your system. The current stable release is **[v2.4.1](releases/v2.4.1.md)**; its
-[publication record](releases/v2.4.1-publication.md) tracks package-feed
+your system. The current stable release is **[v2.4.2](releases/v2.4.2.md)**; its
+[publication record](releases/v2.4.2-publication.md) tracks package-feed
 availability. Do not assume a queued feed build is already installable. For work
 from a source checkout, see [development](../README.md#development).
 
@@ -97,8 +97,8 @@ The package includes both binaries and `/usr/share/usagestat/plugins`.
 
 The [PPA](https://launchpad.net/~hashimkarim/+archive/ubuntu/usagestat) currently
 publishes **Ubuntu 24.04 LTS (Noble), amd64**. Packages are versioned like
-`2.4.1-1ppa1`; the suffix is a Debian packaging revision; the program reports the upstream
-version. See the [v2.4.1 publication record](releases/v2.4.1-publication.md) for
+`2.4.2-1ppa1`; the suffix is a Debian packaging revision; the program reports the upstream
+version. See the [v2.4.2 publication record](releases/v2.4.2-publication.md) for
 publication and verification evidence.
 Other Ubuntu series and ARM64 do not currently have published packages
 in this PPA. These instructions are for Ubuntu, not Debian.
@@ -217,7 +217,7 @@ sudo apt install build-essential pkg-config git
 Build the current stable tag and install both binaries plus plugins:
 
 ```bash
-git clone --branch v2.4.1 --depth 1 https://github.com/Hashim-K/usagestat.git
+git clone --branch v2.4.2 --depth 1 https://github.com/Hashim-K/usagestat.git
 cd usagestat
 cargo build --release --locked -p usagestat-cli -p usagestat-daemon
 install -d "$HOME/.local/bin" "$HOME/.local/lib/usagestat"
@@ -240,7 +240,7 @@ usagestat list
 usagestat config validate
 ```
 
-A v2.4.1 installation should report `usagestat 2.4.1`, `list` should find the
+A v2.4.2 installation should report `usagestat 2.4.2`, `list` should find the
 bundled providers, and config validation should succeed with an absent/default
 config or a valid custom config. Provider login is separate: use the
 [first-run setup](../README.md#first-run) before requesting live account usage.
