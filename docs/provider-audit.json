@@ -996,7 +996,7 @@
       "id": "cursor",
       "manifest": "plugins/cursor/plugin.json",
       "entry": "plugins/cursor/plugin.js",
-      "entrySha256": "677864a8d027e2c141c897ab43803328eef55e1f9288e81124ccedc55268abc1",
+      "entrySha256": "e1e033868b413ff11481defb014ee5574a0c1d3bfd2ab7ac760cbc0810d525fc",
       "declaredModes": [
         "oauth",
         "local"
@@ -1047,7 +1047,7 @@
       "id": "cursor-nightly",
       "manifest": "plugins/cursor-nightly/plugin.json",
       "entry": "plugins/cursor/plugin.js",
-      "entrySha256": "677864a8d027e2c141c897ab43803328eef55e1f9288e81124ccedc55268abc1",
+      "entrySha256": "e1e033868b413ff11481defb014ee5574a0c1d3bfd2ab7ac760cbc0810d525fc",
       "declaredModes": [
         "oauth",
         "local"

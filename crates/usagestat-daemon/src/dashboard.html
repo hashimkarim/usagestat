@@ -1908,6 +1908,7 @@ function costSourceLabel(r){
   const src = String(r.costSource||r.source||'').toLowerCase();
   if(src.includes('estimate') || src.includes('transcript')) return 'local estimate';
   if(src.includes('ccusage')) return 'ccusage';
+  if(src.includes('tokscale')) return 'Tokscale cache';
   if(src.includes('billing')) return 'billing';
   return src || 'unknown';
 }

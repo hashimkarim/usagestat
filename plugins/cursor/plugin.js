@@ -1091,26 +1091,48 @@
     return result
   }
 
-  function persistCursorBillingDaily(ctx, displayName) {
+  // Tokscale's cache is machine-wide and carries no account identity. Like the
+  // shared CLI auth file, it may only stand in for the default stable account,
+  // never for an explicitly configured provider credential.
+  // A configured provider credential, even a blank one, is an explicit account.
+  function cursorLocalCacheAllowed(ctx, authSource) {
+    if (!["sqlite", "keychain", "cli-file"].includes(authSource)) return false
+    try {
+      if (ctx.host.credentials && typeof ctx.host.credentials.get === "function" && ctx.host.credentials.get()) return false
+    } catch (_) {
+      return false
+    }
+    return sharedCredentialsAllowed(ctx) && (!ctx.provider?.instanceId || ctx.provider.instanceId === "cursor")
+  }
+
+  function persistCursorBillingDaily(ctx, displayName, authSource) {
     if (!ctx.host.cursorUsageExport || typeof ctx.host.cursorUsageExport.queryDaily !== "function") return
     if (!ctx.host.usageDaily || typeof ctx.host.usageDaily.ingest !== "function") return
     try {
       var resp = ctx.host.cursorUsageExport.queryDaily({
         since: cursorSince31DaysAgo(),
         until: cursorUntilToday(),
+        localCache: cursorLocalCacheAllowed(ctx, authSource),
       })
       if (!resp || resp.status !== "ok" || !resp.data || !Array.isArray(resp.data.daily)) return
       if (!resp.data.daily.length) return
+      var tokscale = resp.data.source === "tokscale"
       var daily = resp.data.daily.map(function (row) {
         return {
           date: row.date,
           totalTokens: row.totalTokens,
           inputTokens: row.inputTokens,
           outputTokens: row.outputTokens,
-          costUsd: row.costUsd,
+          costUsd: row.costKnown === false ? null : row.costUsd,
+          costKnown: row.costKnown !== false,
         }
       })
-      ctx.host.usageDaily.ingest({
+      ctx.host.usageDaily.ingest(tokscale ? {
+        displayName: displayName,
+        source: "cursor_tokscale_cache",
+        costSource: "tokscale-local-cache",
+        daily: daily,
+      } : {
         displayName: displayName,
         source: "cursor_billing",
         daily: daily,
@@ -1130,9 +1152,9 @@
     return result
   }
 
-  function attachCursorBillingDaily(ctx, result) {
+  function attachCursorBillingDaily(ctx, result, authSource) {
     if (!result) return result
-    persistCursorBillingDaily(ctx, cursorAccountDisplayName(ctx))
+    persistCursorBillingDaily(ctx, cursorAccountDisplayName(ctx), authSource)
     return result
   }
 
@@ -1182,6 +1204,7 @@
     let accessToken = authState.accessToken
     const refreshTokenValue = authState.refreshToken
     const authSource = authState.source
+    state.authSource = authSource
 
     if (
       authSource === "provider-account" &&
@@ -1444,7 +1467,7 @@
     var result = probeImpl(ctx, state)
     result = attachGrokBotUsage(ctx, result, state.accessToken)
     result = attachCursorTranscriptActivity(ctx, result)
-    result = attachCursorBillingDaily(ctx, result)
+    result = attachCursorBillingDaily(ctx, result, state.authSource)
     return attachCursorMtdUsage(ctx, result)
   }
 

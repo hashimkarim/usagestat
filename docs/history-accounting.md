@@ -1,8 +1,9 @@
 # Daily history and local estimates
 
 Daily history keeps one selected source per provider and UTC date. Billing rows
-take precedence over local transcript API estimates, which take precedence over
-ccusage rows. A provider-day with local transcript data selects that whole row,
+take precedence over locally cached billing copies (Cursor's Tokscale cache,
+used only when the live dashboard query fails), which take precedence over local
+transcript API estimates, which take precedence over ccusage rows. A provider-day with local transcript data selects that whole row,
 even when some model costs are unknown; ccusage is the fallback when local data
 is absent. A newer estimate does not overwrite a billing value. All source rows
 remain retained for provenance, and `includeSources` marks the selected source.
@@ -159,7 +160,19 @@ retained. These estimates represent API-equivalent usage, not subscription charg
 invoice. `costKnown` means that the model's base rates are available; it does not
 claim knowledge of account discounts, service tiers, region premiums or every
 provider-specific cache-retention modifier. OpenAI long-context multipliers are
-applied per usage event before aggregation. Haiku prompt-length tiers count all
+applied per usage event before aggregation.
+
+Codex requests made on a Fast or Ultrafast service tier are priced at OpenAI's
+published multiple of every Standard rate, long-context rates included: Fast is
+2× for GPT-6 and GPT-6.x models (2× or 2.5× for GPT-5.x up to 272K input
+tokens); Ultrafast is 6× for GPT-6 Astra and GPT-6.1 Sol, and 3× for GPT-6.2
+Astra and Sol until 2027-03-01T08:00:00Z, then 6×. The tier comes from the
+rollout's `thread_settings_applied` records: a turn uses the setting in force
+when it starts, or one applied before its first request, and a turn that sees
+two tiers falls back to Standard. Subagents do not inherit a parent's tier.
+Fast on a model without a published Fast rate keeps the Standard estimate;
+Ultrafast without one stays unpriced. The multipliers live in the daemon, not
+the catalog file. Haiku prompt-length tiers count all
 input classes, including cached input, and exclude output. Claude cache writes use the standard
 five-minute rate. `cacheSavingsUsd` measures the read discount relative to normal
 input pricing; cache-write premiums remain included in `costUsd`.

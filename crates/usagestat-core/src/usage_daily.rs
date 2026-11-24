@@ -849,6 +849,10 @@ fn source_priority(source: &str) -> u8 {
     let source = source.to_ascii_lowercase();
     if source.contains("billing") {
         40
+    } else if source.contains("tokscale") {
+        // Locally cached copies of billing events: below live billing, which a
+        // stale snapshot must never replace, but above local API estimates.
+        35
     } else if source.contains("transcript") {
         30
     } else if source.contains("ccusage") {
@@ -1329,6 +1333,23 @@ mod tests {
             rows[2].source_rows.is_empty(),
             "ccusage-only day remains available"
         );
+    }
+
+    #[test]
+    fn tokscale_cache_ranks_between_live_billing_and_transcript_estimates() {
+        let mut transcript = row("2026-11-13");
+        transcript.source = "cursor_transcripts".into();
+        transcript.ingested_at = "2026-11-24T00:00:02Z".into();
+        let mut billing = row("2026-11-13");
+        billing.source = "cursor_billing".into();
+        billing.ingested_at = "2026-11-24T00:00:00Z".into();
+        let mut cache = row("2026-11-13");
+        cache.source = "cursor_tokscale_cache".into();
+        cache.ingested_at = "2026-11-24T00:00:01Z".into();
+        assert!(!prefer_row(&cache, &billing));
+        assert!(prefer_row(&billing, &cache));
+        assert!(prefer_row(&cache, &transcript));
+        assert!(!prefer_row(&transcript, &cache));
     }
 
     #[test]

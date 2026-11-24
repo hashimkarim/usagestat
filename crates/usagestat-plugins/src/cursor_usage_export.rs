@@ -1,6 +1,7 @@
 //! Cursor billing usage from complete dashboard event pages or its CSV export.
 
 mod events;
+mod tokscale;
 
 use anyhow::{Context, Result, bail};
 use base64::Engine;
@@ -198,21 +199,42 @@ pub struct DailyBillingRow {
     pub input_tokens: u64,
     pub output_tokens: u64,
     pub cost_usd: f64,
+    pub cost_known: bool,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DailyBilling {
+    /// `dashboard` (account-scoped Cursor API) or `tokscale` (machine-local cache).
+    pub source: &'static str,
+    pub daily: Vec<DailyBillingRow>,
 }
 
 /// Per-day totals from the Cursor dashboard billing CSV (includes cost USD).
+///
+/// With `local_cache`, a failed dashboard query falls back to Tokscale's local
+/// Cursor cache. The cache carries no account identity, so callers must leave it
+/// off for explicitly configured credentials.
 pub fn query_daily_billing(
     plugin_id: &str,
     since: Option<&str>,
     until: Option<&str>,
-) -> Result<Vec<DailyBillingRow>> {
+    local_cache: bool,
+) -> Result<DailyBilling> {
     let (since, until) = if since.is_none() && until.is_none() {
         let (s, u) = month_to_date_range_local()?;
         (s, u)
     } else {
         resolve_date_range(since, until)?
     };
-    let rows = usage_rows(plugin_id, &since, &until)?;
+    let (source, rows, cost_known) = tokscale::with_fallback(
+        usage_rows(plugin_id, &since, &until),
+        local_cache,
+        tokscale::cache_dir().as_deref(),
+        &since,
+        &until,
+        Local::now().timestamp_millis(),
+    )?;
     let by_day = aggregate_by_day(&rows);
     let mut out: Vec<DailyBillingRow> = by_day
         .into_iter()
@@ -221,23 +243,27 @@ pub fn query_daily_billing(
             total_tokens: agg.total_tokens,
             input_tokens: agg.input_no_cache + agg.input_cache_write + agg.cache_read,
             output_tokens: agg.output,
-            cost_usd: agg.cost_usd,
+            cost_usd: if cost_known { agg.cost_usd } else { 0.0 },
+            cost_known,
         })
         .collect();
     out.sort_by(|a, b| a.date.cmp(&b.date));
-    Ok(out)
+    Ok(DailyBilling { source, daily: out })
+}
+
+/// Only an explicit boolean `true` from the plugin enables the Tokscale fallback.
+fn local_cache_requested(opts: &serde_json::Value) -> bool {
+    opts.get("localCache").and_then(|v| v.as_bool()) == Some(true)
 }
 
 pub fn query_daily_billing_host_json(opts_json: &str) -> String {
-    let since = serde_json::from_str::<serde_json::Value>(opts_json)
-        .ok()
-        .and_then(|v| v.get("since").and_then(|s| s.as_str()).map(str::to_string));
-    let until = serde_json::from_str::<serde_json::Value>(opts_json)
-        .ok()
-        .and_then(|v| v.get("until").and_then(|s| s.as_str()).map(str::to_string));
+    let opts = serde_json::from_str::<serde_json::Value>(opts_json).unwrap_or_default();
+    let since = opts.get("since").and_then(|s| s.as_str());
+    let until = opts.get("until").and_then(|s| s.as_str());
+    let local_cache = local_cache_requested(&opts);
     let plugin_id = plugin_id_from_opts_json(opts_json);
-    match query_daily_billing(&plugin_id, since.as_deref(), until.as_deref()) {
-        Ok(daily) => serde_json::json!({ "status": "ok", "data": { "daily": daily } }).to_string(),
+    match query_daily_billing(&plugin_id, since, until, local_cache) {
+        Ok(data) => serde_json::json!({ "status": "ok", "data": data }).to_string(),
         Err(e) => serde_json::json!({
             "status": "error",
             "message": e.to_string()
@@ -830,6 +856,19 @@ pub fn query_usage_stats_host_json(opts_json: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn local_cache_requires_an_explicit_boolean_opt_in() {
+        for (opts, expected) in [
+            (json!({"localCache": true}), true),
+            (json!({"localCache": "true"}), false),
+            (json!({"localCache": 1}), false),
+            (json!({"localCache": false}), false),
+            (json!({}), false),
+        ] {
+            assert_eq!(local_cache_requested(&opts), expected, "{opts}");
+        }
+    }
 
     #[test]
     fn parse_tiny_csv() {
