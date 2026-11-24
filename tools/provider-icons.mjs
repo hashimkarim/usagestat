@@ -28,4 +28,4 @@ for (const id of fs.readdirSync(plugins).sort()) {
   }
   count++;
 }
-console.log(`${check ? 'Checked' : 'Updated'} ${count} providers from @agenticdriver/provider-icons 0.1.0-alpha.1`);
+console.log(`${check ? 'Checked' : 'Updated'} ${count} providers from @agenticdriver/provider-icons 1.1.0`);

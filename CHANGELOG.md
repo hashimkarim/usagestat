@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Correct GPT-6 Rosalind prices to OpenAI's published rates: cache writes $12.50 (was $18.75) and long-context requests $20 in / $75 out / $2 cache read / $25 cache write (were 1.5× higher). Saved Rosalind usage reprices once the new catalog arrives.
+- Bundle provider-icons 1.1.0 (was 0.1.0-alpha.1), so fresh installs show the current logos before their first icon download. 116 providers take their icon from the library, up from 64.
+
 ## 2.4.0 - 2026-11-20
 
 - Quota probes no longer run ccusage. The Codex and Claude plugins read Today, Yesterday, Last 30 Days and Usage Trend from the daemon's background log summary (`ctx.host.localUsage`), in local time. On a machine with 20 GB of Codex logs this cut steady-state CPU from about 0.8 cores to 0.02 and disk reads from about 140 GB to under 1 GB per 10 minutes. ccusage remains for log roots the daemon does not summarize and for `--no-poll` hosts. Partly priced days show their known cost as a lower bound (`$8.32+`).

@@ -6,7 +6,7 @@ The provider implementations adapt endpoint contracts and parsers from
 [Win-CodexBar](https://github.com/Finesssee/Win-CodexBar), and
 [CrossUsage](https://github.com/barramee27/crossusage).
 Shared provider icons are vendored from `@agenticdriver/provider-icons`
-`0.1.0-alpha.1`. Its [license](./_provider-icons/LICENSE),
+`1.1.0`. Its [license](./_provider-icons/LICENSE),
 [upstream notices](./_provider-icons/NOTICE), and per-asset licenses/provenance
 are distributed with the plugins. `tools/provider-icons.mjs` maps the catalogue
 to native icon variants. Uncovered providers retain their existing CodexBar

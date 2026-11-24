@@ -3,10 +3,43 @@ provenance.json records that source revision and the original file hashes.
 Its history credits LobeHub lobe-icons and steipete/CodexBar alongside local
 UsageStat-Bar additions. Their MIT notices are retained in licenses/.
 
+The collection also includes the complete static SVG catalogue from
+https://github.com/lobehub/lobe-icons. sources/lobehub.json records the pinned
+upstream revision and catalogue; provenance.json's lobehub section records
+SHA-256 hashes of imported assets. Original local artwork is preserved when
+filenames overlap. LobeHub's MIT notice is retained in licenses/LobeHub-MIT.txt.
+
+Additional contributed artwork comes from reviewed LobeHub pull requests.
+sources/lobehub-prs.json records each contributor repository, PR URL, full head
+revision, original source contents and hashes. provenance.json's
+lobehubPullRequests section records the resulting SVG hashes. Static SVGs are
+copied unchanged; TSX artwork is extracted as SVG without executing upstream
+modules. Two source-pinned wordmark corrections adjust Deyin's viewBox and
+Openference's vertical orientation without changing their path geometry.
+These contributions were unmerged at review. See
+docs/lobehub-pull-requests.md for included artwork and explicit omissions.
+
+sources/lobehub-discovery.json records the original catalogue and contributed
+documentation used for categories and alternate/localized names. Its source
+revisions match the reviewed artwork. No undocumented categories are inferred.
+
 Names and logos are trademarks of their respective owners. The library does
 not imply endorsement or transfer trademark rights. Product alternatives and
 aliases select artwork only; they do not select a runtime, account or billing.
 
-The generated inline module removes presentation styles, accessibility labels
-and titles and namespaces SVG fragment identifiers. Original SVG files remain
-unchanged. Consumers supply their own accessible label or mark icons decorative.
+Additional provider marks are sourced from steipete/CodexBar,
+Finesssee/Win-CodexBar and barramee27/crossusage. sources/inspiration.json retains
+their exact revisions, original SVG contents, Git blob and SHA-256 hashes,
+and the reviewed conversion for each mark. Their MIT notices are retained in
+licenses/. provenance.json's inspiration section records the generated assets.
+Single-colour ink is normalized to currentColor without changing geometry.
+Full-colour sources are retained unchanged as colour variants; their monochrome
+variants convert inverse source luminance to currentColor opacity, preserving
+white cutouts and tonal detail. Consumer accessibility labels replace source
+title references in generated inline artwork.
+
+The generated inline module removes layout styles, accessibility labels and
+titles and namespaces SVG fragment identifiers. A strict allowlist retains
+rendering styles needed for masks, blending, grayscale and stroke width.
+Original source SVGs remain unchanged in their snapshots. Consumers supply their own accessible
+label or mark icons decorative.

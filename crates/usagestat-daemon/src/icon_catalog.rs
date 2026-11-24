@@ -13,7 +13,7 @@ use std::sync::{Arc, RwLock};
 use usagestat_core::ProviderSummary;
 
 const BUNDLED_MANIFEST: &str = include_str!("../../../plugins/_provider-icons/manifest.json");
-const BUNDLED_VERSION: &str = "0.1.0-alpha.1";
+const BUNDLED_VERSION: &str = "1.1.0";
 /// Provider IDs whose mark has another name, shared with tools/provider-icons.mjs.
 const PROVIDER_ALIASES: &str = include_str!("provider-icon-aliases.json");
 const LATEST_RELEASE: &str =
@@ -714,7 +714,7 @@ mod tests {
     #[test]
     fn versions_compare_numerically_and_tags_are_plain() {
         assert!(version_key("v1.10.0") > version_key("1.9.3"));
-        assert!(version_key("1.1.0") > version_key(BUNDLED_VERSION));
+        assert!(version_key("1.1.0") > version_key("0.1.0-alpha.1"));
         assert!(version_key("0.1.0") > version_key("0.1.0-alpha.7"));
         assert!(valid_tag("v1.1.0"));
         for tag in ["1.1.0", "v1.1", "v1.1.0-beta", "v1.1.0/../x", "v1..0"] {

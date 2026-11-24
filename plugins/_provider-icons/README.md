@@ -1,36 +1,105 @@
-# AgenticDriver provider icons
+<h1 align="center">Provider Icons</h1>
 
-One maintained catalogue for AgenticDriver and UsageStat-Bar: 155 provider and
-product marks, 262 SVG files, monochrome and original colour, with explicit
-product alternatives. No runtime dependencies, remote requests or UI framework.
+<p align="center">AI provider and product marks for React, JavaScript, and native apps.</p>
 
-```js
-import {resolveProviderIcon} from '@agenticdriver/provider-icons';
-resolveProviderIcon('codex', {style: 'color', variant: 'chatgpt'});
-// {id: 'openai', file: 'openai.svg', style: 'monochrome', ...}
-resolveProviderIcon('claude', {style: 'color', variant: 'claude-code'});
+<p align="center">
+  <a href="https://agenticdriver.dev/icons"><picture><source media="(prefers-color-scheme: dark)" srcset="https://shieldcn.dev/badge/gallery-browse-A3C85A.svg?variant=outline&amp;mode=dark"><img alt="Browse the icon gallery" src="https://shieldcn.dev/badge/gallery-browse-A3C85A.svg?variant=outline&amp;mode=light"></picture></a>
+  <a href="https://www.npmjs.com/package/@agenticdriver/provider-icons"><picture><source media="(prefers-color-scheme: dark)" srcset="https://shieldcn.dev/npm/@agenticdriver/provider-icons.svg?logo=npm&amp;variant=outline&amp;mode=dark"><img alt="Latest npm version" src="https://shieldcn.dev/npm/@agenticdriver/provider-icons.svg?logo=npm&amp;variant=outline&amp;mode=light"></picture></a>
+  <a href="docs/installation.md#cdn"><picture><source media="(prefers-color-scheme: dark)" srcset="https://shieldcn.dev/badge/jsDelivr-CDN-E84D3D.svg?logo=jsdelivr&amp;variant=outline&amp;mode=dark"><img alt="Use icons from jsDelivr" src="https://shieldcn.dev/badge/jsDelivr-CDN-E84D3D.svg?logo=jsdelivr&amp;variant=outline&amp;mode=light"></picture></a>
+  <a href="LICENSE"><picture><source media="(prefers-color-scheme: dark)" srcset="https://shieldcn.dev/github/agenticdriver/provider-icons/license.svg?variant=outline&amp;mode=dark"><img alt="MIT license" src="https://shieldcn.dev/github/agenticdriver/provider-icons/license.svg?variant=outline&amp;mode=light"></picture></a>
+</p>
+
+<p align="center"><a href="https://agenticdriver.dev/icons">Browse & download</a> · <a href="docs/api.md">API reference</a> · <a href="docs/installation.md">Installation</a> · <a href="CONTRIBUTING.md">Contributing</a></p>
+
+![A selection of provider icons in the library](docs/preview.svg)
+
+**432 marks · 1,117 SVGs.** Monochrome and colour logos, vector wordmarks,
+brand variants, and related product marks in one maintained catalogue.
+
+- **Ready to use:** React components and DOM helpers handle size, layout and unique SVG IDs.
+- **Small imports:** named React imports include only their artwork; React is optional.
+- **Easy to find:** aliases, localized names, categories and recorded colour palettes.
+- **Portable:** standard SVG files and a JSON manifest for any language or UI toolkit.
+- **Local by default:** installed icons make no network requests. The core has no runtime dependencies.
+
+## Install
+
+```sh
+npm install @agenticdriver/provider-icons
 ```
 
-`style` is `monochrome` or `color`. Marks without a colour variant return the
-monochrome artwork and report the actual style. `variant` selects a related
-product's mark, never an account, model, provider runtime or billing route.
-Unknown providers or unrelated alternatives return `undefined` for an app's
-own fallback. ChatGPT/OpenAI and Codex are alternatives; Anthropic, Claude and
-Claude Code are alternatives; Copilot and GitHub Copilot are alternatives.
+This installs the independent icon library. No AgenticDriver SDK is required.
+The 1.x API preserves public icon IDs, imports and asset paths.
+See the [stability and support policy](docs/stability.md) and [release notes](CHANGELOG.md).
 
-For inline browser SVG, import `providerIconSvg` from the `/svg` entrypoint.
-Give each placement a unique `prefix` to isolate gradients. This static markup
-has no scripts, external references or inline styles. It is decorative; label
-the surrounding UI. Monochrome artwork inherits `currentColor` inline; an
-external `<img>` cannot inherit text colour. Render or use a mask for that case.
+[pnpm, Yarn, Bun and Deno](docs/installation.md#package-managers) ·
+[CDN URLs](docs/installation.md#cdn) ·
+[GitHub archives and native apps](docs/installation.md#archives-and-native-apps)
 
-For Python, Go, Rust, GTK or other applications, read `manifest.json` and serve
-or bundle `assets/*.svg`. GJS can import `index.js` directly. Non-npm apps can
-vendor an immutable npm-format release tarball using `scripts/vendor.py` with
-its required SHA-256. The copied catalogue and assets are generated dependency
-files: update the version/digest and run the vendor script, never edit copies.
+## React
 
-Maintain artwork here, then run `npm run build`, `npm test` and `npm pack`.
-Commit source and generated catalogue together. Consumers pin releases; they
-never download icons while displaying provider settings. See `NOTICE`,
-`licenses/` and `provenance.json` for original sources and trademark attribution.
+```tsx
+'use client';
+
+import { Claude } from '@agenticdriver/provider-icons/react';
+
+export default function Example() {
+  return <Claude.Combine size={32} mode="color" aria-label="Claude" />;
+}
+```
+
+Use `Claude`, `Claude.Color`, `Claude.Text`, `Claude.Combine`, or `Claude.Avatar`.
+Available layouts follow the real artwork. React 18.3.1 and 19 are supported;
+monochrome icons inherit `currentColor`.
+
+## JavaScript
+
+```js
+import { mountProviderIcon } from '@agenticdriver/provider-icons/dom';
+
+mountProviderIcon('#provider-icon', 'claude', {
+  style: 'color', size: 32, label: 'Claude',
+});
+```
+
+Add `<span id="provider-icon"></span>` to your page. For an SVG string, use
+`providerIconSvg` from `@agenticdriver/provider-icons/svg`.
+
+## Find the right mark
+
+```js
+import { searchProviderIcons } from '@agenticdriver/provider-icons';
+
+searchProviderIcons('千问'); // Qwen
+searchProviderIcons('Nemotron'); // Nvidia
+searchProviderIcons('claude code', { category: 'application' });
+```
+
+The [gallery](https://agenticdriver.dev/icons) offers category filters, shareable
+selections, copyable components, SVG/PNG/WebP downloads, and brand colours.
+Agents can read the [usage guide](https://agenticdriver.dev/icons/skill.md) or
+[generated catalogue](https://agenticdriver.dev/icons/catalogue.json).
+
+## Documentation
+
+| Guide | Covers |
+| --- | --- |
+| [API reference](docs/api.md) | React, DOM, SVG, search, colour metadata and fallbacks |
+| [Installation](docs/installation.md) | Package managers, CDNs, archives, updates and removal |
+| [Stability and support](docs/stability.md) | 1.x compatibility, supported runtimes and manifest schema |
+| [Changelog](CHANGELOG.md) | Release notes and migration guidance |
+| [Contributing](CONTRIBUTING.md) | Development, source updates and verification |
+| [Releasing](docs/releasing.md) | Tested archives, npm trusted publishing and distribution |
+| [Upstream contributions](docs/lobehub-pull-requests.md) | Reviewed LobeHub pull requests and artwork omissions |
+
+## Credits and license
+
+The library is [MIT licensed](LICENSE). Most artwork comes from
+[LobeHub Icons](https://github.com/lobehub/lobe-icons), with pinned source
+revisions and attribution in [NOTICE](NOTICE), [licenses](licenses/), and
+[provenance.json](provenance.json).
+
+Names and logos belong to their respective owners. Inclusion does not imply
+endorsement or AgenticDriver model/provider support. The dated
+[brand-colour research](https://github.com/agenticdriver/provider-icons/tree/main/research/brand-colours)
+is separate from the released colour metadata.
