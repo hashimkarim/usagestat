@@ -134,6 +134,16 @@ fn totals(value: &Value) -> Option<[u64; 5]> {
 
 type ModelEvidence = (Option<u64>, String, String);
 
+/// A native `service_tier` value as priced: Fast is recorded as `priority`;
+/// Standard and unrecognised tiers use Standard rates.
+fn service_tier(value: Option<&Value>) -> Option<String> {
+    match value?.as_str()?.trim().to_ascii_lowercase().as_str() {
+        "priority" | "fast" => Some("priority".into()),
+        "ultrafast" => Some("ultrafast".into()),
+        _ => None,
+    }
+}
+
 fn turn_model_evidence(value: &Value) -> Option<ModelEvidence> {
     if value.get("type")?.as_str()? != "turn_context" {
         return None;
@@ -257,6 +267,13 @@ pub(super) fn scan(
     let mut turn = None;
     let mut turn_models = HashMap::new();
     let mut model_evidence = Vec::new();
+    // A turn is priced at the thread's service tier: the setting in force when
+    // it starts, or one applied while it runs (settings are written just after
+    // task_started). A turn that sees two different tiers falls back to Standard.
+    // None until the thread's first settings record.
+    let mut thread_tier: Option<Option<String>> = None;
+    let mut started_turn: Option<String> = None;
+    let mut turn_tiers: HashMap<String, Option<String>> = HashMap::new();
     let mut rows = Vec::new();
     for line in reader.lines().map_while(Result::ok) {
         // Most rollout bytes are conversation/tool payloads. These cannot
@@ -268,6 +285,9 @@ pub(super) fn scan(
             "\"last_token_usage\"",
             "\"total_token_usage\"",
             "\"token_usage_record\"",
+            "\"thread_settings_applied\"",
+            "\"task_started\"",
+            "\"task_complete\"",
         ]
         .iter()
         .any(|marker| line.contains(marker))
@@ -304,6 +324,49 @@ pub(super) fn scan(
         if !is_request {
             if let Some(id) = nonempty(value.pointer("/payload/turn_id")) {
                 turn = Some(id);
+            }
+        }
+        // History a subagent inherited from its parent carries the parent's tier.
+        let inherited = boundary.is_some_and(|start| {
+            value
+                .get("ordinal")
+                .and_then(Value::as_u64)
+                .is_none_or(|ordinal| ordinal < start)
+        });
+        if !inherited {
+            match value.pointer("/payload/type").and_then(Value::as_str) {
+                Some("thread_settings_applied") => {
+                    let tier = service_tier(value.pointer("/payload/thread_settings/service_tier"));
+                    if let Some(id) = &started_turn {
+                        turn_tiers
+                            .entry(id.clone())
+                            .and_modify(|seen| {
+                                if *seen != tier {
+                                    *seen = None;
+                                }
+                            })
+                            .or_insert_with(|| tier.clone());
+                    }
+                    thread_tier = Some(tier);
+                }
+                Some("task_started") => {
+                    started_turn = nonempty(value.pointer("/payload/turn_id"))
+                        .or_else(|| nonempty(value.pointer("/payload/turn_attribution/turn_id")));
+                    if let Some(id) = &started_turn {
+                        turn_tiers.remove(id);
+                        if let Some(tier) = &thread_tier {
+                            turn_tiers.insert(id.clone(), tier.clone());
+                        }
+                        turn = Some(id.clone());
+                    }
+                }
+                Some("task_complete") => {
+                    let id = nonempty(value.pointer("/payload/turn_id"));
+                    if id.is_none() || id == started_turn {
+                        started_turn = None;
+                    }
+                }
+                _ => {}
             }
         }
         if value.get("type").and_then(Value::as_str) == Some("turn_context") {
@@ -354,6 +417,10 @@ pub(super) fn scan(
                 continue;
             };
             let request_turn = nonempty(payload.get("turn_id")).or_else(|| turn.clone());
+            // Settings applied after a turn's first request belong to later turns.
+            if request_turn.is_some() && request_turn == started_turn {
+                started_turn = None;
+            }
             let request_model = nonempty(payload.get("model"))
                 .or_else(|| {
                     request_turn
@@ -385,6 +452,7 @@ pub(super) fn scan(
                     project: project.clone(),
                     branch: branch.clone(),
                     model: request_model,
+                    service_tier: thread_tier.clone().flatten(),
                     ..Default::default()
                 },
             });
@@ -437,6 +505,7 @@ pub(super) fn scan(
                 cache_read_tokens: usage[2],
                 reasoning_output_tokens: usage[3],
                 cache_creation_tokens: usage[4],
+                service_tier: thread_tier.clone().flatten(),
                 ..LocalUsageEvent::default()
             },
         });
@@ -506,6 +575,9 @@ pub(super) fn scan(
             {
                 row.event.model = name.clone();
             }
+        }
+        if let Some(tier) = row.turn.as_ref().and_then(|turn| turn_tiers.get(turn)) {
+            row.event.service_tier = tier.clone();
         }
         row.event.session_id = session_id.clone();
         let ts = row.event.ts.timestamp_millis();
@@ -658,6 +730,54 @@ mod tests {
         assert_eq!(events.len(), 2);
         assert!(events.iter().all(|e| e.codex_identity.as_ref().unwrap().response_id.is_some()));
         assert_eq!(events.iter().map(|e| e.metrics().total_tokens).sum::<u64>(), 180);
+    }
+
+    #[test]
+    fn service_tier_prices_each_turn_at_the_threads_setting() {
+        let settings = |tier: &str| json!({"type":"event_msg","payload":{"type":"thread_settings_applied",
+            "thread_settings":{"model":"gpt-6.2-sol","service_tier":tier}}});
+        let started = |turn: &str| json!({"type":"event_msg","payload":{"type":"task_started",
+            "turn_attribution":{"turn_id":turn}}});
+        let count = |turn: &str, second: u64, total: u64| json!({"type":"event_msg",
+            "timestamp":format!("2026-09-11T00:00:{second:02}Z"),"payload":{"type":"token_count","turn_id":turn,
+            "info":{"total_token_usage":{"input_tokens":total,"output_tokens":0},
+                "last_token_usage":{"input_tokens":10,"output_tokens":0}}}});
+        let events = parse(&[
+            json!({"type":"session_meta","payload":{"id":"fallback"}}),
+            // The first settings record follows the turn it applies to.
+            started("one"),
+            settings("ultrafast"),
+            count("one", 1, 10),
+            // A later turn inherits the thread setting.
+            started("two"),
+            count("two", 2, 20),
+            json!({"type":"event_msg","payload":{"type":"task_complete","turn_id":"two"}}),
+            // A change between turns applies from the next one.
+            settings("priority"),
+            started("three"),
+            count("three", 3, 30),
+            // Two tiers within one turn fall back to Standard.
+            started("four"),
+            settings("ultrafast"),
+            count("four", 4, 40),
+            settings("default"),
+        ]);
+        let tiers: Vec<_> = events.iter().map(|e| e.service_tier.as_deref()).collect();
+        assert_eq!(tiers, [Some("ultrafast"), Some("ultrafast"), Some("priority"), None]);
+    }
+
+    #[test]
+    fn a_subagent_does_not_inherit_its_parents_service_tier() {
+        let events = parse(&[
+            meta(json!(3)),
+            json!({"type":"event_msg","ordinal":1,"payload":{"type":"thread_settings_applied",
+                "thread_settings":{"service_tier":"ultrafast"}}}),
+            json!({"type":"event_msg","ordinal":2,"payload":{"type":"task_started","turn_id":"parent"}}),
+            json!({"type":"event_msg","ordinal":3,"payload":{"type":"task_started","turn_id":"child"}}),
+            usage(json!(4), Some(10), 10),
+        ]);
+        assert_eq!(events.len(), 1);
+        assert_eq!(events[0].service_tier, None);
     }
 
     #[test]

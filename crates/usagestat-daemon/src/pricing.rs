@@ -456,6 +456,22 @@ fn price(event: &mut LocalUsageEvent, request_context: bool) {
         rates.cache_write = tier.cache_write;
         rates.cache_read = tier.cache_read;
     }
+    if request_context {
+        let long_context = rates.above.is_some_and(|tier| input > tier.tokens);
+        let Some(multiplier) =
+            service_tier_multiplier(&event.model, event.service_tier.as_deref(), event.ts, long_context)
+        else {
+            event.cost_usd = 0.0;
+            event.cost_components = UsageCostComponents::default();
+            event.cost_known = false;
+            event.cache_savings_usd = None;
+            return;
+        };
+        rates.input *= multiplier;
+        rates.output *= multiplier;
+        rates.cache_write *= multiplier;
+        rates.cache_read *= multiplier;
+    }
     let input = event.input_tokens as f64 * rates.input / 1_000_000.0;
     let read = event.cache_read_tokens as f64 * rates.cache_read / 1_000_000.0;
     let write = event.cache_creation_tokens as f64 * rates.cache_write / 1_000_000.0;
@@ -475,6 +491,68 @@ fn price(event: &mut LocalUsageEvent, request_context: bool) {
     // Read discount only. Cache-write premiums are included in cost_usd.
     event.cache_savings_usd =
         Some(event.cache_read_tokens as f64 * (rates.input - rates.cache_read) / 1_000_000.0);
+}
+
+/// Codex Fast (`priority`) and Ultrafast requests cost a multiple of every
+/// Standard rate, long-context rates included. These follow OpenAI's pricing
+/// table and are not in the catalog file, whose schema older daemons validate
+/// strictly. Fast on a model without a published Fast rate keeps the Standard
+/// estimate; Ultrafast without a published rate stays unpriced.
+fn service_tier_multiplier(
+    model: &str,
+    tier: Option<&str>,
+    ts: chrono::DateTime<chrono::Utc>,
+    long_context: bool,
+) -> Option<f64> {
+    let model = codex_base_model(model);
+    match tier {
+        Some("priority") => Some(
+            match model.as_str() {
+                "gpt-6-astra" | "gpt-6.1-sol" | "gpt-6.1-terra" | "gpt-6-luna" | "gpt-6.2-astra"
+                | "gpt-6.2-sol" => 2.0,
+                // Fast rates for these were published only up to 272K input tokens.
+                "gpt-5.4" | "gpt-5.4-mini" | "gpt-5.6-sol" | "gpt-5.6-terra" | "gpt-5.6-luna"
+                    if !long_context =>
+                {
+                    2.0
+                }
+                "gpt-5.5" if !long_context => 2.5,
+                _ => 1.0,
+            },
+        ),
+        Some("ultrafast") => match model.as_str() {
+            "gpt-6-astra" | "gpt-6.1-sol" => Some(6.0),
+            // A launch promotion ends at midnight Pacific on March 1, 2027.
+            "gpt-6.2-astra" | "gpt-6.2-sol" => {
+                Some(if ts.timestamp() < ULTRAFAST_PROMOTION_ENDS { 3.0 } else { 6.0 })
+            }
+            _ => None,
+        },
+        _ => Some(1.0),
+    }
+}
+
+/// 2027-03-01T08:00:00Z.
+const ULTRAFAST_PROMOTION_ENDS: i64 = 1_803_888_000;
+
+/// The model a Codex tier rate is published for: no `openai/` prefix or dated
+/// snapshot suffix, and the unsuffixed GPT-5.6 alias is Sol.
+fn codex_base_model(model: &str) -> String {
+    let model = model.trim().to_ascii_lowercase();
+    let model = model.strip_prefix("openai/").unwrap_or(&model);
+    let base = [8usize, 10]
+        .into_iter()
+        .find_map(|len| {
+            let split = model.len().checked_sub(len + 1)?;
+            let (base, suffix) = model.split_at(split);
+            let suffix = suffix.strip_prefix('-')?;
+            suffix
+                .chars()
+                .all(|c| c.is_ascii_digit() || c == '-')
+                .then_some(base)
+        })
+        .unwrap_or(model);
+    if base == "gpt-5.6" { "gpt-5.6-sol".into() } else { base.into() }
 }
 
 // Retained daily counters have no request boundaries. Use base rates explicitly,
@@ -552,6 +630,52 @@ mod tests {
 
     fn today() -> chrono::NaiveDate {
         chrono::Utc::now().date_naive()
+    }
+
+    fn tiered(model: &str, tier: Option<&str>, ts: &str, input: u64) -> LocalUsageEvent {
+        let mut event = LocalUsageEvent {
+            ts: chrono::DateTime::parse_from_rfc3339(ts).unwrap().into(),
+            model: model.into(),
+            input_tokens: input,
+            output_tokens: 1_000_000,
+            service_tier: tier.map(str::to_string),
+            ..LocalUsageEvent::default()
+        };
+        apply(&mut event);
+        event
+    }
+
+    #[test]
+    fn codex_fast_and_ultrafast_multiply_every_standard_rate() {
+        let at = "2026-11-24T12:00:00Z";
+        let close = |a: f64, b: f64| assert!((a - b).abs() < 1e-9, "{a} != {b}");
+        // gpt-6.2-sol Standard: $2 in, $10 out per million (100K in + 1M out = $10.20).
+        close(tiered("gpt-6.2-sol", None, at, 100_000).cost_usd, 10.2);
+        close(tiered("gpt-6.2-sol", Some("priority"), at, 100_000).cost_usd, 20.4);
+        close(tiered("gpt-6.2-sol", Some("ultrafast"), at, 100_000).cost_usd, 30.6);
+        // The Ultrafast promotion ends at midnight Pacific on March 1, 2027.
+        close(tiered("gpt-6.2-sol", Some("ultrafast"), "2027-03-01T07:59:59Z", 100_000).cost_usd, 30.6);
+        close(tiered("gpt-6.2-sol", Some("ultrafast"), "2027-03-01T08:00:00Z", 100_000).cost_usd, 61.2);
+        // gpt-6-astra Standard $10 in, $50 out: Ultrafast is 6x.
+        close(tiered("gpt-6-astra", Some("ultrafast"), at, 100_000).cost_usd, 6.0 * 51.0);
+        // Long-context rates are multiplied too: $4 in, $15 out above 272K.
+        close(tiered("gpt-6.2-sol", Some("priority"), at, 300_000).cost_usd, 2.0 * (0.3 * 4.0 + 15.0));
+        // A dated snapshot uses its base model's tier rate.
+        close(tiered("gpt-6.2-sol-2026-11-01", Some("priority"), at, 100_000).cost_usd, 20.4);
+    }
+
+    #[test]
+    fn unpublished_tier_rates_fall_back_or_stay_unpriced() {
+        let at = "2026-11-24T12:00:00Z";
+        // Fast without a published rate keeps the Standard estimate.
+        let fast = tiered("gpt-6.2-astra-law", Some("priority"), at, 1_000);
+        let standard = tiered("gpt-6.2-astra-law", None, at, 1_000);
+        assert_eq!(fast.cost_known, standard.cost_known);
+        assert_eq!(fast.cost_usd, standard.cost_usd);
+        // Ultrafast without a published rate is not guessed.
+        let ultra = tiered("gpt-6.1-terra", Some("ultrafast"), at, 1_000);
+        assert!(is_priced("gpt-6.1-terra") && !ultra.cost_known);
+        assert_eq!(ultra.cost_usd, 0.0);
     }
 
     /// The hard-coded table that `pricing/models.json` replaced.

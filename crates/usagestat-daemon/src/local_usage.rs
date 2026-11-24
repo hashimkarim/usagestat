@@ -29,6 +29,9 @@ pub(super) struct LocalUsageEvent {
     pub cost_components: UsageCostComponents,
     pub cost_known: bool,
     pub cache_savings_usd: Option<f64>,
+    /// Codex service tier when it was not Standard: `priority` (Fast) or `ultrafast`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub service_tier: Option<String>,
     // Parser evidence retained in the private cache, never exposed as usage totals.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub codex_identity: Option<codex_usage::Identity>,

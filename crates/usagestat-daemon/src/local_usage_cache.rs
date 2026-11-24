@@ -20,7 +20,8 @@ use usagestat_core::{paths, usage_daily};
 // 12: live checkouts resolve subfolders and linked worktrees to the main repo.
 // 13: events keep the git branch recorded by Claude Code and Codex.
 // 14: Codex ledger records pair with their token_count neighbour across counters.
-const VERSION: u32 = 14;
+// 15: Codex events keep their Fast/Ultrafast service tier for pricing.
+const VERSION: u32 = 15;
 const TTL: Duration = Duration::from_secs(30);
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -354,7 +355,8 @@ impl Cache {
 // Preserve the dimensions needed by every report, while dropping per-turn rows.
 // Price each event BEFORE compaction so long-context rates remain per request.
 fn compact(events: Vec<LocalUsageEvent>) -> Vec<LocalUsageEvent> {
-    let mut rows: BTreeMap<(String, i64, String, String, String), LocalUsageEvent> =
+    type Key = (String, i64, String, String, String, Option<String>);
+    let mut rows: BTreeMap<Key, LocalUsageEvent> =
         BTreeMap::new();
     let mut identified = Vec::new();
     for event in events {
@@ -369,6 +371,7 @@ fn compact(events: Vec<LocalUsageEvent>) -> Vec<LocalUsageEvent> {
             event.session_id.clone(),
             event.model.clone(),
             event.branch.clone(),
+            event.service_tier.clone(),
         );
         rows.entry(key)
             .and_modify(|row| {
