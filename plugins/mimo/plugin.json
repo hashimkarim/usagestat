@@ -8,11 +8,13 @@
   "links": [
     { "label": "Platform", "url": "https://platform.xiaomimimo.com" }
   ],
-  "supportedModes": ["web"],
+  "supportedModes": ["api", "web"],
   "autoMode": "web",
+  "envVars": ["MIMO_API_KEY", "MIMO_TOKEN_PLAN_REGION", "MIMO_COOKIE", "XIAOMI_MIMO_COOKIE", "MIMO_API_URL"],
   "webUrl": "https://platform.xiaomimimo.com",
   "lines": [
     { "type": "progress", "label": "Tokens", "scope": "overview", "primaryOrder": 1 },
+    { "type": "progress", "label": "Credits", "scope": "overview", "primaryOrder": 1 },
     { "type": "badge", "label": "Token plan", "scope": "overview", "primaryOrder": 1 },
     { "type": "text", "label": "Balance", "scope": "detail" }
   ]

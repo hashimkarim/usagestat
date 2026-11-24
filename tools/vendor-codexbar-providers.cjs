@@ -7,7 +7,7 @@ const {createHash} = require('node:crypto');
 const {execFileSync} = require('node:child_process');
 const root = path.resolve(__dirname, '..');
 const upstream = path.join(root, 'inspo/CodexBar');
-const revision = '1f6da9bec44455288ddee5ef6f3617a803d8eb2a';
+const revision = 'a26ca57b518667a659d69524c473af2735069612';
 const catalog = {
   aixy: ['Budget', 'Secondary budget', 'https://dash.aixy-gateway.com', {AIXY_BASE_URL: 'https://api.aixy-gateway.com'}],
   atlascloud: ['Balance', 'Balance', 'https://www.atlascloud.ai/console'],
@@ -53,6 +53,7 @@ const catalog = {
   opendesign: ['Session', 'Weekly', 'https://open-design.ai'],
   googledeveloper: ['Credits', 'Additional', 'https://me.developers.google.com/benefits'],
   xapi: ['Balance', 'Additional', 'https://console.x.com'],
+  trustedrouter: ['Key limit', 'Additional', 'https://trustedrouter.com'],
   'gemini-apps': ['Current', 'Weekly', 'https://gemini.google.com/usage'],
 };
 if (execFileSync('git', ['rev-parse', 'HEAD'], {cwd: upstream, encoding: 'utf8'}).trim() !== revision)
@@ -133,8 +134,8 @@ for (const [id, [primary, secondary, dashboard, defaults = {}]] of Object.entrie
   write(path.join(dest, 'plugin.json'), JSON.stringify(manifest, null, 2) + '\n');
   write(path.join(dest, 'plugin.js'), entry);
   write(path.join(dest, 'LICENSE'), fs.readFileSync(path.join(upstream, 'LICENSE'), 'utf8'));
-  if (['museai','lithosai','workbuddy'].includes(id) ||
-      !fs.existsSync(path.join(dest,'icon.svg')) && fs.existsSync(path.join(upstream,'docs/logos',id+'.svg')))
+  // Shared provider-icons artwork (tools/provider-icons.mjs) replaces this once the library covers the provider.
+  if (!fs.existsSync(path.join(dest,'icon.svg')) && fs.existsSync(path.join(upstream,'docs/logos',id+'.svg')))
     write(path.join(dest,'icon.svg'), fs.readFileSync(path.join(upstream,'docs/logos',id+'.svg'),'utf8').replace(/fill="white"/g,'fill="currentColor"'));
 }
 const team = readDefinition('qwencloud-team','qwencloud');

@@ -24,7 +24,7 @@
   ],
   "upstream": {
     "repository": "https://github.com/steipete/CodexBar",
-    "revision": "1f6da9bec44455288ddee5ef6f3617a803d8eb2a",
+    "revision": "a26ca57b518667a659d69524c473af2735069612",
     "path": "Sources/CodexBarCore/Resources/Plugins/nous.js",
     "sha256": "160f5329bf4895a061d3bed74d0476283d3abad47e071fb868d667c0c5cb485e",
     "license": "MIT"

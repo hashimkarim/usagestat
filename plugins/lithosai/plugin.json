@@ -18,7 +18,7 @@
   "setupFields": [],
   "upstream": {
     "repository": "https://github.com/steipete/CodexBar",
-    "revision": "1f6da9bec44455288ddee5ef6f3617a803d8eb2a",
+    "revision": "a26ca57b518667a659d69524c473af2735069612",
     "path": "Sources/CodexBarCore/Resources/Plugins/lithosai.js",
     "sha256": "11f83683e93728e8d35ae6d9852b854d6f8db9dee2b0b293e5899089216b01ff",
     "license": "MIT"

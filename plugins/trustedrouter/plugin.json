@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "id": "trustedrouter",
+  "name": "TrustedRouter",
+  "version": "0.1.0",
+  "entry": "plugin.js",
+  "enabledByDefault": false,
+  "supportedModes": [
+    "api"
+  ],
+  "autoMode": "api",
+  "usageDashboardUrl": "https://trustedrouter.com",
+  "envVars": [
+    "TRUSTEDROUTER_API_KEY"
+  ],
+  "setupFields": [],
+  "upstream": {
+    "repository": "https://github.com/steipete/CodexBar",
+    "revision": "a26ca57b518667a659d69524c473af2735069612",
+    "path": "Sources/CodexBarCore/Resources/Plugins/trustedrouter.js",
+    "sha256": "ddb4e0e86620aff0f3784f1d29eca1d5c4fca5c615baf1a316b0c9194ac45375",
+    "license": "MIT"
+  }
+}

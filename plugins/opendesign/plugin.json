@@ -17,7 +17,7 @@
   "setupFields": [],
   "upstream": {
     "repository": "https://github.com/steipete/CodexBar",
-    "revision": "1f6da9bec44455288ddee5ef6f3617a803d8eb2a",
+    "revision": "a26ca57b518667a659d69524c473af2735069612",
     "path": "Sources/CodexBarCore/Resources/Plugins/opendesign.js",
     "sha256": "9eb64161b779de122e6343eb166ee6ebca6d3e828dc7e40df7a1af695f6a79d4",
     "license": "MIT"

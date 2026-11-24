@@ -17,7 +17,7 @@
   "setupFields": [],
   "upstream": {
     "repository": "https://github.com/steipete/CodexBar",
-    "revision": "1f6da9bec44455288ddee5ef6f3617a803d8eb2a",
+    "revision": "a26ca57b518667a659d69524c473af2735069612",
     "path": "Sources/CodexBarCore/Resources/Plugins/parallel.js",
     "sha256": "854d5faa2b6c01b96cf009295fabe85cbdc28d07911d7c7e1da970c8cc77e5e8",
     "license": "MIT"

@@ -16,7 +16,7 @@
   "setupFields": [],
   "upstream": {
     "repository": "https://github.com/steipete/CodexBar",
-    "revision": "1f6da9bec44455288ddee5ef6f3617a803d8eb2a",
+    "revision": "a26ca57b518667a659d69524c473af2735069612",
     "path": "Sources/CodexBarCore/Resources/Plugins/linkup.js",
     "sha256": "7857c63217818a2a9935397a8fe70621b42ab17115a43da2eab6b4a0ea27b775",
     "license": "MIT"

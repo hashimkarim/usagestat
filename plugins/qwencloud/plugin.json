@@ -29,7 +29,7 @@
   "upstreamSources": [
     {
       "repository": "https://github.com/steipete/CodexBar",
-      "revision": "1f6da9bec44455288ddee5ef6f3617a803d8eb2a",
+      "revision": "a26ca57b518667a659d69524c473af2735069612",
       "path": "Sources/CodexBarCore/Resources/Plugins/qwencloud-team.js",
       "sha256": "11a7e231c1705a83f29b4509102abaa656b9888f63cfc132de0a520d94ee9301",
       "license": "MIT"

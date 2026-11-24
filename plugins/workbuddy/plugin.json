@@ -55,7 +55,7 @@
   ],
   "upstream": {
     "repository": "https://github.com/steipete/CodexBar",
-    "revision": "1f6da9bec44455288ddee5ef6f3617a803d8eb2a",
+    "revision": "a26ca57b518667a659d69524c473af2735069612",
     "path": "Sources/CodexBarCore/Resources/Plugins/workbuddy.js",
     "sha256": "4a440637dc7a8ec77592edf5d0fe50181eff9919be08fefa7007bc50476a4301",
     "license": "MIT"

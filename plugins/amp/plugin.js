@@ -35,8 +35,9 @@
     return Number(s.replace(/,/g, ""))
   }
 
-  function parseBalanceText(text) {
-    if (!text || typeof text !== "string") return null
+  function parseBalanceText(rawText) {
+    if (!rawText || typeof rawText !== "string") return null
+    var text = rawText.replace(/\u001b\[[0-9;]*[A-Za-z]/g, "").replace(/\*\*/g, "")
 
     var result = {
       remaining: null,
@@ -45,6 +46,9 @@
       bonusPct: null,
       bonusDays: null,
       credits: null,
+      freeRemainingPct: null,
+      workspaces: [],
+      enterpriseWorkspaces: [],
     }
 
     var balanceMatch = text.match(/\$([0-9][0-9,]*(?:\.[0-9]+)?)\/\$([0-9][0-9,]*(?:\.[0-9]+)?) remaining/)
@@ -55,6 +59,12 @@
         result.remaining = remaining
         result.total = total
       }
+    }
+
+    var percentMatch = text.match(/^\s*Amp Free:\s*([0-9][0-9,]*(?:\.[0-9]+)?)\s*%\s+remaining/im)
+    if (percentMatch) {
+      var pctRemaining = parseMoney(percentMatch[1])
+      if (Number.isFinite(pctRemaining)) result.freeRemainingPct = Math.max(0, Math.min(100, pctRemaining))
     }
 
     var rateMatch = text.match(/replenishes \+\$([0-9][0-9,]*(?:\.[0-9]+)?)\/hour/)
@@ -79,7 +89,26 @@
       if (Number.isFinite(credits)) result.credits = credits
     }
 
-    if (result.total === null && result.credits === null) return null
+    var workspacePattern = /^\s*Workspace\s+(.+?):\s*\$?([0-9][0-9,]*(?:\.[0-9]+)?)\s+remaining/gim
+    var workspaceMatch
+    while ((workspaceMatch = workspacePattern.exec(text))) {
+      var workspaceRemaining = parseMoney(workspaceMatch[2])
+      var workspaceName = workspaceMatch[1].trim()
+      if (workspaceName && Number.isFinite(workspaceRemaining)) {
+        result.workspaces.push({ name: workspaceName, remaining: workspaceRemaining })
+      }
+    }
+
+    // Enterprise workspaces report who pays instead of a balance, so there is nothing to meter.
+    var enterprisePattern = /^\s*Workspace\s+(.+?):\s*usage\s+paid\s+by\s+your\s+enterprise\b/gim
+    var enterpriseMatch
+    while ((enterpriseMatch = enterprisePattern.exec(text))) {
+      var enterpriseName = enterpriseMatch[1].trim()
+      if (enterpriseName) result.enterpriseWorkspaces.push(enterpriseName)
+    }
+
+    if (result.total === null && result.credits === null && result.freeRemainingPct === null &&
+        !result.workspaces.length && !result.enterpriseWorkspaces.length) return null
 
     return result
   }
@@ -126,7 +155,17 @@
         throw "Could not parse usage data."
       }
       ctx.host.log.warn("no balance data found, assuming credits-only: " + json.result.displayText)
-      balance = { remaining: null, total: null, hourlyRate: 0, bonusPct: null, bonusDays: null, credits: 0 }
+      balance = {
+        remaining: null,
+        total: null,
+        hourlyRate: 0,
+        bonusPct: null,
+        bonusDays: null,
+        credits: 0,
+        freeRemainingPct: null,
+        workspaces: [],
+        enterpriseWorkspaces: [],
+      }
     }
 
     var lines = []
@@ -159,13 +198,36 @@
       }
     }
 
-    if (balance.credits !== null && balance.total === null) plan = "Credits"
+    if (balance.total === null && balance.freeRemainingPct !== null) {
+      lines.push(ctx.line.progress({
+        label: "Free",
+        used: 100 - balance.freeRemainingPct,
+        limit: 100,
+        format: { kind: "percent" },
+        periodDurationMs: 24 * 3600 * 1000,
+      }))
+    }
 
-    if (balance.credits !== null && (balance.credits > 0 || balance.total === null)) {
+    var hasFree = balance.total !== null || balance.freeRemainingPct !== null
+    if (!hasFree && balance.enterpriseWorkspaces.length) plan = "Enterprise"
+    else if (!hasFree && balance.credits !== null) plan = "Credits"
+
+    if (balance.credits !== null && (balance.credits > 0 || !hasFree)) {
       lines.push(ctx.line.text({
         label: "Credits",
         value: "$" + balance.credits.toFixed(2),
       }))
+    }
+
+    for (var i = 0; i < balance.workspaces.length; i++) {
+      lines.push(ctx.line.text({
+        label: "Workspace " + balance.workspaces[i].name,
+        value: "$" + balance.workspaces[i].remaining.toFixed(2),
+      }))
+    }
+
+    for (var j = 0; j < balance.enterpriseWorkspaces.length; j++) {
+      lines.push(ctx.line.text({ label: "Workspace " + balance.enterpriseWorkspaces[j], value: "Enterprise" }))
     }
 
     return { plan: plan, lines: lines }

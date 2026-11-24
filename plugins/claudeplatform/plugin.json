@@ -17,9 +17,9 @@
   "setupFields": [],
   "upstream": {
     "repository": "https://github.com/steipete/CodexBar",
-    "revision": "1f6da9bec44455288ddee5ef6f3617a803d8eb2a",
+    "revision": "a26ca57b518667a659d69524c473af2735069612",
     "path": "Sources/CodexBarCore/Resources/Plugins/claudeplatform.js",
-    "sha256": "d3c61855621fd4e5b5b753bdd223524e0ee7f4b55cfd63f24f23516ac33027e8",
+    "sha256": "6fba05d8c9a20ee30b52337715c29daef19794e2b1b01ddd4031bfd599bd6057",
     "license": "MIT"
   }
 }

@@ -270,3 +270,21 @@ test('Aixy preserves observed key identity without inventing absent budgets',asy
   assert.equal(metric(result,'Key').value,'key_fixture');
   assert.ok(result.lines.every(line=>line.type!=='progress'));
 });
+
+test('TrustedRouter reports key limit spend from the remaining amount and keeps usage windows as details',async()=>{
+  const data={usage_microdollars:9500000,usage_daily_microdollars:250000,usage_weekly_microdollars:1250000,
+    usage_monthly_microdollars:4000000,limit_microdollars:20000000,limit_remaining_microdollars:15000000};
+  const app=load('trustedrouter',{provider:{apiKey:'fixture'},request:req=>{
+    assert.equal(req.url,'https://api.trustedrouter.com/v1/key');
+    assert.equal(req.headers.Authorization,'Bearer fixture');
+    return response({data});
+  }});
+  const result=await app.probe();
+  const limit=metric(result,'Key limit');
+  assert.equal(limit.used,25);
+  assert.ok(result.lines.some(line=>line.value==='$15.00'));
+  const unlimited=load('trustedrouter',{provider:{apiKey:'fixture'},request:()=>response({data:{...data,limit_microdollars:null,limit_remaining_microdollars:null}})});
+  assert.ok((await unlimited.probe()).lines.every(line=>line.type!=='progress'));
+  const mismatched=load('trustedrouter',{provider:{apiKey:'fixture'},request:()=>response({data:{...data,limit_remaining_microdollars:null}})});
+  await assert.rejects(mismatched.probe);
+});

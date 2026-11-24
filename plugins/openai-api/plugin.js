@@ -70,6 +70,13 @@
       env(ctx, "OPENAI_PROJECT_ID");
   }
 
+  // Saved setting first, then the SDK environment names; blank values are ignored.
+  function loadOrganizationId(ctx) {
+    return setting(ctx, ["OPENAI_ORGANIZATION_ID", "organizationId", "organizationID"]) ||
+      env(ctx, "OPENAI_ORGANIZATION_ID") ||
+      env(ctx, "OPENAI_ORG_ID");
+  }
+
   function numberValue(value) {
     if (typeof value === "number" && Number.isFinite(value)) return value;
     if (typeof value === "string" && value.trim()) {
@@ -143,13 +150,17 @@
     };
   }
 
-  function requestJson(ctx, url, apiKey, endpoint) {
+  function requestJson(ctx, url, apiKey, endpoint, extraHeaders) {
+    var headers = { Authorization: "Bearer " + apiKey, Accept: "application/json" };
+    if (extraHeaders) {
+      for (var name in extraHeaders) headers[name] = extraHeaders[name];
+    }
     var resp;
     try {
       resp = ctx.util.request({
         method: "GET",
         url: url,
-        headers: { Authorization: "Bearer " + apiKey, Accept: "application/json" },
+        headers: headers,
         timeoutMs: 20000,
       });
     } catch (e) {
@@ -468,8 +479,12 @@
     return { lines: lines };
   }
 
+  // Only the legacy, organization-wide balance is scoped by OpenAI-Organization;
+  // Admin cost and usage requests keep their own credential scope.
   function fetchLegacyBalance(ctx, apiKey) {
-    var json = requestJson(ctx, CREDIT_GRANTS_URL, apiKey, "credit grants");
+    var organizationId = loadOrganizationId(ctx);
+    var json = requestJson(ctx, CREDIT_GRANTS_URL, apiKey, "credit grants",
+      organizationId ? { "OpenAI-Organization": organizationId } : null);
     var granted = typeof json.total_granted === "number" ? json.total_granted : 0;
     var used = typeof json.total_used === "number" ? json.total_used : 0;
     var available = typeof json.total_available === "number" ? json.total_available : Math.max(0, granted - used);

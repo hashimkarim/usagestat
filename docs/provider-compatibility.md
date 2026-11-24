@@ -17,7 +17,7 @@ Manual web credentials and automatic browser import are separate. See
 [browser authentication](browser-authentication.md), [native paths](provider-paths.md),
 [Codex auth](codex-authentication.md), and [IDE discovery](ide-discovery.md).
 
-Inventory: 124 providers; 166 declared provider/source pairs.
+Inventory: 125 providers; 168 declared provider/source pairs.
 
 | Provider | Source | Auto selects | Mechanisms in entry | Linux | macOS | Windows |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -123,7 +123,8 @@ Inventory: 124 providers; 166 declared provider/source pairs.
 | [llmman](../plugins/llmman/plugin.js) | api | api | configured token/key, native bundled-provider adapter | I | I | I |
 | [longcat](../plugins/longcat/plugin.js) | web | web | manual web credential | I | I | I |
 | [manus](../plugins/manus/plugin.js) | web | web | manual web credential | I | I | I |
-| [mimo](../plugins/mimo/plugin.js) | web | web | manual web credential | I | I | I |
+| [mimo](../plugins/mimo/plugin.js) | api | web | configured token/key, manual web credential | I | I | I |
+| [mimo](../plugins/mimo/plugin.js) | web | web | configured token/key, manual web credential | I | I | I |
 | [minimax](../plugins/minimax/plugin.js) | api | api | configured token/key | I | I | I |
 | [mistral](../plugins/mistral/plugin.js) | web | web | manual web credential | I | I | I |
 | [moonshot](../plugins/moonshot/plugin.js) | api | api | configured token/key | I | I | I |
@@ -167,6 +168,7 @@ Inventory: 124 providers; 166 declared provider/source pairs.
 | [tinyapi](../plugins/tinyapi/plugin.js) | web | web | native bundled-provider adapter | I | I | I |
 | [traecn](../plugins/traecn/plugin.js) | web | web | native bundled-provider adapter | I | I | I |
 | [tripo](../plugins/tripo/plugin.js) | api | api | configured token/key, native bundled-provider adapter | I | I | I |
+| [trustedrouter](../plugins/trustedrouter/plugin.js) | api | api | configured token/key, native bundled-provider adapter | I | I | I |
 | [typesafe](../plugins/typesafe/plugin.js) | web | web | manual web credential, native bundled-provider adapter | I | I | I |
 | [v0](../plugins/v0/plugin.js) | api | api | configured token/key, native bundled-provider adapter | I | I | I |
 | [venice](../plugins/venice/plugin.js) | api | api | configured token/key, manual web credential | I | I | I |
@@ -304,6 +306,7 @@ The same entry is audited once when several manifest modes share it.
 | [tinyapi](../plugins/tinyapi/plugin.js) | Vendored CodexBar provider with a bounded native asynchronous host adapter and explicit credential/endpoint routing. Disabled by default. Adapter fixtures do not qualify real credentials, browser import, or every optional upstream workflow; cache TTL is not persisted. | [bundled-providers.test.cjs](../tests/bundled-providers.test.cjs), [provider-inspo-20261026.test.cjs](../tests/provider-inspo-20261026.test.cjs) |
 | [traecn](../plugins/traecn/plugin.js) | Vendored CodexBar provider with a bounded native asynchronous host adapter and explicit credential/endpoint routing. Disabled by default. Adapter fixtures do not qualify real credentials, browser import, or every optional upstream workflow; cache TTL is not persisted. | [bundled-providers.test.cjs](../tests/bundled-providers.test.cjs), [provider-inspo-20261026.test.cjs](../tests/provider-inspo-20261026.test.cjs) |
 | [tripo](../plugins/tripo/plugin.js) | Vendored CodexBar provider with a bounded native asynchronous host adapter and explicit credential/endpoint routing. Disabled by default. Adapter fixtures do not qualify real credentials, browser import, or every optional upstream workflow; cache TTL is not persisted. | [bundled-providers.test.cjs](../tests/bundled-providers.test.cjs), [provider-inspo-20261026.test.cjs](../tests/provider-inspo-20261026.test.cjs) |
+| [trustedrouter](../plugins/trustedrouter/plugin.js) | Vendored CodexBar provider with a bounded native asynchronous host adapter and explicit credential/endpoint routing. Disabled by default. Adapter fixtures do not qualify real credentials, browser import, or every optional upstream workflow; cache TTL is not persisted. | [bundled-providers.test.cjs](../tests/bundled-providers.test.cjs), [provider-inspo-20261026.test.cjs](../tests/provider-inspo-20261026.test.cjs) |
 | [typesafe](../plugins/typesafe/plugin.js) | Vendored CodexBar provider with a bounded native asynchronous host adapter and explicit credential/endpoint routing. Disabled by default. Adapter fixtures do not qualify real credentials, browser import, or every optional upstream workflow; cache TTL is not persisted. Cookie billing may be blocked by Cloudflare; challenge fixtures distinguish failed access from expired authentication. The upstream browser User-Agent is sent on billing requests, but fixtures cannot establish live challenge acceptance. | [bundled-providers.test.cjs](../tests/bundled-providers.test.cjs), [provider-inspo-20261026.test.cjs](../tests/provider-inspo-20261026.test.cjs) |
 | [v0](../plugins/v0/plugin.js) | Vendored CodexBar provider with a bounded native asynchronous host adapter and explicit credential/endpoint routing. Disabled by default. Adapter fixtures do not qualify real credentials, browser import, or every optional upstream workflow; cache TTL is not persisted. | [bundled-providers.test.cjs](../tests/bundled-providers.test.cjs), [provider-inspo-20261026.test.cjs](../tests/provider-inspo-20261026.test.cjs) |
 | [venice](../plugins/venice/plugin.js) | Configured credentials and HTTP request code inspected; real credentials, API responses and provider/account behavior remain unverified on each OS. | [inspo-sync-20260927.test.cjs](../tests/inspo-sync-20260927.test.cjs) |

@@ -16,6 +16,7 @@
     { "type": "progress", "label": "Weekly limit", "scope": "overview", "primaryOrder": 1 },
     { "type": "progress", "label": "Monthly limit", "scope": "overview" },
     { "type": "progress", "label": "Credits used", "scope": "overview" },
-    { "type": "badge", "label": "Pay as you go", "scope": "detail" }
+    { "type": "badge", "label": "Pay as you go", "scope": "detail" },
+    { "type": "text", "label": "Balance", "scope": "detail" }
   ]
 }

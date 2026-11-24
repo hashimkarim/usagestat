@@ -16,7 +16,7 @@
   "setupFields": [],
   "upstream": {
     "repository": "https://github.com/steipete/CodexBar",
-    "revision": "1f6da9bec44455288ddee5ef6f3617a803d8eb2a",
+    "revision": "a26ca57b518667a659d69524c473af2735069612",
     "path": "Sources/CodexBarCore/Resources/Plugins/tavily.js",
     "sha256": "2859e56104c9e73d2650b87e034c5f2955c09ea7507e128a22e1ab42b5ae35a0",
     "license": "MIT"

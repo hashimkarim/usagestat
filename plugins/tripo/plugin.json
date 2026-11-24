@@ -16,7 +16,7 @@
   "setupFields": [],
   "upstream": {
     "repository": "https://github.com/steipete/CodexBar",
-    "revision": "1f6da9bec44455288ddee5ef6f3617a803d8eb2a",
+    "revision": "a26ca57b518667a659d69524c473af2735069612",
     "path": "Sources/CodexBarCore/Resources/Plugins/tripo.js",
     "sha256": "78325930a28ec25a2a5164c0f596d8e003fdae966aa53c52c0f761e7d19dfb21",
     "license": "MIT"

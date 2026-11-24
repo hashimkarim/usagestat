@@ -37,7 +37,7 @@
   ],
   "upstream": {
     "repository": "https://github.com/steipete/CodexBar",
-    "revision": "1f6da9bec44455288ddee5ef6f3617a803d8eb2a",
+    "revision": "a26ca57b518667a659d69524c473af2735069612",
     "path": "Sources/CodexBarCore/Resources/Plugins/vercel.js",
     "sha256": "27b39f42709e93a2cfbf850171f198069553c99967f9b7ba6d16614862cb084a",
     "license": "MIT"
@@ -45,7 +45,7 @@
   "upstreamSources": [
     {
       "repository": "https://github.com/steipete/CodexBar",
-      "revision": "1f6da9bec44455288ddee5ef6f3617a803d8eb2a",
+      "revision": "a26ca57b518667a659d69524c473af2735069612",
       "path": "Sources/CodexBarCore/Resources/Plugins/vercel-budget.js",
       "sha256": "a65d3affe808517590edc33e4d15b813ba1fa870b4435ef18cb7c7195ab376ad",
       "license": "MIT"

@@ -16,7 +16,7 @@
   "setupFields": [],
   "upstream": {
     "repository": "https://github.com/steipete/CodexBar",
-    "revision": "1f6da9bec44455288ddee5ef6f3617a803d8eb2a",
+    "revision": "a26ca57b518667a659d69524c473af2735069612",
     "path": "Sources/CodexBarCore/Resources/Plugins/sofya.js",
     "sha256": "4190c42d42a1b70b6ed284821ef7803420564b4b020e939e60d79e4b0991c281",
     "license": "MIT"

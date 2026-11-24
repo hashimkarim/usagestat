@@ -17,7 +17,7 @@
   "setupFields": [],
   "upstream": {
     "repository": "https://github.com/steipete/CodexBar",
-    "revision": "1f6da9bec44455288ddee5ef6f3617a803d8eb2a",
+    "revision": "a26ca57b518667a659d69524c473af2735069612",
     "path": "Sources/CodexBarCore/Resources/Plugins/tinyapi.js",
     "sha256": "14f874b433198e9bfb9f1d689a0822f35ac8d97945cab015c039f836eed4ef17",
     "license": "MIT"

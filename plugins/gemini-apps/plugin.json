@@ -17,7 +17,7 @@
   "setupFields": [],
   "upstream": {
     "repository": "https://github.com/steipete/CodexBar",
-    "revision": "1f6da9bec44455288ddee5ef6f3617a803d8eb2a",
+    "revision": "a26ca57b518667a659d69524c473af2735069612",
     "path": "Sources/CodexBarCore/Resources/Plugins/gemini-web.js",
     "sha256": "7c71195603b2051ad74d85c0acc523546cf5ec62a600ae4900a1d7e54be7b02e",
     "license": "MIT"

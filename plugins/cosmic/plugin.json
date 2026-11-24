@@ -24,7 +24,7 @@
   ],
   "upstream": {
     "repository": "https://github.com/steipete/CodexBar",
-    "revision": "1f6da9bec44455288ddee5ef6f3617a803d8eb2a",
+    "revision": "a26ca57b518667a659d69524c473af2735069612",
     "path": "Sources/CodexBarCore/Resources/Plugins/cosmic.js",
     "sha256": "eb869360f719b3b3b96311617c173e624efa05b91c0f7d31ce985f0a3a77d7a6",
     "license": "MIT"

@@ -16,7 +16,7 @@
   "setupFields": [],
   "upstream": {
     "repository": "https://github.com/steipete/CodexBar",
-    "revision": "1f6da9bec44455288ddee5ef6f3617a803d8eb2a",
+    "revision": "a26ca57b518667a659d69524c473af2735069612",
     "path": "Sources/CodexBarCore/Resources/Plugins/soniox.js",
     "sha256": "205af76549b697bc66a8d1a16008463310c2ee218e4d9c5f44edbb7b2ceed0b0",
     "license": "MIT"

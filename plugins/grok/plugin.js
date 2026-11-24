@@ -189,6 +189,21 @@
     return Number.isFinite(n) ? n : null;
   }
 
+  // Cent.val is USD cents. Proto3 JSON omits the zero scalar, so an empty object
+  // is a confirmed zero; anything else malformed stays absent rather than zero.
+  function prepaidBalanceUsd(value) {
+    if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+    if (!Object.prototype.hasOwnProperty.call(value, "val")) return Object.keys(value).length === 0 ? 0 : null;
+    const raw = value.val;
+    const cents = typeof raw === "number" ? raw : typeof raw === "string" && /^\d+$/.test(raw.trim()) ? Number(raw.trim()) : NaN;
+    if (!Number.isSafeInteger(cents) || cents < 0) return null;
+    return cents / 100;
+  }
+
+  function balanceLine(ctx, usd) {
+    return ctx.line.text({ label: "Balance", value: "$" + usd.toFixed(2) });
+  }
+
   function clampPercent(value) {
     const n = Number(value);
     if (!Number.isFinite(n)) return 0;
@@ -267,6 +282,12 @@
     if (!config || typeof config !== "object") {
       throw "Grok billing response changed.";
     }
+    const balance = prepaidBalanceUsd(config.prepaidBalance);
+    const hasUsage = ["currentPeriod", "used", "monthlyLimit", "onDemandCap", "billingPeriodEnd"]
+      .some((key) => config[key] !== undefined && config[key] !== null);
+    if (!hasUsage && balance !== null) {
+      return { plan: fetchPlanName(ctx, auth.token), source: "api", lines: [balanceLine(ctx, balance)] };
+    }
 
     if (config.currentPeriod) {
       const period = config.currentPeriod;
@@ -280,11 +301,13 @@
       if (percent === null || percent < 0 || (!hasPercent && !(start <= now && now < end))) throw "Grok billing usage is unavailable for this period.";
       const cap = config.onDemandCap === undefined ? 0 : config.onDemandCap && config.onDemandCap.val === undefined ? 0 : unitsValue(config.onDemandCap);
       if (cap === null || cap < 0) throw "Grok on-demand cap is invalid.";
-      return { plan: fetchPlanName(ctx, auth.token), source: "api", lines: [
+      const periodLines = [
         ctx.line.progress({ label: period.type === "USAGE_PERIOD_TYPE_WEEKLY" ? "Weekly limit" : "Monthly limit", used: clampPercent(percent), limit: 100,
           format: { kind: "percent" }, resetsAt: ctx.util.toIso(end), periodDurationMs: end - start }),
         ctx.line.badge({ label: "Pay as you go", text: cap > 0 ? String(cap) + " cap" : "Disabled", color: cap > 0 ? "#22c55e" : "#a3a3a3" }),
-      ] };
+      ];
+      if (balance !== null) periodLines.push(balanceLine(ctx, balance));
+      return { plan: fetchPlanName(ctx, auth.token), source: "api", lines: periodLines };
     }
 
     const usedUnits = unitsValue(config.used);
@@ -314,6 +337,7 @@
         color: onDemandCapUnits > 0 ? "#22c55e" : "#a3a3a3",
       }),
     ];
+    if (balance !== null) lines.push(balanceLine(ctx, balance));
 
     return { plan: fetchPlanName(ctx, auth.token), source: "api", lines };
   }

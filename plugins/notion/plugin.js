@@ -2,6 +2,7 @@
   var BASE_URL = "https://app.notion.com";
   var GET_SPACES_URL = "https://app.notion.com/api/v3/getSpaces";
   var RATE_LIMIT_URL = "https://app.notion.com/api/v3/getCreditRateLimitStatus";
+  var ELIGIBILITY_URL = "https://app.notion.com/api/v3/getAIUsageEligibilityV2";
   var SESSION_COOKIE_NAME = "token_v2";
   var USER_AGENT = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36";
 
@@ -56,7 +57,7 @@
       env(ctx, "NOTION_SPACE_ID");
   }
 
-  function requestJson(ctx, url, cookie, body) {
+  function requestJson(ctx, url, cookie, body, timeoutMs) {
     var result = ctx.util.requestJson({
       method: "POST",
       url: url,
@@ -73,7 +74,7 @@
         "Sec-Fetch-Site": "same-origin",
       },
       bodyText: JSON.stringify(body || {}),
-      timeoutMs: 15000,
+      timeoutMs: timeoutMs || 15000,
     });
     if (result.resp.status === 401) throw "Notion login required.";
     if (result.resp.status < 200 || result.resp.status >= 300) throw "Notion API error: HTTP " + result.resp.status + ".";
@@ -209,19 +210,77 @@
     return Number.isFinite(date.getTime()) ? date.toISOString() : null;
   }
 
+  function finite(value) {
+    return typeof value === "number" && Number.isFinite(value) ? value : null;
+  }
+
+  function formatCount(value) {
+    return (Math.round(value * 100) / 100).toLocaleString("en-US");
+  }
+
+  // Personal pools arrive alongside a legacy top-level status of not_applicable. Accept a bucket
+  // only when exactly one resolved billing-period entry carries a measurable used/limit pair.
+  function parseAllowance(raw, bucketId, label) {
+    if (!Array.isArray(raw)) return null;
+    var matches = raw.filter(function (entry) {
+      return entry && typeof entry === "object" && !Array.isArray(entry) &&
+        entry.bucketId === bucketId && entry.cadence === "billing_period";
+    });
+    var entry = matches.length === 1 ? matches[0] : null;
+    if (!entry || entry.state !== "resolved") return null;
+    var used = finite(entry.used);
+    var limit = finite(entry.limit);
+    if (used === null || used < 0 || limit === null || limit <= 0) return null;
+    var credits = entry.credits && typeof entry.credits === "object" ? entry.credits : {};
+    var creditUsed = finite(credits.used);
+    var creditLimit = finite(credits.limit);
+    var hasCredits = creditUsed !== null && creditUsed >= 0 && creditLimit !== null && creditLimit > 0;
+    return {
+      label: label,
+      used: hasCredits ? creditUsed : used,
+      limit: hasCredits ? creditLimit : limit,
+      credits: hasCredits,
+      periodStartMs: finite(entry.periodStartMs),
+      periodEndMs: finite(entry.periodEndMs),
+    };
+  }
+
+  function hasPersonalSchema(raw) {
+    return Array.isArray(raw) && raw.some(function (entry) {
+      var bucket = entry && typeof entry === "object" ? trim(entry.bucketId) : null;
+      return bucket === "auto" || bucket === "flex";
+    });
+  }
+
   function parseRateLimit(json) {
+    var allowances = json && json.allowances;
     return {
       status: trim(json && json.status),
       window: json && json.window && typeof json.window === "object" ? json.window : null,
       billing: json && json.billingPeriodWindow && typeof json.billingPeriodWindow === "object" ? json.billingPeriodWindow : null,
       resetsInSeconds: number(json && json.resetsInSeconds),
+      standard: parseAllowance(allowances, "auto", "Standard"),
+      select: parseAllowance(allowances, "flex", "Select"),
+      personalSchema: hasPersonalSchema(allowances),
     };
   }
 
-  function buildSnapshot(ctx, rateLimit, workspace, account) {
-    if (rateLimit.status && rateLimit.status.toLowerCase() === "not_applicable") {
-      throw "Notion AI usage allowance is not tracked for " + (workspace.name || "this workspace") + ".";
-    }
+  function allowanceLine(ctx, allowance) {
+    var opts = {
+      label: allowance.label,
+      used: allowance.credits ? allowance.used : Math.max(0, Math.min(100, percent(allowance.used, allowance.limit))),
+      limit: allowance.credits ? allowance.limit : 100,
+      format: allowance.credits ? { kind: "count", suffix: "credits" } : { kind: "percent" },
+    };
+    var reset = dateFromMs(allowance.periodEndMs);
+    if (reset) opts.resetsAt = reset;
+    var start = allowance.periodStartMs;
+    var end = allowance.periodEndMs;
+    if (start !== null && start > 0 && end !== null && end > start) opts.periodDurationMs = end - start;
+    return ctx.line.progress(opts);
+  }
+
+  function legacyLines(ctx, rateLimit, workspace) {
     var lines = [];
     if (rateLimit.window) {
       var pct = percent(rateLimit.window.used, rateLimit.window.limit);
@@ -258,7 +317,39 @@
         lines.push(ctx.line.progress(bopts));
       }
     }
+    if (rateLimit.status && rateLimit.status.toLowerCase() === "not_applicable") {
+      if (!rateLimit.personalSchema) {
+        throw "Notion AI usage allowance is not tracked for " + (workspace.name || "this workspace") + ".";
+      }
+      if (!lines.length) throw "Notion did not provide usable personal AI allowances for " + (workspace.name || "this workspace") + ".";
+    }
     if (!lines.length) throw "getCreditRateLimitStatus returned no measurable usage windows.";
+    return lines;
+  }
+
+  // Premium credits are a separate workspace balance; failing to read them must never hide allowances.
+  function creditBalance(ctx, cookie, workspace) {
+    try {
+      var json = requestJson(ctx, ELIGIBILITY_URL, cookie, { spaceId: workspace.id }, 3000);
+      var premium = json.premiumCredits;
+      return premium && typeof premium === "object" ? finite(premium.totalCreditBalance) : null;
+    } catch (e) {
+      ctx.host.log.warn("Notion credit balance unavailable: " + String(e));
+      return null;
+    }
+  }
+
+  function buildSnapshot(ctx, rateLimit, workspace, account, cookie) {
+    var lines;
+    if (rateLimit.standard || rateLimit.select) {
+      lines = [];
+      if (rateLimit.standard) lines.push(allowanceLine(ctx, rateLimit.standard));
+      if (rateLimit.select) lines.push(allowanceLine(ctx, rateLimit.select));
+    } else {
+      lines = legacyLines(ctx, rateLimit, workspace);
+    }
+    var balance = creditBalance(ctx, cookie, workspace);
+    if (balance !== null) lines.push(ctx.line.text({ label: "Notion Credits", value: formatCount(balance) + " remaining" }));
     if (account.email) lines.push(ctx.line.text({ label: "Account", value: account.email }));
     return {
       displayName: "Notion AI",
@@ -275,7 +366,7 @@
     var workspace = pickWorkspace(account, spaceOverride(ctx));
     if (!workspace) throw "No Notion workspace found for this account.";
     var rateLimit = parseRateLimit(requestJson(ctx, RATE_LIMIT_URL, cookie, { spaceId: workspace.id }));
-    return buildSnapshot(ctx, rateLimit, workspace, account);
+    return buildSnapshot(ctx, rateLimit, workspace, account, cookie);
   }
 
   globalThis.__openusage_plugin = { id: "notion", probe: probe };

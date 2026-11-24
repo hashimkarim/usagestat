@@ -24,7 +24,7 @@
   ],
   "upstream": {
     "repository": "https://github.com/steipete/CodexBar",
-    "revision": "1f6da9bec44455288ddee5ef6f3617a803d8eb2a",
+    "revision": "a26ca57b518667a659d69524c473af2735069612",
     "path": "Sources/CodexBarCore/Resources/Plugins/siliconflow.js",
     "sha256": "8525a5a8f02749119930b9d814e987ccdab308827de016355c8ae34136325a86",
     "license": "MIT"
