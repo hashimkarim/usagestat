@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "asOf": "2026-11-24",
+  "asOf": "2026-11-28",
   "note": "Standard API rates, USD per million tokens. 'above' replaces every rate for a request whose input, cache-read and cache-write tokens together exceed 'tokens'. 'from' is the first UTC day a rate applies; add a dated entry for a price change rather than editing the old one. Sources: docs/history-accounting.md.",
   "models": [
     {
@@ -546,6 +546,70 @@
     {
       "ids": [
         "gpt-6.2-sol"
+      ],
+      "input": 2.0,
+      "output": 10.0,
+      "cacheRead": 0.1,
+      "cacheWrite": 2.5,
+      "above": {
+        "tokens": 272000,
+        "input": 4.0,
+        "output": 15.0,
+        "cacheRead": 0.2,
+        "cacheWrite": 5.0
+      }
+    },
+    {
+      "ids": [
+        "gpt-6-astra-healthcare"
+      ],
+      "input": 10.0,
+      "output": 50.0,
+      "cacheRead": 1.0,
+      "cacheWrite": 10.0,
+      "above": {
+        "tokens": 272000,
+        "input": 20.0,
+        "output": 75.0,
+        "cacheRead": 2.0,
+        "cacheWrite": 20.0
+      }
+    },
+    {
+      "ids": [
+        "gpt-6.1-sol-healthcare"
+      ],
+      "input": 2.0,
+      "output": 10.0,
+      "cacheRead": 0.1,
+      "cacheWrite": 2.0,
+      "above": {
+        "tokens": 272000,
+        "input": 4.0,
+        "output": 15.0,
+        "cacheRead": 0.2,
+        "cacheWrite": 4.0
+      }
+    },
+    {
+      "ids": [
+        "gpt-6.2-astra-healthcare"
+      ],
+      "input": 8.0,
+      "output": 40.0,
+      "cacheRead": 0.4,
+      "cacheWrite": 10.0,
+      "above": {
+        "tokens": 272000,
+        "input": 16.0,
+        "output": 60.0,
+        "cacheRead": 0.8,
+        "cacheWrite": 20.0
+      }
+    },
+    {
+      "ids": [
+        "gpt-6.2-sol-healthcare"
       ],
       "input": 2.0,
       "output": 10.0,
